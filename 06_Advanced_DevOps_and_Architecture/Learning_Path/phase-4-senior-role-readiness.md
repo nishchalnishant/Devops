@@ -79,14 +79,25 @@ Senior engineers improve the team, not only the system:
 - reduce repetitive toil
 - create documentation others can rely on
 
+### 8. Specialization Depth
+
+For senior roles with ML platform or AI infrastructure scope, you should also be able to discuss:
+
+- reproducibility across code, data, features, and model versions
+- feature-store consistency and training-serving skew
+- model registry promotion and rollback
+- drift monitoring and retraining triggers
+- GPU scheduling, inference latency, and serving cost
+
 ## What To Study In This Repository For Senior Prep
 
-1. `../devops/devops-interview-playbook.md`
-2. `../interview-questions.md`
-3. `../devops/interview-questions-hard.md`
-4. `../cloud/azure-hard-questions.md`
-5. `../roadmap/11.-real-world-test-career-and-community.md`
-6. `../REPO-AUDIT.md`
+1. `../../07_Interview_Preparation/devops-interview-playbook.md`
+2. `../../07_Interview_Preparation/general-interview-questions.md`
+3. `../../07_Interview_Preparation/interview-questions-hard.md`
+4. `../../04_Infrastructure_as_Code_and_Cloud/Cloud_Services/azure-hard-questions.md`
+5. `../Career_and_Community.md`
+6. `../../REPO-AUDIT.md`
+7. `../../07_Interview_Preparation/mlops-interview-playbook.md`
 
 ## Senior Practice Tasks
 

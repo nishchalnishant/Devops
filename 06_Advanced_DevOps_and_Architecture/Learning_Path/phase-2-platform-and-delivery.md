@@ -8,14 +8,13 @@ By the end of this phase, you should be able to take an application from source 
 
 ## Study Order
 
-1. `../roadmap/4.-cloud-services.md`
-2. `../roadmap/7.-cicd-pipelines.md`
-3. `../devops/end-to-end-ci-cd-pipeline.md`
-4. `../roadmap/6.-containers-orchestration.md`
-5. `../roadmap/8.-infrastructure-as-code-iac.md`
-6. `../cloud/README.md`
-7. `../devops/interview-questions-easy.md`
-8. `../devops/interview-questions-medium.md`
+1. `../../04_Infrastructure_as_Code_and_Cloud/Cloud_Services/README.md`
+2. `../../02_Version_Control_and_CI_CD/Jenkins_CICD/README.md`
+3. `../../02_Version_Control_and_CI_CD/Jenkins_CICD/end-to-end-ci-cd-pipeline.md`
+4. `../../03_Containers_and_Orchestration/README.md`
+5. `../../04_Infrastructure_as_Code_and_Cloud/Terraform/README.md`
+6. `../../07_Interview_Preparation/interview-questions-easy.md`
+7. `../../07_Interview_Preparation/interview-questions-medium.md`
 
 ## What To Master
 

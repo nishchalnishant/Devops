@@ -8,13 +8,13 @@ By the end of this phase, you should be able to detect issues early, troubleshoo
 
 ## Study Order
 
-1. `../roadmap/9.-monitoring.md`
-2. `../devops/devops-interview-playbook.md`
-3. `../interview-questions.md`
-4. `../devops/interview-questions-medium.md`
-5. `../devops/interview-questions-hard.md`
-6. `../cloud/azure-medium-questions.md`
-7. `../cloud/azure-hard-questions.md`
+1. `../../05_Observability_and_Troubleshooting/Monitoring/README.md`
+2. `../../07_Interview_Preparation/devops-interview-playbook.md`
+3. `../../07_Interview_Preparation/general-interview-questions.md`
+4. `../../07_Interview_Preparation/interview-questions-medium.md`
+5. `../../07_Interview_Preparation/interview-questions-hard.md`
+6. `../../04_Infrastructure_as_Code_and_Cloud/Cloud_Services/azure-medium-questions.md`
+7. `../../04_Infrastructure_as_Code_and_Cloud/Cloud_Services/azure-hard-questions.md`
 
 ## What To Master
 

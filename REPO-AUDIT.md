@@ -7,10 +7,10 @@ This document audits the repository as a senior DevOps learning system and expla
 The audit covered:
 
 - Top-level guides and navigation
-- All markdown files in `devops/`
-- All markdown files in `cloud/`
-- All markdown files in `roadmap/`
-- The indexed PDF material from `cheat sheet/`
+- The numbered topic folders from `01_` through `08_`
+- The advanced learning path and specialization material
+- Interview preparation guides, question banks, and scenario drills
+- The integrated PDF reference material placed inside the numbered folders
 
 ## What The Repository Already Does Well
 
@@ -26,6 +26,7 @@ The repository already has meaningful coverage across:
 - Docker and Kubernetes
 - Terraform and Ansible
 - Monitoring, observability, and troubleshooting
+- MLOps foundations and model-serving infrastructure
 - Interview questions and scenario drills
 
 ### 2. Good Interview Material
@@ -79,20 +80,21 @@ Azure coverage is strong, and the Azure-to-AWS mapping helps cross-provider thin
 
 The repository also contains material that is not part of the main senior DevOps path:
 
-- `devops/pl-sql.md`
-- `devops/the-mountain-is-you.md`
+- `Archive_Other/pl-sql.md`
+- `Archive_Other/the-mountain-is-you.md`
 
 These remain available, but they are now treated as supplemental notes rather than primary curriculum.
 
 ## New Structure After The Audit
 
-The repository is now organized into five learning layers:
+The repository is now organized into six learning layers:
 
 1. Orientation and audit
 2. Incremental learning path
 3. Domain references and long-form notes
 4. Interview rehearsal
 5. Capstones and real-world readiness
+6. Specialization tracks such as MLOps
 
 ## How To Use The Repository Now
 
@@ -100,38 +102,41 @@ The repository is now organized into five learning layers:
 
 - `README.md`
 - `REPO-AUDIT.md`
-- `learning-path/README.md`
+- `06_Advanced_DevOps_and_Architecture/Learning_Path/README.md`
 
 ### Use Long-Form Notes To Learn
 
-- `roadmap/` for structured topic reference
-- `cloud/` for cloud and Azure track
-- `devops/end-to-end-ci-cd-pipeline.md` for delivery flow
+- `01_Prerequisites_and_Fundamentals/` for Linux, networking, and scripting
+- `02_Version_Control_and_CI_CD/` for Git, Jenkins, and CI/CD
+- `03_Containers_and_Orchestration/` for Docker and Kubernetes
+- `04_Infrastructure_as_Code_and_Cloud/` for cloud and Terraform
+- `05_Observability_and_Troubleshooting/` for monitoring and troubleshooting
+- `06_Advanced_DevOps_and_Architecture/MLOps.md` for advanced MLOps concepts
 
 ### Use Interview Content To Validate
 
-- `devops/interview-questions-easy.md`
-- `devops/interview-questions-medium.md`
-- `devops/interview-questions-hard.md`
-- `interview-questions.md`
-- `devops/devops-interview-playbook.md`
+- `07_Interview_Preparation/interview-questions-easy.md`
+- `07_Interview_Preparation/interview-questions-medium.md`
+- `07_Interview_Preparation/interview-questions-hard.md`
+- `07_Interview_Preparation/general-interview-questions.md`
+- `07_Interview_Preparation/devops-interview-playbook.md`
+- `07_Interview_Preparation/mlops-interview-playbook.md`
 
 ### Use Capstones To Prove Senior Readiness
 
-- `learning-path/capstone-projects.md`
-- `roadmap/11.-real-world-test-career-and-community.md`
+- `06_Advanced_DevOps_and_Architecture/Learning_Path/capstone-projects.md`
+- `06_Advanced_DevOps_and_Architecture/Career_and_Community.md`
 
 ## Repository Areas And Their Best Use
 
 | Area | Best use | Notes |
 | --- | --- | --- |
 | `README.md` and `SUMMARY.md` | Entry point and navigation | Start here before opening topic docs |
-| `learning-path/` | Incremental progression | Best place to study in order |
-| `roadmap/` | Deep reference by topic | Best for learning and revisiting concepts |
-| `devops/interview-questions-*.md` | Interview rehearsal | Use after you understand the topic |
-| `interview-questions.md` | Scenario training | Best for senior and final-round preparation |
-| `cloud/` | Cloud specialization | Azure-heavy, but still useful cross-cloud |
-| `cheat sheet/INDEX.md` | Source map and quick revision | Best for final review and command recall |
+| `06_Advanced_DevOps_and_Architecture/Learning_Path/` | Incremental progression | Best place to study in order |
+| `08_General_Guides_and_Roadmaps/` | Deep reference by topic | Best for foundations and long-form concepts |
+| `07_Interview_Preparation/` | Interview rehearsal | Use after you understand the topic |
+| `04_Infrastructure_as_Code_and_Cloud/` | Cloud specialization | Azure-heavy, but still useful cross-cloud |
+| Numbered PDF references in `01_` to `05_` | Quick revision and command recall | Best for targeted review |
 
 ## Senior-Role Capabilities This Structure Now Emphasizes
 
@@ -144,7 +149,7 @@ The repository is now organized into five learning layers:
 
 ## Recommended Study Pattern
 
-For each phase in `learning-path/`:
+For each phase in `06_Advanced_DevOps_and_Architecture/Learning_Path/`:
 
 1. Read the core notes.
 2. Do the suggested hands-on tasks.

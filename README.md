@@ -8,6 +8,7 @@ This repository is now structured as an incremental senior DevOps learning syste
 2. [General Guides and Roadmaps](08_General_Guides_and_Roadmaps/1.-devops-terms.md) for overarching topics, roadmaps, and 90-days-of-DevOps.
 3. [Senior DevOps Learning Path](06_Advanced_DevOps_and_Architecture/Learning_Path/README.md) for the phased curriculum from foundations to senior readiness.
 4. [DevOps Interview Playbook](07_Interview_Preparation/devops-interview-playbook.md) for answer frameworks, command anchors, and senior interview signals.
+5. [MLOps Interview Playbook](07_Interview_Preparation/mlops-interview-playbook.md) for ML platform, model-serving, and MLOps interview preparation.
 
 ## Incremental Directory Structure
 
@@ -16,7 +17,7 @@ This repository is now structured as an incremental senior DevOps learning syste
 3. **03 Containers and Orchestration:** Comprehensive Docker and Kubernetes cheat sheets, operations guides, and networking.
 4. **04 Infrastructure as Code and Cloud:** Terraform guidelines and Cloud Services reference (Azure AWS comparisons).
 5. **05 Observability and Troubleshooting:** Core principles of monitoring, logging, and real-time environment troubleshooting.
-6. **06 Advanced DevOps and Architecture:** SRE operations, MLOps, Capstone projects, and the complete 4-phase learning path.
+6. **06 Advanced DevOps and Architecture:** SRE operations, MLOps specialization, capstone projects, and the complete 4-phase learning path.
 7. **07 Interview Preparation:** Scenario-based drills, targeted questions categorized by difficulty, and specialized tool interview questions.
 8. **08 General Guides and Roadmaps:** General DevOps terms, PDFs and eBook guides.
 
@@ -31,6 +32,7 @@ This repository is now structured as an incremental senior DevOps learning syste
 - Terraform, Ansible, state management, and infrastructure drift
 - Monitoring, logging, tracing, SLI/SLO thinking, and incident response
 - DevSecOps fundamentals such as secrets, least privilege, image scanning, and policy controls
+- MLOps fundamentals such as data and model versioning, feature stores, training pipelines, serving patterns, drift, and GPU-aware operations
 
 ## Repository Notes
 

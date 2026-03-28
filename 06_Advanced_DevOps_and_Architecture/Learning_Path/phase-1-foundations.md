@@ -8,12 +8,12 @@ By the end of this phase, you should be able to explain how code moves from a de
 
 ## Study Order
 
-1. `../roadmap/1.-devops-terms.md`
-2. `../roadmap/2.-programming-scripting.md`
-3. `../roadmap/3.-networking.md`
-4. `../roadmap/5.-linux-operating-system.md`
-5. `../cheat sheet/INDEX.md`
-6. `../devops/interview-questions-easy.md`
+1. `../../08_General_Guides_and_Roadmaps/1.-devops-terms.md`
+2. `../../01_Prerequisites_and_Fundamentals/Linux/README.md`
+3. `../../01_Prerequisites_and_Fundamentals/Scripting/README.md`
+4. `../../01_Prerequisites_and_Fundamentals/Networking/README.md`
+5. `../../02_Version_Control_and_CI_CD/Git_GitHub/Notes_Git_GitHub.pdf`
+6. `../../07_Interview_Preparation/interview-questions-easy.md`
 
 ## What To Master
 

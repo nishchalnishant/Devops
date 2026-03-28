@@ -4,6 +4,30 @@
 
 This section focuses on the tools and workflows needed to move machine learning from a data scientist's notebook into a scalable production environment.
 
+## Companion Interview Resources
+
+Use this file together with:
+
+- `../07_Interview_Preparation/mlops-interview-playbook.md`
+- `../07_Interview_Preparation/mlops-interview-questions-easy.md`
+- `../07_Interview_Preparation/mlops-interview-questions-medium.md`
+- `../07_Interview_Preparation/mlops-interview-questions-hard.md`
+- `../07_Interview_Preparation/mlops-scenario-based-interview-drills.md`
+
+## Practical Interview Focus
+
+For scenario-heavy interview preparation, spend extra time on:
+
+- wrong predictions with healthy endpoints
+- training-serving skew
+- data drift with delayed labels
+- GPU scheduling and CUDA mismatch
+- registry promotion mistakes
+- feature-store degradation
+- batch inference SLA misses
+- cost spikes from uncontrolled training
+- LLM retrieval quality regressions
+
 #### The Intersection of Three Worlds
 
 * Machine Learning: Designing the algorithms and training models.
@@ -169,6 +193,18 @@ Scenario: GPU Pod is stuck in `Pending`.
 1. Check Capacity: Run `kubectl describe node`. Are all GPU slots taken?
 2. Check Drivers: Are the NVIDIA drivers on the node compatible with the CUDA version in the container?
 3. Check Quotas: Is the namespace hitting a ResourceQuota limit for `requests.nvidia.com/gpu`?
+
+Scenario: Drift alerts fire, but labels will not arrive until days later.
+
+1. Check whether the alert is data drift, concept drift, or just an upstream schema/freshness problem.
+2. Review proxy metrics such as confidence shifts, output distribution, feature freshness, and business KPI movement.
+3. Decide whether to hold rollout, retrain, or roll back to a safer champion model.
+
+Scenario: Batch inference is healthy from an infrastructure perspective but repeatedly misses the business delivery window.
+
+1. Check queue time, dataset growth, retries, partition skew, and storage throughput.
+2. Verify whether upstream data arrived late or the cluster was starved by higher-priority workloads.
+3. Treat it as an SLA issue, not merely a long-running job.
 
 ***
 

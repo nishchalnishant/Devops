@@ -15,11 +15,22 @@ Each phase follows the same pattern:
 
 | Phase | Goal | Main sources | Exit outcome |
 | --- | --- | --- | --- |
-| [Phase 1 - Foundations](phase-1-foundations.md) | Build the base operating model | `roadmap/1` to `roadmap/5`, cheat-sheet index, easy questions | You can explain DevOps fundamentals and work comfortably in Linux, Git, and networking basics |
-| [Phase 2 - Platform And Delivery Core](phase-2-platform-and-delivery.md) | Learn how software is built, packaged, deployed, and provisioned | `roadmap/4`, `roadmap/6`, `roadmap/7`, `roadmap/8`, CI/CD guide, cloud track | You can design and operate a simple delivery platform |
-| [Phase 3 - SRE And Operations](phase-3-sre-and-operations.md) | Learn to run systems in production | `roadmap/9`, scenario drills, medium and hard interview banks | You can monitor, troubleshoot, and stabilize services under failure |
+| [Phase 1 - Foundations](phase-1-foundations.md) | Build the base operating model | `01_` fundamentals, `02_` Git and CI/CD notes, `08_` guides, easy questions | You can explain DevOps fundamentals and work comfortably in Linux, Git, and networking basics |
+| [Phase 2 - Platform And Delivery Core](phase-2-platform-and-delivery.md) | Learn how software is built, packaged, deployed, and provisioned | `02_`, `03_`, `04_`, cloud track, delivery guide | You can design and operate a simple delivery platform |
+| [Phase 3 - SRE And Operations](phase-3-sre-and-operations.md) | Learn to run systems in production | `05_`, scenario drills, medium and hard interview banks | You can monitor, troubleshoot, and stabilize services under failure |
 | [Phase 4 - Senior Role Readiness](phase-4-senior-role-readiness.md) | Think like a senior DevOps or SRE engineer | hard questions, playbook, career section, cloud hard track | You can explain trade-offs, architecture, reliability, governance, and incident leadership |
 | [Capstones](capstone-projects.md) | Turn study into proof | phase docs plus existing repo references | You have real projects, runbooks, and stories for interviews |
+
+## Specialization Track
+
+After Phase 4, use the MLOps specialization if your target role includes ML platforms, training pipelines, model serving, or GPU-aware infrastructure:
+
+- `../MLOps.md`
+- `../../07_Interview_Preparation/mlops-interview-playbook.md`
+- `../../07_Interview_Preparation/mlops-interview-questions-easy.md`
+- `../../07_Interview_Preparation/mlops-interview-questions-medium.md`
+- `../../07_Interview_Preparation/mlops-interview-questions-hard.md`
+- `../../07_Interview_Preparation/mlops-scenario-based-interview-drills.md`
 
 ## Suggested 12-Week Deep Track
 
@@ -57,7 +68,7 @@ If you are already mid-level and preparing quickly:
 1. Read `REPO-AUDIT.md`
 2. Do Phase 1 fast and confirm the exit criteria
 3. Focus heavily on Phases 2, 3, and 4
-4. Use `devops/devops-interview-playbook.md` and `interview-questions.md` every week
+4. Use `07_Interview_Preparation/devops-interview-playbook.md` and `07_Interview_Preparation/general-interview-questions.md` every week
 5. Finish with at least one capstone and one mock incident walkthrough
 
 ## Ground Rules For Incremental Learning
