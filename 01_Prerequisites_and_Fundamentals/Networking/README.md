@@ -233,8 +233,20 @@ _Focus: Complex failures, security, and internal packet flow._
 
 ***
 
+***
+
 #### 💡 Pro-Tip for your Interview
 
 When asked "What happens when you type `google.com` in your browser?", don't just say "It opens the page."
 
 * The SRE Answer: Start with the Local Cache, move to DNS resolution, mention the TCP Handshake, the TLS Handshake (SSL certificate exchange), the HTTP GET request, and finally how the Load Balancer routes the request to a healthy backend pod. This shows "full-stack" networking knowledge.
+
+---
+
+## 🔷 Enterprise Networking & Performance Tuning (7 YOE)
+
+If you are interviewing for a Senior or Staff position, knowing basic OSI layers is insufficient. You will be evaluated on your ability to design global traffic engineering and understand protocol internals.
+
+**Continue your preparation with this advanced module:**
+
+1. `[NEW]` [Enterprise Networking & Advanced Protocols](./enterprise-networking-and-protocols.md): BGP/Anycast architecture, HTTP/3 (QUIC) internals, gRPC frame multiplexing, P99 tail latency optimization, and network forensics.

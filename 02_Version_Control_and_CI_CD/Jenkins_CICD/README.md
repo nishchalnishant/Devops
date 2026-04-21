@@ -224,8 +224,23 @@ _Focus: Scale, security, and GitOps._
 
 ***
 
+***
+
 #### 💡 Pro-Tip for your Interview
 
 When discussing CI/CD, always emphasize "Immutability."
 
 * The SRE Answer: "The most important principle I follow is Build Once, Deploy Everywhere. I build the Docker image in the CI stage, scan it, and tag it with the Git SHA. That _exact same binary_ is then promoted through Staging to Production. This eliminates the 'it worked in dev but not in prod' problem caused by environment differences."
+
+---
+
+## 🔷 Advanced Version Control & CI/CD (7 YOE)
+
+For Senior and Staff positions, the focus shifts from "writing a pipeline" to **building a Software Delivery Platform**. You are evaluated on your ability to scale delivery across hundreds of teams securely.
+
+**Continue your preparation with these advanced architectural modules:**
+
+1. `[NEW]` [Advanced Git Workflows & Monorepos](../Git_GitHub/advanced-git-workflows-and-monorepos.md): Trunk-Based Development, Monorepo scaling (Bazel), and Git internals (`git filter-repo`, `reflog`).
+2. `[NEW]` [Platform Engineering for CI/CD](./platform-engineering-for-cicd.md): Jenkins as Code (JCasC), Shared Library templates, ephemeral Kubernetes agents, and OIDC secret injection.
+3. `[NEW]` [Progressive Delivery & GitOps at Scale](../ArgoCD/progressive-delivery-and-gitops-at-scale.md): Multi-cluster ArgoCD (ApplicationSets), Automated Canary deployments (Argo Rollouts), and External Secrets Operator (ESO).
+4. `[NEW]` [Supply Chain Security & SLSA](../DevSecOps/supply-chain-security-and-slsa.md): Achieving SLSA Level 3, generating/scanning SBOMs, and cryptographic image signing with Cosign.

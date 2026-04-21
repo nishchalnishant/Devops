@@ -234,3 +234,230 @@ _Focus: PromQL, high cardinality, and distributed systems._
 When answering monitoring questions, always focus on the User Experience.
 
 * The SRE Answer: "I don't just monitor CPU usage. If CPU is at 90% but the user-facing Latency is low and Success Rate is 100%, I don't page an engineer. I prioritize Symptom-based alerting over Cause-based alerting to ensure we only wake people up for issues that actually impact the business."
+
+---
+
+## 🔷 Advanced Observability (7 YOE)
+
+---
+
+### Section A: Azure Monitor & Application Insights
+
+For engineers operating in the Azure ecosystem, Azure Monitor is the native observability plane that spans all resources.
+
+#### Key Components
+
+| Component | Purpose | Equivalent (Generic) |
+|---|---|---|
+| **Azure Monitor Metrics** | Numerical time-series from Azure resources | Prometheus |
+| **Log Analytics Workspace (LAW)** | Centralised log storage and query engine | Elasticsearch / Loki |
+| **Application Insights** | APM — traces, dependencies, exceptions | Jaeger + OpenTelemetry |
+| **Azure Monitor Alerts** | Alert rules backed by metrics or KQL queries | Alertmanager |
+| **Workbooks** | Interactive, parameterised dashboards | Grafana |
+
+#### KQL (Kusto Query Language) — Essential Patterns
+
+**Find failed requests in Application Insights:**
+```kusto
+requests
+| where success == false
+| summarize count() by name, resultCode
+| order by count_ desc
+```
+
+**Detect slow SQL dependencies (>500ms):**
+```kusto
+dependencies
+| where type == "SQL"
+| where duration > 500
+| project timestamp, target, data, duration
+| order by duration desc
+```
+
+**Burn rate calculation (Azure Monitor style):**
+```kusto
+let slo_target = 0.999;  // 99.9% SLO
+let error_budget = 1 - slo_target;
+let burn_multiplier = 14.0;  // 14× burn rate = critical
+requests
+| where timestamp > ago(1h)
+| summarize total = count(), failed = countif(success == false)
+| extend error_rate = toreal(failed) / toreal(total)
+| extend is_burning = error_rate > (burn_multiplier * error_budget)
+```
+
+**AKS node memory pressure over last 24h:**
+```kusto
+Perf
+| where ObjectName == "Memory" and CounterName == "Available MBytes"
+| where Computer startswith "aks-"
+| summarize avg_available_mb = avg(CounterValue) by Computer, bin(TimeGenerated, 30m)
+| order by TimeGenerated desc
+```
+
+#### Application Insights — Distributed Tracing
+
+Application Insights uses the W3C `traceparent` standard to propagate trace context across HTTP calls. Each SDK auto-instruments:
+- HTTP in/out calls
+- SQL queries (via ADO.NET / Entity Framework)
+- Azure service calls (Service Bus, Blob, CosmosDB)
+
+Key signal: The **Application Map** identifies which dependency is responsible for high latency or failure rates with a call graph view.
+
+---
+
+### Section B: Advanced PromQL — Burn Rate Alerting
+
+Standard threshold alerting (e.g., `error_rate > 5%`) is noisy and lacks context. **Burn Rate Alerting** ties alert severity to the rate at which you consume your error budget.
+
+#### The Multi-Window, Multi-Burn-Rate Pattern
+
+The Google SRE Workbook recommends pairing a short window (high sensitivity) with a long window (high specificity) to avoid false positives:
+
+| Alert Name | Short Window | Long Window | Burn Rate | Urgency |
+|---|---|---|---|---|
+| `CriticalBurnRate` | 5m | 1h | 14× | Page immediately |
+| `HighBurnRate` | 30m | 6h | 3× | Slack alert |
+
+**PromQL — Critical Burn Rate (14×) for 99.9% SLO:**
+```promql
+# Short window component
+(
+  sum(rate(http_requests_total{status=~"5.."}[5m]))
+  /
+  sum(rate(http_requests_total[5m]))
+) > (14 * 0.001)
+
+AND
+
+# Long window component (confirmation signal)
+(
+  sum(rate(http_requests_total{status=~"5.."}[1h]))
+  /
+  sum(rate(http_requests_total[1h]))
+) > (14 * 0.001)
+```
+
+#### `irate` vs `rate` — When to Use Which
+
+| Function | Behaviour | Use Case |
+|---|---|---|
+| `rate(metric[5m])` | Average rate over the full window | Alerting — smooths out spikes |
+| `irate(metric[5m])` | Instantaneous rate (last two samples) | Debugging — shows real-time spikes |
+
+**Rule:** Always use `rate` for alert rules. `irate` creates unstable, volatile alert conditions.
+
+#### Recording Rules (Performance Optimisation)
+
+Complex PromQL run thousands of times per minute is expensive. Recording rules pre-compute results at scrape time:
+
+```yaml
+groups:
+  - name: slo_recording_rules
+    interval: 30s
+    rules:
+      - record: job:http_requests:rate5m
+        expr: sum(rate(http_requests_total[5m])) by (job)
+      - record: job:http_errors:rate5m
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (job)
+      - record: job:http_error_ratio:rate5m
+        expr: job:http_errors:rate5m / job:http_requests:rate5m
+```
+
+Now alert on `job:http_error_ratio:rate5m > 0.05` — this query runs in microseconds versus seconds for the raw expression.
+
+---
+
+### Section C: OpenTelemetry & eBPF
+
+#### Why OpenTelemetry Is the Industry Standard
+
+Before OpenTelemetry (OTel), every APM vendor had a proprietary SDK (Datadog, New Relic, Dynatrace). Switching vendors meant re-instrumenting all application code.
+
+**OpenTelemetry solves this** with a vendor-neutral standard for traces, metrics, and logs — the three pillars — with a single open protocol: **OTLP (OpenTelemetry Protocol)**.
+
+```
+App (OTel SDK) → OTLP → OTel Collector → [Jaeger / Tempo / Datadog / Azure Monitor]
+```
+
+The OpenTelemetry Collector (`otelcol`) acts as a pipeline:
+- **Receivers:** Accept data (OTLP, Prometheus scrape, Jaeger, Zipkin)
+- **Processors:** Transform (sampling, attribute enrichment, batching)
+- **Exporters:** Send to backends (Jaeger, Prometheus remote-write, Azure Monitor)
+
+**Kubernetes deployment pattern:**
+```yaml
+# DaemonSet collector — one per node, collects logs + host metrics
+# Sidecar collector — per application pod, collects app traces
+# Deployment collector — central gateway for complex routing logic
+```
+
+#### eBPF — Zero-Instrumentation Observability
+
+eBPF (extended Berkeley Packet Filter) allows small programs to run inside the Linux kernel without modifying the kernel source or recompiling application code.
+
+**Key capabilities:**
+- Intercept every network packet at kernel level → service-to-service golden signals without modifying application code.
+- Trace system calls (`execve`, `openat`, `connect`) → security anomaly detection (Falco, Tetragon).
+- Generate rich L7 metrics (HTTP, gRPC, DNS) → without any application SDK.
+
+**Tools:**
+- **Cilium** — Kubernetes CNI that replaces iptables with eBPF. Enforces NetworkPolicies at kernel speed. Provides Layer 7 visibility.
+- **Pixie** — Auto-instrumentation platform. Provides service maps, request traces, and SQL query analysis with zero code changes.
+- **Tetragon** — Kubernetes-aware runtime security using eBPF. Replaces Falco for high-performance threat detection.
+
+---
+
+### Section D: Multi-Cluster Observability Design
+
+A single Prometheus instance cannot scale infinitely. When operating multiple Kubernetes clusters (dev, staging, prod, regional clusters), you need a federated observability strategy.
+
+#### Option Comparison
+
+| Solution | Architecture | Best For | Trade-offs |
+|---|---|---|---|
+| **Thanos** | Prometheus + Sidecar + Object Store (S3/Blob) | Long-term storage, global query view | Operational complexity, multiple components |
+| **Cortex** | Multi-tenant Prometheus-as-a-service | Shared platform, per-team tenancy | Very complex to operate self-hosted |
+| **VictoriaMetrics** | Drop-in Prometheus replacement | High-performance, low memory footprint | Less ecosystem integration than Thanos |
+| **Azure Managed Prometheus** | Fully managed Azure Monitor workspace | Azure-native, zero ops burden | Azure-only, less PromQL flexibility |
+| **Grafana Cloud** | SaaS | Small team, managed | Cost at scale, data residency concerns |
+
+#### 7 YOE Recommendation: Thanos Architecture
+
+```
+Cluster A                     Object Store (Azure Blob / S3)
+┌────────────────┐            ┌─────────────────────────────┐
+│ Prometheus A   │──sidecar──>│  Historical data (>14 days) │
+└────────────────┘            └─────────────────────────────┘
+                                          │
+Cluster B                                 │
+┌────────────────┐                  Thanos Query
+│ Prometheus B   │──sidecar──────>  (Global view)
+└────────────────┘                        │
+                                    Grafana Dashboard
+                              (queries all clusters via single endpoint)
+```
+
+Key Thanos components:
+- **Sidecar:** Runs alongside each Prometheus. Uploads blocks to object store.
+- **Store Gateway:** Serves historical data from object store.
+- **Query:** Fan-out query to all sidecars + store gateways. Deduplicates replicas.
+- **Compactor:** Downsamples and compacts old blocks for cost efficiency.
+
+#### Azure Managed Prometheus + Grafana (Simplest Enterprise Path)
+
+For Azure-native environments, use:
+1. **Azure Monitor workspace** → acts as the managed Prometheus backend.
+2. **Azure Managed Grafana** → pre-connected to the Prometheus workspace.
+3. **AKS monitoring addon** → automatically deploys and manages the Prometheus scraping agent.
+
+```bash
+# Enable managed Prometheus on AKS cluster
+az aks update \
+  --resource-group <rg> \
+  --name <cluster> \
+  --enable-azure-monitor-metrics \
+  --azure-monitor-workspace-resource-id <workspace-id>
+```
+
+This eliminates the need to operate Thanos entirely for Azure-native workloads.

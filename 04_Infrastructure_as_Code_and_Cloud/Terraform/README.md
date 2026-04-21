@@ -252,3 +252,15 @@ _Focus: Handling failures, state corruption, and scaling automation._
 When discussing IaC, always talk about the "Blast Radius."
 
 * The SRE Answer: "To minimize the blast radius, I never store my entire infrastructure in one massive state file. I break my Terraform code into logical components: Networking, Data, and App. This ensures that a mistake in the App layer doesn't accidentally trigger a deletion of the core VPC or Database."
+
+---
+
+## 🔷 Advanced Infrastructure as Code (7 YOE)
+
+If you are interviewing for a Senior or Staff position, knowing basic Terraform resources is insufficient. You will be evaluated on your ability to scale IaC across an enterprise safely. 
+
+**Continue your preparation with these advanced modules:**
+
+1. `[NEW]` [Advanced Terraform Patterns & State Manipulation](./advanced-terraform-patterns.md): Terragrunt architectures, `state mv`, `state rm`, and dynamic code blocks.
+2. `[NEW]` [GitOps & Policy-as-Code](./policy-and-gitops.md): Atlantis PR-driven workflows, infrastructure drift reconciliation, and OPA/Checkov security guardrails.
+3. `[NEW]` [Enterprise Landing Zones](../Cloud_Services/enterprise-landing-zones.md): Deep dive into multi-account architectures, Account Vending Machines (AVMs), and Hub-and-Spoke networking at scale.

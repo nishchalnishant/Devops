@@ -756,6 +756,30 @@ Toil is the kind of operational work that is manual, repetitive, automatable, ta
    * Incident Commander: For major incidents, there should be a clear escalation path to an Incident Commander who can coordinate the broader response.
 4. Preventing Burnout: Actively track the number of alerts and out-of-hours pages. If an on-call engineer has a rough week, give them time off to recover. Treat on-call fatigue as a critical metric to be managed.
 
+***
 
+## Azure Enterprise Architecture & DevSecOps (HARD - 7 YOE)
 
+**67. Design an enterprise Hub-and-Spoke networking architecture for an AKS deployment, detailing the security controls.**
+The architecture requires a central Hub VNet and multiple Spoke VNets connected via VNet peering.
+- **Hub:** Houses the Azure Firewall (or NVAs like Palo Alto), an Azure App Gateway (WAF enabled) or an Azure Bastion. Azure Route Server may be used for BGP routing.
+- **Spokes:** The AKS cluster lives in a Spoke VNet. It uses an internal load balancer so it is not exposed to the internet.
+- **Routing & Control:** User Defined Routes (UDR) in the Spoke force all outbound traffic from AKS (e.g., to the internet or other spokes) through the Azure Firewall in the Hub for inspection (`0.0.0.0/0` -> Firewall Private IP).
+- **Ingress:** External traffic hits the App Gateway in the Hub, which terminates TLS and inspects via WAF, then routes traffic over peering to the AKS internal ingress controller.
 
+**68. How do you govern a multi-tenant Azure AD (Entra ID) CI/CD environment where hundreds of teams create their own pipelines?**
+Governance must be baked in at the control plane level using Azure Policy and ADO Organization Settings.
+- **Azure Policy:** Enforce `DeployIfNotExists` or `Deny` policies preventing teams from creating public endpoints, forcing deployment to specific regions, or mandating certain tags.
+- **ADO Governance:** Disable the creation of classic release pipelines (mandate YAML). Use ADO Repository Templates and require `extends` templates so every pipeline inherits a baseline security structure (like mandatory Credential Scanner jobs).
+- **Identity:** Use strict RBAC via Entra ID groups. Utilize Azure AD Privileged Identity Management (PIM) for Just-In-Time (JIT) access to production subscriptions, reducing standing privileges for the DevOps pipelines and human operators.
+
+**69. Compare Azure Front Door and Azure Application Gateway. Under what circumstances would you use both together?**
+- **Azure Front Door:** A global, anycast layer-7 load balancer with integrated CDN and WAF. It routes traffic to the closest healthy regional backend.
+- **Application Gateway:** A regional, layer-7 load balancer with WAF, primarily used for VNet injection and routing to private resources like an internal AKS cluster or App Service Environment.
+- **Using Both:** In a highly secure, globally distributed application. Front Door acts as the global entry point terminating user TLS, blocking global DDoS attacks, and serving static content at the edge. Front Door then forwards dynamic traffic *only* to regional Application Gateways (using Private Link service from Front Door to App Gateway, or verifying the `X-Azure-FDID` header). The App Gateway then routes the traffic securely into the VNet.
+
+**70. You have an Azure App Service using VNet Integration to access an Azure SQL Database behind a Private Endpoint. Sometimes the connection drops, specifically during DNS resolution. What is happening?**
+Azure's Private Endpoints rely heavily on Azure Private DNS Zones.
+- When an App Service makes a DNS query to `mydb.database.windows.net`, the VNet integration forces the DNS query into the VNet.
+- If the VNet is not linked to the `privatelink.database.windows.net` Private DNS Zone, the App Service resolves the public IP instead of the private IP. Because the SQL DB firewall blocks public IPs, the connection fails.
+- If it's intermittent, it might be due to custom DNS server settings on the VNet (e.g., pointing to an on-premise DNS) that sometimes fail to forward the query to Azure's `168.63.129.16` recursive resolver, causing sporadic name resolution failures for the Private Endpoint. You must ensure robust conditional forwarding from your custom DNS to Azure's internal resolver.

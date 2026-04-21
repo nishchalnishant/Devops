@@ -519,3 +519,23 @@ Cloud platforms profoundly affect CI/CD by offering managed services that simpli
 **50. What is a service mesh (like Istio or Linkerd) and what are some of its benefits?**
 
 A service mesh is a dedicated infrastructure layer for managing service-to-service communication in a microservices architecture. It provides features like traffic management (e.g., intelligent routing), security (e.g., automatic mutual TLS encryption), and observability (e.g., detailed metrics and traces) without requiring any changes to the application code itself.
+
+***
+
+#### ## Azure DevOps & Azure Fundamentals (EASY)
+
+**51. What is an Azure Service Connection in Azure DevOps?**
+A Service Connection is a secure way to authenticate Azure DevOps to Azure RM (Resource Manager) or other external services (like AWS, Docker Hub, or GitHub). It allows pipelines to deploy resources or access external APIs.
+
+**52. What is the difference between Microsoft-Hosted and Self-Hosted agents?**
+* Microsoft-Hosted agents are VMs managed by Microsoft. They provide a fresh, clean environment for each build but have limitations on software caching, memory, and access to private VNets.
+* Self-Hosted agents are VMs or containers you manage. You install the Azure Pipelines agent on them. They are faster for incremental builds because they retain layers/packages, and they can securely sit inside your private corporate network.
+
+**53. Explain what Azure Resource Manager (ARM) is.**
+ARM is the deployment and management service for Azure. It provides a management layer that enables you to create, update, and delete resources in your Azure account. You use management features, like access control (RBAC), locks, and tags, to secure and organize your resources after deployment. ARM templates (and Bicep) use this API declaratively.
+
+**54. How do you pass variables between different jobs in an Azure YAML Pipeline?**
+You can output variables from a script and map them into the pipeline's variable syntax using `echo "##vso[task.setvariable variable=myVar;isOutput=true]someValue"`. Subsequent jobs can access this output variable by referencing the specific job's dependencies.
+
+**55. What is the purpose of Azure Key Vault?**
+Azure Key Vault is a cloud service for securely storing and accessing secrets. A secret is anything that you want to tightly control access to, such as API keys, passwords, certificates, or cryptographic keys. In DevOps, pipelines fetch credentials from Key Vault rather than storing them in code or plain text variables.

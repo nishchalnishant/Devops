@@ -170,3 +170,15 @@ Practical steps to translate technical skills into professional opportunities.
   * Challenges and Hackathons
 * Generative AI tools:
   * Leveraging ChatGPT, Gemini, and Dall-e for productivity and learning.
+
+---
+
+## 🔷 Beyond the 11 Steps: Senior → Staff Roadmap (7 YOE)
+
+Once you are confident in all 11 sections above, the focus shifts from **learning tools** to **designing the systems that operate tools at scale**. This is the leap that separates Senior from Staff.
+
+**Continue with these advanced guides:**
+
+1. `[NEW]` [Senior DevOps Roadmap](./senior-devops-roadmap.md): The 6-phase roadmap covering Platform Engineering (IDPs, Backstage), Enterprise Architecture (active-active, cell-based), DevSecOps at SLSA scale, FinOps (Spot fleet, Showback/Chargeback), Advanced Observability (SLO Burn Rates, Chaos Engineering), and Technical Leadership (ADRs, Design Reviews).
+2. `[NEW]` [Staff Engineering & Platform Leadership](./staff-engineering-and-platform-leadership.md): Deep guide on ADRs, DORA/SPACE metrics, running GameDays, the Golden Path/Guardrails mental model, Value Stream Mapping, and structuring executive communications.
+3. `[Vocabulary]` In `1.-devops-terms.md`, a new **Staff/Principal SRE Dictionary** table covers the exact terms (Golden Path, Error Budget Burn Rate, Hermetic Build, SPIFFE/SPIRE, GameDay) expected in senior-level interviews.

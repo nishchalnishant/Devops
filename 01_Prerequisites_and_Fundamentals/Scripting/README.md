@@ -227,8 +227,20 @@ _Focus: Automation at scale and "Defensive Scripting."_
 
 ***
 
+***
+
 #### 💡 Pro-Tip for your Interview
 
 When discussing scripting, always mention Testing.
 
 * _Example:_ "I don't just write scripts; I use ShellCheck for my Bash scripts to catch common bugs, and I write basic Unit Tests in Python to ensure my automation logic handles edge cases."
+
+---
+
+## 🔷 Engineering Automation at Scale (7 YOE)
+
+If you are interviewing for a Senior or Staff position, writing simple "backup scripts" is insufficient. You will be evaluated on your ability to build production-grade internal tools and your understanding of cloud-native development in Go.
+
+**Continue your preparation with this advanced module:**
+
+1. `[NEW]` [Engineering Automation at Scale](./engineering-automation-at-scale.md): From scripts to packaged CLI tools (Go/Click), TDD for Infrastructure (Pytest/Moto), Concurrency (Goroutines/Asyncio), and the transition to Platform Engineering.

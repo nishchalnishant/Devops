@@ -230,8 +230,20 @@ _Focus: High-pressure troubleshooting and kernel-space behavior._
 
 ***
 
+***
+
 #### 💡 Pro-Tip for your Interview
 
 When answering Linux questions, mention "Everything is a file."
 
 * The SRE Answer: "In Linux, everything is a file—from the hardware and network sockets to the processes listed in `/proc`. If I see a 'Too many open files' error, I know I'm hitting the `ulimit` or the kernel-wide file descriptor limit, which I can tune in `sysctl.conf`."
+
+---
+
+## 🔷 Advanced Linux & System Tuning (7 YOE)
+
+If you are interviewing for a Senior or Staff position, knowing basic commands is insufficient. You will be evaluated on your ability to profile kernel performance and harden the system for high-scale enterprise environments. 
+
+**Continue your preparation with this advanced module:**
+
+1. `[NEW]` [Advanced Linux Performance & Hardening](./advanced-linux-performance-and-hardening.md): The USE Method, eBPF/bpftrace profiling, deep kernel tuning (TCP/VM stack), CIS Benchmarks, and systemd watchdog logic.

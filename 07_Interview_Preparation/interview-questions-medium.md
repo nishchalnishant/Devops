@@ -255,3 +255,23 @@ Confirm impact, stabilize, check recent changes, gather telemetry, narrow the fa
 **60. How do you answer a design trade-off question well in a DevOps interview?**
 
 State the goal and constraints first, compare at least two viable options, explain trade-offs in reliability, security, cost, and operability, and finish with why your choice fits the workload. A strong answer sounds reasoned, not absolute.
+
+***
+
+## Azure Infrastructure & CI/CD (MEDIUM)
+
+**61. What is the difference between an Azure Managed Identity and a Service Principal?**
+A Service Principal is an identity created for use with applications, hosted services, and automated tools to access Azure resources, requiring you to explicitly manage and rotate its secret or certificate. A Managed Identity is a feature of Microsoft Entra ID that provides an automatically managed identity in Azure. You don't manage credentials; Azure handles the lifecycle of the identity (especially System-Assigned ones which die when the resource is deleted).
+
+**62. How do you securely manage Terraform state for Azure infrastructure?**
+Terraform state should be managed in an Azure Storage Account Blob container using the `azurerm` backend. To secure it, you lock down the Storage Account's network access, use role-based access control (RBAC) specifically restricting access to the state blob to the pipeline's identity, enable Soft Delete and point-in-time restore, and ensure the state file itself is locked during runs using Azure blob leases to prevent concurrent state corruption.
+
+**63. What are the pros and cons of using Azure Logic Apps vs. Azure Functions?**
+* Azure Functions is a code-first serverless compute service. It's better for complex, custom logic, high-performance data processing, and developers who prefer coding in C#, Python, or Node.js.
+* Azure Logic Apps is a designer-first, visual orchestration service. It excels at workflow automation and connecting third-party systems using hundreds of pre-built connectors. It's great for low-code integrations but can become visually unwieldy for highly complex nested programming logic.
+
+**64. Explain how you would implement a Blue-Green deployment for an Azure App Service.**
+Azure App Service provides Deployment Slots. You create a second slot (e.g., `staging`) identical to `production`. The CI/CD pipeline deploys the new code to the `staging` slot. Once the staging slot passes smoke tests, you perform a "Swap" operation in Azure. Azure routes production traffic to the new instances, and what was production becomes staging. If an issue occurs, you instantly swap back.
+
+**65. Why is Bicep gaining popularity over ARM templates?**
+ARM templates are JSON-based, verbose, and difficult to comprehend at scale without extensive tooling. Bicep is a Domain-Specific Language (DSL) created by Microsoft specifically for deploying Azure resources. It offers a much cleaner, easier-to-read syntax, transparent compilation into standard ARM json, modularity (`module` block), and day-zero support for new Azure features without waiting for an external provider update (like Terraform).

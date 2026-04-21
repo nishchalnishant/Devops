@@ -6,17 +6,17 @@ This phase focuses on the skills that separate a senior DevOps engineer from a m
 
 A senior DevOps engineer is expected to do more than operate tools. The role expands into architecture, reliability strategy, operational decision-making, standards, and communication.
 
-## Senior Capability Areas
+## Senior Capability Areas (7 YOE Focus)
 
-### 1. Architecture And Trade-Offs
+### 1. Enterprise Architecture And Trade-Offs
 
-You should be able to compare options instead of describing a single favorite tool:
+You should be able to compare options and design systems for catastrophic failures at massive scale:
 
-- rolling versus blue-green versus canary
+- Active-Active vs. Active-Passive multi-region deployments
+- Cell-Based architecture vs. Monolithic cluster scaling
+- Hub-and-Spoke enterprise landing zones vs. Peered networks
+- Zero-Trust networking (mTLS via Service Mesh) vs. Perimeter security
 - managed service versus self-hosted platform
-- deployment versus StatefulSet
-- HPA versus VPA
-- monolith versus microservices
 - push versus pull telemetry
 
 ### 2. Reliability Engineering
@@ -31,13 +31,12 @@ Senior answers should include:
 
 ### 3. Platform Engineering
 
-Senior engineers build reusable systems, not one-off fixes:
+Senior engineers build platforms for other engineers, treating internal developers as their primary customers:
 
-- pipeline templates
-- Terraform modules
-- standard deployment patterns
-- golden paths for teams
-- guardrails for security and compliance
+- Internal Developer Platforms (Backstage)
+- Golden Paths (standardized CI/CD, Git repository templates)
+- Measuring Developer Velocity (DORA and SPACE metrics)
+- Abstracting cognitive load away from product developers
 
 ### 4. Change Management And Migration
 
@@ -58,16 +57,14 @@ A senior engineer:
 - chooses safe stabilization actions
 - captures timeline, contributing factors, and prevention items
 
-### 6. Governance, Security, And Cost
+### 6. Governance, Security, And FinOps
 
-At senior level, you are also expected to think about:
+At the senior level, you are also expected to think about organizational controls and financials:
 
-- least privilege
-- policy as code
-- supply chain security
-- auditability
-- cloud spend and efficiency
-- data protection and compliance impact
+- policy-as-code (Kyverno, OPA, Azure Policy, AWS SCPs)
+- supply chain security (SLSA framework, Sigstore, SBOMs)
+- FinOps mapping (Showback/Chargeback models, spot fleet architecture, VPA/rightsizing)
+- organizational RBAC and Just-In-Time (JIT) access
 
 ### 7. Mentoring And Standards
 
@@ -92,12 +89,13 @@ For senior roles with ML platform or AI infrastructure scope, you should also be
 ## What To Study In This Repository For Senior Prep
 
 1. `../../07_Interview_Preparation/devops-interview-playbook.md`
-2. `../../07_Interview_Preparation/general-interview-questions.md`
-3. `../../07_Interview_Preparation/interview-questions-hard.md`
-4. `../../04_Infrastructure_as_Code_and_Cloud/Cloud_Services/azure-hard-questions.md`
+2. `../../07_Interview_Preparation/azure-devops-interview-playbook.md`
+3. `../../07_Interview_Preparation/general-interview-questions.md`
+4. `../../07_Interview_Preparation/interview-questions-hard.md`
 5. `../Career_and_Community.md`
-6. `../../REPO-AUDIT.md`
-7. `../../07_Interview_Preparation/mlops-interview-playbook.md`
+6. `../Enterprise_Scale_Architecture.md`
+7. `../Platform_Engineering_and_FinOps.md`
+8. `../../07_Interview_Preparation/mlops-interview-playbook.md`
 
 ## Senior Practice Tasks
 

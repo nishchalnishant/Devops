@@ -267,3 +267,61 @@ If you get stuck, use this fallback structure:
 - You separate immediate mitigation from deep investigation.
 - You talk about blast radius, rollback, and prevention.
 - You avoid guessing a root cause without evidence.
+
+***
+
+## Scenario 8: Azure DevOps Pipeline OIDC/Managed Identity Authentication Failure (Azure Specific)
+
+### Prompt
+
+A pipeline that has been deploying to an Azure Kubernetes Service (AKS) cluster for the last 6 months suddenly fails today at the `AzureCLI@2` deployment step. The error is "AADSTS7000215: Invalid client secret provided" or a failure to obtain an OIDC token. No code or pipeline definition changes have occurred in the last week.
+
+### What A Strong Answer Should Cover
+
+- Understanding of Service Principal / Managed Identity lifecycles in Azure.
+- Troubleshooting ADO Service Connections (Workload Identity Federation vs. Secret).
+
+### Commands And Checks You Can Name
+
+- Go to ADO Project Settings -> Service Connections.
+- `az ad sp credential list --id <app-id>`
+- Check the Enterprise Application / App Registration sign-in logs in Entra ID.
+
+### Likely Root Causes
+
+- **Service Principal Secret Expiration:** The service connection was built using an App Registration (Service Principal) with a client secret that was set to expire in 6 months, and it just expired today.
+- **OIDC Federation Issue:** If using Workload Identity Federation, perhaps the trust between the ADO Project/Repo and the Entra ID app was accidentally deleted or modified by an Entra ID admin.
+
+### Strong Mitigation Ideas
+
+- **Immediate Fix:** Generate a new client secret in Entra ID, update the Service Connection in ADO, and re-run the pipeline.
+- **Long Term Fix (Best Practice):** Convert the Service Connection from using a static Client Secret to using Workload Identity Federation (OIDC). OIDC eliminates the need for managing expiring secrets entirely, as Azure DevOps and Entra ID negotiate short-lived tokens automatically.
+
+## Scenario 9: Application Gateway 502 Bad Gateway to AKS (Azure Specific)
+
+### Prompt
+
+You have an AKS cluster behind an Azure Application Gateway (AGIC). Users are reporting intermittent `502 Bad Gateway` errors during peak hours. The Kubernetes pods themselves show no restarts and seem healthy.
+
+### What A Strong Answer Should Cover
+
+- The relationship between App Gateway health probes and Kubernetes readiness probes.
+- Understanding SNAT port exhaustion or backend timeout limits.
+
+### Commands And Checks You Can Name
+
+- Check Application Gateway "Backend Health" in the Azure Portal.
+- Look at Azure Monitor metrics for App Gateway: `Failed Requests`, `Backend Connect Time`, `Healthy Host Count`.
+- `kubectl get events` and `kubectl describe ingress`
+
+### Likely Root Causes
+
+- **Health Probe Mismatch:** The App Gateway's custom health probe timeout is too short, or the backend pod is taking too long to respond to the probe during peak load. The App Gateway marks the pod (backend pool member) as unhealthy and drops the connection with a 502.
+- **NSG Blocking Probes:** A Network Security Group on the AKS subnet is blocking the App Gateway's specific health probe IP range (`65.52.0.0/14` or `168.63.129.16`), causing intermittent probe failures.
+- **SNAT Exhaustion:** If the pods are making massive amounts of outbound connections through a public load balancer instead of NAT Gateway, SNAT ports get exhausted.
+
+### Strong Mitigation Ideas
+
+- Align the Kubernetes Readiness Probe timeout/thresholds with the Application Gateway Health Probe settings to ensure they agree on what constitutes a "healthy" pod.
+- Ensure NSGs allow traffic from the App Gateway Subnet to the AKS Subnet.
+- Scale out the App Gateway minimum instances to handle the peak concurrent connection load.

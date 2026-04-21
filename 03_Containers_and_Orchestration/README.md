@@ -271,3 +271,15 @@ _Focus: The "Control Plane," custom logic, and high-pressure failure scenarios._
 When talking about Kubernetes, always mention "Declarative State."
 
 * The SRE Answer: "Kubernetes is a reconciliation engine. When I apply a YAML, I am defining the Desired State. The Control Plane continuously runs a loop to ensure the Actual State matches my definition. If a node fails, the Scheduler sees the gap and recreates the pods elsewhere to restore that state."
+
+---
+
+## 🔷 Advanced Orchestration & Containers (7 YOE)
+
+If you are interviewing for a Senior or Staff position, answering questions about simple Deployments or standard `Dockerfile`s is no longer enough. You must understand massive fleet scaling, raw kernel security, and cryptography inside the supply chain.
+
+**Continue your preparation with these advanced architectural modules:**
+
+1. `[NEW]` [Container Runtimes & Supply Chain Security](./Docker/container-runtimes-and-security.md): The shift from Docker to `containerd/CRI-O`, secure sandboxes (gVisor/Kata), and cryptographically signing images using Sigstore (SLSA).
+2. `[NEW]` [Enterprise Kubernetes Architecture](./Kubernetes/enterprise-kubernetes-architecture.md): Managing clusters-as-code (Cluster API), isolation limits, control plane scaling (etcd/Raft tuning), and Hard Multi-Tenancy via Virtual Clusters (`vcluster`).
+3. `[NEW]` [Advanced Networking & Security](./Kubernetes/advanced-networking-and-security.md): The eBPF revolution (replacing `kube-proxy` with Cilium), transitioning from Ingress to the Gateway API, sidecarless Service Meshes (Ambient/Cilium), and admission controllers (Kyverno / OPA Gatekeeper).
