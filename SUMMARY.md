@@ -2,7 +2,7 @@
 
 * [DevOps Interview Handbook](README.md)
   * [Repository Audit](REPO-AUDIT.md)
-* [01 Prerequisites and Fundamentals](01_Prerequisites_and_Fundamentals/Linux/README.md)
+* 01 Prerequisites and Fundamentals
   * [Linux OS](01_Prerequisites_and_Fundamentals/Linux/README.md)
     * [Advanced Linux Performance & Hardening](01_Prerequisites_and_Fundamentals/Linux/advanced-linux-performance-and-hardening.md)
   * [Linux Cheat Sheet](01_Prerequisites_and_Fundamentals/Linux/CheatSheet_Linux.pdf)
@@ -17,7 +17,7 @@
     * [Engineering Automation at Scale](01_Prerequisites_and_Fundamentals/Scripting/engineering-automation-at-scale.md)
   * [Shell Scripting Notes](01_Prerequisites_and_Fundamentals/Scripting/Notes_Shell_Scripting.pdf)
   * [Shell Scripting for DevOps](01_Prerequisites_and_Fundamentals/Scripting/shell_scripting.pdf)
-* [02 Version Control and CI/CD](02_Version_Control_and_CI_CD/Jenkins_CICD/README.md)
+* 02 Version Control and CI/CD
   * [Git & GitHub Cheat Sheet](02_Version_Control_and_CI_CD/Git_GitHub/CheatSheet_Git_GitHub.pdf)
   * [Git & GitHub Notes](02_Version_Control_and_CI_CD/Git_GitHub/Notes_Git_GitHub.pdf)
   * [Advanced Git & Monorepos](02_Version_Control_and_CI_CD/Git_GitHub/advanced-git-workflows-and-monorepos.md)
@@ -39,7 +39,7 @@
   * [Kubernetes Cheat Sheet](03_Containers_and_Orchestration/Kubernetes/k8_interview_cheat_sheet.pdf)
   * [K8s Cluster Health Checklist](03_Containers_and_Orchestration/Kubernetes/cluster_health_checklist.pdf)
   * [Docker & Kubernetes for DevOps](03_Containers_and_Orchestration/Docker_and_kubernetes_for_devops.pdf)
-* [04 Infrastructure as Code and Cloud](04_Infrastructure_as_Code_and_Cloud/Terraform/README.md)
+* 04 Infrastructure as Code and Cloud
   * [Cloud Services](04_Infrastructure_as_Code_and_Cloud/Cloud_Services/README.md)
     * [Enterprise Landing Zones](04_Infrastructure_as_Code_and_Cloud/Cloud_Services/enterprise-landing-zones.md)
   * [Azure Cloud PDF](04_Infrastructure_as_Code_and_Cloud/Cloud_Services/azure_cloud.pdf)
@@ -50,7 +50,7 @@
   * [Terraform (IaC)](04_Infrastructure_as_Code_and_Cloud/Terraform/README.md)
     * [Advanced Terraform Patterns](04_Infrastructure_as_Code_and_Cloud/Terraform/advanced-terraform-patterns.md)
     * [IaC Policy & GitOps](04_Infrastructure_as_Code_and_Cloud/Terraform/policy-and-gitops.md)
-* [05 Observability and Troubleshooting](05_Observability_and_Troubleshooting/Monitoring/README.md)
+* 05 Observability and Troubleshooting
   * [Monitoring & Observability](05_Observability_and_Troubleshooting/Monitoring/README.md)
   * [Monitoring PDF](05_Observability_and_Troubleshooting/Monitoring/monitoring.pdf)
   * [Troubleshooting Runbooks](05_Observability_and_Troubleshooting/Troubleshooting/kubernetes-runbook.md)
@@ -69,8 +69,9 @@
   * [Capstone Projects](06_Advanced_DevOps_and_Architecture/Learning_Path/capstone-projects.md)
   * [MLOps](06_Advanced_DevOps_and_Architecture/MLOps.md)
   * [Real-World Test, Career, and Community](06_Advanced_DevOps_and_Architecture/Career_and_Community.md)
-* [07 Interview Preparation](07_Interview_Preparation/devops-interview-playbook.md)
+* 07 Interview Preparation
   * [DevOps Interview Playbook](07_Interview_Preparation/devops-interview-playbook.md)
+  * [TCS Cloud Engineer Prep](07_Interview_Preparation/tcs-cloud-engineer-interview-prep.md)
   * [Azure DevOps Playbook](07_Interview_Preparation/azure-devops-interview-playbook.md)
   * [Azure Scenario Drills](07_Interview_Preparation/azure-scenario-based-drills.md)
   * [MLOps Interview Playbook](07_Interview_Preparation/mlops-interview-playbook.md)
@@ -78,7 +79,7 @@
   * [Interview Questions (Easy)](07_Interview_Preparation/interview-questions-easy.md)
   * [Interview Questions (Medium)](07_Interview_Preparation/interview-questions-medium.md)
   * [Interview Questions (Hard)](07_Interview_Preparation/interview-questions-hard.md)
-* [08 General Guides and Roadmaps](08_General_Guides_and_Roadmaps/1.-devops-terms.md)
+* 08 General Guides and Roadmaps
   * [DevOps Terms & Staff Dictionary](08_General_Guides_and_Roadmaps/1.-devops-terms.md)
   * [Senior → Staff Roadmap](08_General_Guides_and_Roadmaps/senior-devops-roadmap.md)
   * [Staff Engineering & Leadership](08_General_Guides_and_Roadmaps/staff-engineering-and-platform-leadership.md)
