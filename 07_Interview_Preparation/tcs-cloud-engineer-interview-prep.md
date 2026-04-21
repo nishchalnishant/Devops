@@ -28,7 +28,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 **Reference Material:**
 - [Terraform Fundamentals](../04_Infrastructure_as_Code_and_Cloud/Terraform/README.md)
 - [Advanced Terraform Patterns](../04_Infrastructure_as_Code_and_Cloud/Terraform/advanced-terraform-patterns.md)
-- [Terraform Interview Questions PDF](./terraform\ interview\ questions.pdf)
+- [Terraform Interview Questions PDF](./terraform%20interview%20questions.pdf)
 
 ---
 
@@ -57,7 +57,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - [Docker & Runtimes Security](../03_Containers_and_Orchestration/Docker/container-runtimes-and-security.md)
 - [Enterprise K8s Architecture](../03_Containers_and_Orchestration/Kubernetes/enterprise-kubernetes-architecture.md)
 - [Kubernetes Runbook](../05_Observability_and_Troubleshooting/Troubleshooting/kubernetes-runbook.md)
-- PDFs: [Docker](./docker\ interview\ questions.pdf) | [Kubernetes](./kubernetes\ interview\ questions.pdf) | [K8s Scenarios](./kubernetes\ scenario\ based\ questions.pdf)
+- PDFs: [Docker](./docker%20interview%20questions.pdf) | [Kubernetes](./kubernetes%20interview%20questions.pdf) | [K8s Scenarios](./kubernetes%20scenario%20based%20questions.pdf)
 
 ---
 
