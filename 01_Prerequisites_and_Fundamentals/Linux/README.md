@@ -1,6 +1,4 @@
-# 5. Linux Operating System
-
-### 5. Linux Operating System
+# Linux Operating System
 
 Linux is the "natural habitat" of a DevOps engineer. These notes cover the transition from a casual user to a system power-user.
 

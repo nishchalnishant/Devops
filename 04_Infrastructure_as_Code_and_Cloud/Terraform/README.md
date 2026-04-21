@@ -1,10 +1,6 @@
-# 8. Infrastructure As Code (IaC)
+# Infrastructure As Code (IaC)
 
-This stage marks the shift from manual "click-ops" to Software-Defined Infrastructure. Infrastructure as Code (IaC) allows you to manage your servers, networks, and cloud resources with the same rigor as application code—using version control, peer reviews, and automated testing.
-
-***
-
-### 8. Infrastructure As Code (IaC)
+This section covers the shift from manual "click-ops" to Software-Defined Infrastructure. Infrastructure as Code allows you to manage your servers, networks, and cloud resources with the same rigor as application code—using version control, peer reviews, and automated testing.
 
 IaC is divided into two main categories: Provisioning (creating the hardware/infrastructure) and Configuration Management (setting up the software inside that hardware).
 

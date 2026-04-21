@@ -1,6 +1,4 @@
-# 9. Monitoring
-
-### 9. Monitoring
+# Monitoring and Observability
 
 This section focuses on maintaining the health, performance, and reliability of your infrastructure and applications.
 

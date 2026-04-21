@@ -75,3 +75,18 @@ Move to Phase 2 only when you can:
 - inspect a Linux host for CPU, memory, disk, and port issues
 - explain DNS, TCP, CIDR, and TLS at a practical level
 - automate a simple operational task with a script
+
+---
+
+## Related Resources
+
+- [DevOps Terms and Concepts](../../08_General_Guides_and_Roadmaps/1.-devops-terms.md)
+- [Linux Fundamentals](../../01_Prerequisites_and_Fundamentals/Linux/README.md)
+- [Scripting Basics](../../01_Prerequisites_and_Fundamentals/Scripting/README.md)
+- [Networking Fundamentals](../../01_Prerequisites_and_Fundamentals/Networking/README.md)
+- [Easy Interview Questions](../../07_Interview_Preparation/interview-questions-easy.md)
+- [Advanced Linux Performance](../01_Prerequisites_and_Fundamentals/Linux/advanced-linux-performance-and-hardening.md) (for senior depth)
+
+---
+
+**Next:** [Phase 2 - Platform and Delivery](phase-2-platform-and-delivery.md)

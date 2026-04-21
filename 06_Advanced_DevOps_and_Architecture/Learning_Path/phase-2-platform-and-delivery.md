@@ -75,3 +75,19 @@ Move to Phase 3 only when you can:
 - explain Service, Ingress, probe, and rollout behavior
 - describe Terraform state, backends, modules, and drift
 - connect cloud architecture decisions to delivery and reliability
+
+---
+
+## Related Resources
+
+- [Cloud Services](../../04_Infrastructure_as_Code_and_Cloud/Cloud_Services/README.md)
+- [CI/CD Pipelines](../../02_Version_Control_and_CI_CD/Jenkins_CICD/README.md)
+- [End-to-End Pipeline Example](../../02_Version_Control_and_CI_CD/Jenkins_CICD/end-to-end-ci-cd-pipeline.md)
+- [Containers and Orchestration](../../03_Containers_and_Orchestration/README.md)
+- [Terraform](../../04_Infrastructure_as_Code_and_Cloud/Terraform/README.md)
+- [Medium Interview Questions](../../07_Interview_Preparation/interview-questions-medium.md)
+- [Platform Engineering for CI/CD](../../02_Version_Control_and_CI_CD/Jenkins_CICD/platform-engineering-for-cicd.md) (for senior depth)
+
+---
+
+**Previous:** [Phase 1 - Foundations](phase-1-foundations.md) | **Next:** [Phase 3 - SRE and Operations](phase-3-sre-and-operations.md)

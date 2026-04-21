@@ -1,10 +1,6 @@
-# 4. Cloud Services
+# Cloud Services
 
 This section focuses on mastering major cloud providers (AWS, Azure, GCP), architecting for high availability, and managing infrastructure securely at scale.
-
-***
-
-### 4. Cloud Services
 
 Cloud engineering is the foundational layer upon which modern DevOps operates. It's the transition from managing fragile physical hardware to building software-defined, globally distributed infrastructure.
 

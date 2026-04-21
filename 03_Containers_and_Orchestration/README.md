@@ -1,4 +1,4 @@
-# 6. Containers / Orchestration
+# Containers and Orchestration
 
 This section represents one of the most transformative shifts in modern software engineering. Containers allow us to package an application with all its dependencies, while Orchestration allows us to manage thousands of those containers across a cluster of servers.
 

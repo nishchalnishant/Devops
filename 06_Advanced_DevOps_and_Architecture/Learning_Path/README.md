@@ -77,3 +77,23 @@ If you are already mid-level and preparing quickly:
 - Do not skip Linux, networking, or IaC foundations because Kubernetes is trendy.
 - Do not stop at deployment; senior roles are about operations, reliability, and trade-offs.
 - Do not treat Azure, AWS, or Kubernetes as isolated tools. Always connect them to delivery, observability, and failure handling.
+
+---
+
+## Quick Navigation
+
+| Phase | Focus | Duration |
+|-------|-------|----------|
+| [Phase 1](phase-1-foundations.md) | Linux, Git, Scripting, Networking | Weeks 1-3 |
+| [Phase 2](phase-2-platform-and-delivery.md) | Cloud, CI/CD, Containers, Kubernetes, Terraform | Weeks 4-6 |
+| [Phase 3](phase-3-sre-and-operations.md) | Observability, Troubleshooting, Reliability | Weeks 7-9 |
+| [Phase 4](phase-4-senior-role-readiness.md) | Architecture, Leadership, Governance | Weeks 10-12 |
+| [Capstones](capstone-projects.md) | Hands-on Projects | Ongoing |
+
+---
+
+## Related Resources
+
+- [DevOps Interview Playbook](../../07_Interview_Preparation/devops-interview-playbook.md)
+- [General Interview Questions](../../07_Interview_Preparation/general-interview-questions.md)
+- [Career and Community](../Career_and_Community.md)

@@ -123,3 +123,20 @@ You are senior-ready when you can:
 - explain how to standardize delivery and operations across teams
 - discuss reliability, security, governance, and cost in one answer
 - provide examples of ownership, automation, and operational leadership
+
+---
+
+## Related Resources
+
+- [DevOps Interview Playbook](../../07_Interview_Preparation/devops-interview-playbook.md)
+- [Azure DevOps Interview Playbook](../../07_Interview_Preparation/azure-devops-interview-playbook.md)
+- [Career and Community](../Career_and_Community.md)
+- [Enterprise Scale Architecture](../Enterprise_Scale_Architecture.md)
+- [Platform Engineering and FinOps](../Platform_Engineering_and_FinOps.md)
+- [Hard Interview Questions](../../07_Interview_Preparation/interview-questions-hard.md)
+- [MLOps Interview Playbook](../../07_Interview_Preparation/mlops-interview-playbook.md) (for ML specialization)
+- [Capstone Projects](capstone-projects.md)
+
+---
+
+**Previous:** [Phase 3 - SRE and Operations](phase-3-sre-and-operations.md) | **Next:** [Capstone Projects](capstone-projects.md)

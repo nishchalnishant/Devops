@@ -4,11 +4,10 @@ This repository is now structured as an incremental senior DevOps learning syste
 
 ## Start Here
 
-1. [Repository Audit](REPO-AUDIT.md) to understand the strengths, gaps, and intended repo structure.
-2. [General Guides and Roadmaps](08_General_Guides_and_Roadmaps/1.-devops-terms.md) for overarching topics, roadmaps, and 90-days-of-DevOps.
-3. [Senior DevOps Learning Path](06_Advanced_DevOps_and_Architecture/Learning_Path/README.md) for the phased curriculum from foundations to senior readiness.
-4. [DevOps Interview Playbook](07_Interview_Preparation/devops-interview-playbook.md) for answer frameworks, command anchors, and senior interview signals.
-5. [MLOps Interview Playbook](07_Interview_Preparation/mlops-interview-playbook.md) for ML platform, model-serving, and MLOps interview preparation.
+1. [General Guides and Roadmaps](08_General_Guides_and_Roadmaps/1.-devops-terms.md) for overarching topics, roadmaps, and foundational DevOps concepts.
+2. [Senior DevOps Learning Path](06_Advanced_DevOps_and_Architecture/Learning_Path/README.md) for the structured 4-phase curriculum from foundations to senior readiness.
+3. [DevOps Interview Playbook](07_Interview_Preparation/devops-interview-playbook.md) for answer frameworks, command anchors, and senior interview signals.
+4. [MLOps Interview Playbook](07_Interview_Preparation/mlops-interview-playbook.md) for ML platform, model-serving, and MLOps interview preparation.
 
 ## Incremental Directory Structure
 
@@ -34,8 +33,20 @@ This repository is now structured as an incremental senior DevOps learning syste
 - DevSecOps fundamentals such as secrets, least privilege, image scanning, and policy controls
 - MLOps fundamentals such as data and model versioning, feature stores, training pipelines, serving patterns, drift, and GPU-aware operations
 
+## Quick Reference
+
+| Topic | Entry Point | Interview Prep |
+|-------|-------------|----------------|
+| Linux & Scripting | [Linux README](01_Prerequisites_and_Fundamentals/Linux/README.md) | [Easy Questions](07_Interview_Preparation/interview-questions-easy.md) |
+| Networking | [Networking README](01_Prerequisites_and_Fundamentals/Networking/README.md) | [Medium Questions](07_Interview_Preparation/interview-questions-medium.md) |
+| CI/CD | [Jenkins README](02_Version_Control_and_CI_CD/Jenkins_CICD/README.md) | [Medium Questions](07_Interview_Preparation/interview-questions-medium.md) |
+| Containers/K8s | [Containers README](03_Containers_and_Orchestration/README.md) | [Hard Questions](07_Interview_Preparation/interview-questions-hard.md) |
+| Terraform/IaC | [Terraform README](04_Infrastructure_as_Code_and_Cloud/Terraform/README.md) | [Hard Questions](07_Interview_Preparation/interview-questions-hard.md) |
+| Monitoring | [Monitoring README](05_Observability_and_Troubleshooting/Monitoring/README.md) | [Playbook](07_Interview_Preparation/devops-interview-playbook.md) |
+| Troubleshooting | [K8s Runbook](05_Observability_and_Troubleshooting/Troubleshooting/kubernetes-runbook.md) | [Scenario Drills](07_Interview_Preparation/azure-scenario-based-drills.md) |
+
 ## Repository Notes
 
 - The strongest indexed source material (including Kubernetes, Docker, Terraform, Linux, networking, monitoring, troubleshooting, Azure, and shell scripting PDFs) has now been neatly arranged alongside corresponding concepts in each numbered roadmap folder.
 - Previous `cheat sheet`, `learning-path`, `roadmap`, `devops`, and `cloud` folders have been successfully integrated.
-- Archive materials (including `pl-sql.md`, `the-mountain-is-you.md`, and unrelated files) live under `Archive_Other/`.
+- All content follows a consistent structure: fundamentals → platform engineering → operations → senior readiness.

@@ -112,3 +112,17 @@ If you want a project that signals strong senior potential, build a small paved 
 - one onboarding guide
 
 This project demonstrates platform thinking, standardization, and team enablement rather than isolated tooling knowledge.
+
+---
+
+## Related Resources
+
+- [Career and Community](../Career_and_Community.md) - Resume guidance and interview prep
+- [DevOps Interview Playbook](../../07_Interview_Preparation/devops-interview-playbook.md)
+- [Kubernetes Runbook](../../05_Observability_and_Troubleshooting/Troubleshooting/kubernetes-runbook.md)
+- [Enterprise Scale Architecture](../Enterprise_Scale_Architecture.md)
+- [Platform Engineering and FinOps](../Platform_Engineering_and_FinOps.md)
+
+---
+
+**Previous:** [Phase 4 - Senior Role Readiness](phase-4-senior-role-readiness.md) | **Back to:** [Learning Path Overview](README.md)

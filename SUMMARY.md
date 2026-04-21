@@ -83,6 +83,6 @@
   * [Senior → Staff Roadmap](08_General_Guides_and_Roadmaps/senior-devops-roadmap.md)
   * [Staff Engineering & Leadership](08_General_Guides_and_Roadmaps/staff-engineering-and-platform-leadership.md)
   * [Original Roadmap Guide](08_General_Guides_and_Roadmaps/roadmap_README.md)
-* [Archive/Other](Archive_Other/INDEX.md)
-  * [PL/SQL Revision Guide](Archive_Other/pl-sql.md)
-  * [The Mountain Is You](Archive_Other/the-mountain-is-you.md)
+* [Archive/Other]
+  * PL/SQL Revision Guide (legacy content)
+  * The Mountain Is You (non-technical reference)

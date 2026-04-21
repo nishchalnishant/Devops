@@ -1,10 +1,6 @@
-# 7. CICD Pipelines
+# CI/CD Pipelines
 
 The CI/CD (Continuous Integration / Continuous Deployment) stage is the "engine room" of DevOps. It automates the transition of code from a developer's machine to the production environment, ensuring speed, reliability, and security.
-
-***
-
-### 7. CI/CD Pipelines
 
 This section covers the most popular tools used to automate the software delivery lifecycle.
 

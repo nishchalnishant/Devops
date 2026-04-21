@@ -1,4 +1,4 @@
-# Kubernetes Troubleshooting Runbook (7 YOE)
+# Kubernetes Troubleshooting Runbook
 
 A senior engineer approaches every Kubernetes failure with a systematic **command → evidence → hypothesis → fix** loop. Never guess a root cause. Gather evidence first.
 

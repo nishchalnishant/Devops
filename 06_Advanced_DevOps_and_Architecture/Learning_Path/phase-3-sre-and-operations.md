@@ -78,3 +78,18 @@ Move to Phase 4 only when you can:
 - name the commands you would use for Kubernetes and host troubleshooting
 - describe a safe rollback strategy
 - talk about monitoring, security, and cost as one operating model rather than separate topics
+
+---
+
+## Related Resources
+
+- [Monitoring and Observability](../../05_Observability_and_Troubleshooting/Monitoring/README.md)
+- [Kubernetes Runbook](../../05_Observability_and_Troubleshooting/Troubleshooting/kubernetes-runbook.md)
+- [Incident Response Runbook](../../05_Observability_and_Troubleshooting/Troubleshooting/incident-response-runbook.md)
+- [DevOps Interview Playbook](../../07_Interview_Preparation/devops-interview-playbook.md)
+- [Hard Interview Questions](../../07_Interview_Preparation/interview-questions-hard.md)
+- [Azure Troubleshooting](../../05_Observability_and_Troubleshooting/Troubleshooting/azure-devops-troubleshooting.md) (Azure-specific)
+
+---
+
+**Previous:** [Phase 2 - Platform and Delivery](phase-2-platform-and-delivery.md) | **Next:** [Phase 4 - Senior Role Readiness](phase-4-senior-role-readiness.md)

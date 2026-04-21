@@ -288,3 +288,16 @@ Use the STAR format, but keep it technical:
 - I can describe CI/CD safety controls such as artifact immutability, approvals, and rollback.
 - I can explain metrics, logs, traces, SLOs, and alert fatigue.
 - I can talk through at least two real troubleshooting stories from my own work.
+
+---
+
+## Related Resources
+
+- [Easy Interview Questions](interview-questions-easy.md)
+- [Medium Interview Questions](interview-questions-medium.md)
+- [Hard Interview Questions](interview-questions-hard.md)
+- [General Interview Questions](general-interview-questions.md)
+- [Azure DevOps Interview Playbook](azure-devops-interview-playbook.md)
+- [Azure Scenario Drills](azure-scenario-based-drills.md)
+- [Kubernetes Runbook](../05_Observability_and_Troubleshooting/Troubleshooting/kubernetes-runbook.md)
+- [Senior DevOps Learning Path](../06_Advanced_DevOps_and_Architecture/Learning_Path/README.md)

@@ -1,4 +1,4 @@
-# 2. Programming / Scripting
+# Programming and Scripting
 
 ### A. Python Programming
 
