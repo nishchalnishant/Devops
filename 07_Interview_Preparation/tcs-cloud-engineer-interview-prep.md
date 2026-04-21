@@ -13,6 +13,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - **High Availability (HA) & Disaster Recovery (DR):** Multi-AZ deployments, regions, backup strategies.
 
 **Reference Material:**
+
 - [Cloud Services Overview](../04_Infrastructure_as_Code_and_Cloud/Cloud_Services/README.md)
 - [Enterprise Landing Zones](../04_Infrastructure_as_Code_and_Cloud/Cloud_Services/enterprise-landing-zones.md)
 - [Azure to AWS Similarities](../04_Infrastructure_as_Code_and_Cloud/Cloud_Services/azure-aws-similarities.md)
@@ -26,6 +27,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - **Commands:** `init`, `plan`, `apply`, `destroy`, `import`.
 
 **Reference Material:**
+
 - [Terraform Fundamentals](../04_Infrastructure_as_Code_and_Cloud/Terraform/README.md)
 - [Advanced Terraform Patterns](../04_Infrastructure_as_Code_and_Cloud/Terraform/advanced-terraform-patterns.md)
 - [Terraform Interview Questions PDF](./terraform%20interview%20questions.pdf)
@@ -42,6 +44,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - **Deployment Strategies:** Blue/Green, Canary, and Rolling updates.
 
 **Reference Material:**
+
 - [Jenkins & CI/CD Pipelines Overview](../02_Version_Control_and_CI_CD/Jenkins_CICD/README.md)
 - [Platform Engineering for CI/CD](../02_Version_Control_and_CI_CD/Jenkins_CICD/platform-engineering-for-cicd.md)
 - [End-to-End Pipeline Example](../02_Version_Control_and_CI_CD/Jenkins_CICD/end-to-end-ci-cd-pipeline.md)
@@ -53,6 +56,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - **Troubleshooting:** Diagnosing `CrashLoopBackOff`, `ImagePullBackOff`, `Pending` pods.
 
 **Reference Material:**
+
 - [Containers and Orchestration Overview](../03_Containers_and_Orchestration/README.md)
 - [Docker & Runtimes Security](../03_Containers_and_Orchestration/Docker/container-runtimes-and-security.md)
 - [Enterprise K8s Architecture](../03_Containers_and_Orchestration/Kubernetes/enterprise-kubernetes-architecture.md)
@@ -70,6 +74,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - **Security perimeters:** Security Groups, Network ACLs, Firewalls, VPNs (Site-to-Site, Client).
 
 **Reference Material:**
+
 - [Networking Overview](../01_Prerequisites_and_Fundamentals/Networking/README.md)
 - [Enterprise Networking & Protocols](../01_Prerequisites_and_Fundamentals/Networking/enterprise-networking-and-protocols.md)
 - [Advanced K8s Networking](../03_Containers_and_Orchestration/Kubernetes/advanced-networking-and-security.md)
@@ -81,6 +86,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - **Log Aggregation:** Centralized logging strategies to resolve issues in a timely manner.
 
 **Reference Material:**
+
 - [Monitoring & Observability Fundamentals](../05_Observability_and_Troubleshooting/Monitoring/README.md)
 
 ### 7. Security & Compliance
@@ -89,6 +95,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - **Governance:** AWS Organizations, Azure Policies, ensuring infrastructure meets compliance standards.
 
 **Reference Material:**
+
 - [Supply Chain Security (SLSA)](../02_Version_Control_and_CI_CD/DevSecOps/supply-chain-security-and-slsa.md)
 - [IaC Policy & GitOps](../04_Infrastructure_as_Code_and_Cloud/Terraform/policy-and-gitops.md)
 
@@ -103,6 +110,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - **Python:** `boto3` (for AWS) or equivalent SDKs, interacting with REST APIs.
 
 **Reference Material:**
+
 - [Scripting Overview](../01_Prerequisites_and_Fundamentals/Scripting/README.md)
 - [Engineering Automation at Scale](../01_Prerequisites_and_Fundamentals/Scripting/engineering-automation-at-scale.md)
 
@@ -112,6 +120,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - **Troubleshooting Methodology:** Methodical approach to resolving "cloud-related issues in a timely manner" (Logs -> Metrics -> Hypothesize -> Fix -> Document).
 
 **Reference Material:**
+
 - [Linux OS Fundamentals](../01_Prerequisites_and_Fundamentals/Linux/README.md)
 - [Advanced Linux Performance & Hardening](../01_Prerequisites_and_Fundamentals/Linux/advanced-linux-performance-and-hardening.md)
 - [Incident Response Protocol](../05_Observability_and_Troubleshooting/Troubleshooting/incident-response-runbook.md)
