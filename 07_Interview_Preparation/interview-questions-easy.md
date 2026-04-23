@@ -1,541 +1,600 @@
-# Interview questions (EASY)
+# Interview Questions (Easy)
 
-These questions and answers are aimed at candidates with roughly 2 to 4 years of hands-on CI/CD and DevOps experience.
+These questions are aimed at candidates with roughly 2 to 4 years of hands-on CI/CD and DevOps experience.
 
-***
+---
 
-#### ## General CI/CD Concepts
+## General CI/CD Concepts
 
 **1. What is CI/CD and why is it important?**
 
-CI/CD stands for Continuous Integration and Continuous Delivery/Deployment. It's a practice that automates the software build, test, and release process. It's important because it allows development teams to deliver code changes more frequently and reliably, reducing risk and improving velocity.
+CI/CD stands for Continuous Integration and Continuous Delivery/Deployment. It automates the software build, test, and release process. It allows teams to deliver code changes more frequently and reliably, reducing risk and improving velocity.
 
 **2. Explain the difference between Continuous Integration, Continuous Delivery, and Continuous Deployment.**
 
-* Continuous Integration (CI): Developers merge their code into a central repository frequently. Each merge triggers an automated build and test. The goal is to catch integration bugs early.
-* Continuous Delivery (CDelivery): This is the next step after CI. Every code change that passes the automated tests is automatically packaged and released to a staging environment. The release to production is a manual, one-click step.
-* Continuous Deployment (CDeployment): This goes one step further than Continuous Delivery. Every change that passes all stages of the pipeline is automatically deployed to production without any human intervention.
+- Continuous Integration (CI): Developers merge code into a central repository frequently. Each merge triggers an automated build and test. The goal is to catch integration bugs early.
+- Continuous Delivery: Every code change that passes automated tests is automatically packaged and released to a staging environment. The release to production is a manual, one-click step.
+- Continuous Deployment: Every change that passes all stages is automatically deployed to production without human intervention.
 
 **3. What are the main benefits of implementing a CI/CD pipeline?**
 
-The main benefits are Faster Release Cycles (delivering value to users quicker), Improved Reliability (fewer bugs make it to production due to automated testing), Lower Risk (deploying smaller changes is less risky than large, infrequent releases), and Increased Developer Productivity (devs can focus on coding instead of manual deployment tasks).
+Faster release cycles, improved reliability, lower risk from smaller deployments, and increased developer productivity through automation.
 
 **4. What is "Pipeline as Code" and why is it a best practice?**
 
-Pipeline as Code is the practice of defining your CI/CD pipeline in a version-controlled text file (like a `Jenkinsfile` or `.gitlab-ci.yml`) that lives in the same repository as your application code. It's a best practice because it makes your pipeline reproducible, versioned, and reviewable through pull requests, just like any other code.
+Pipeline as Code defines your CI/CD pipeline in a version-controlled file (like a `Jenkinsfile` or `.gitlab-ci.yml`) that lives in the repository alongside application code. It makes pipelines reproducible, versioned, and reviewable through pull requests.
 
-**5. Can you describe the typical stages of a CI/CD pipeline you have worked with?**
+**5. What does it mean to "shift left" in a DevOps context?**
 
-A typical pipeline includes a Source stage (triggers on a git push), a Build stage (compiles code or builds a Docker image), a Test stage (runs unit, integration, and static analysis tests), a Package stage (pushes the artifact to a registry), and a Deploy stage (deploys to Staging and then Production).
+Shifting left moves testing, security, and quality checks earlier in the development lifecycle. Instead of waiting for a final QA phase, automated security scans and quality checks run in the CI stage, giving developers faster feedback.
 
-**6. What does it mean to "shift left" in a DevOps context?**
+**6. How do you handle failures in a pipeline?**
 
-Shifting left means moving testing, security, and quality checks earlier in the development lifecycle (i.e., to the "left" on a timeline). Instead of waiting for a final QA phase, we run automated security scans and quality checks in the CI stage, providing faster feedback to developers.
+The pipeline should fail fast — stop immediately when a stage fails and notify the developer. Require a fix before new code can be merged, preventing the main branch from staying broken.
 
-**7. How do you handle failures in a pipeline? What's a common strategy?**
+**7. What is a build artifact? Provide a few examples.**
 
-The pipeline should be configured to "fail fast." As soon as a stage fails (e.g., a unit test breaks), the pipeline stops and sends an immediate notification to the developer or team (via Slack, email, etc.). A common strategy is to require a fix before any new code can be merged, preventing the main branch from remaining in a broken state.
+A build artifact is the output of a build process. Examples include a Docker image, a Java `.jar` or `.war` file, a compiled C++ executable, or a zipped folder of static HTML/CSS/JS files.
 
-***
+**8. What are DORA metrics and why are they important?**
 
-#### ## Version Control (Git)
+DORA metrics measure software delivery performance:
+1. Deployment Frequency — how often you deploy to production.
+2. Lead Time for Changes — how long from commit to production.
+3. Mean Time to Recovery (MTTR) — how long to restore service after an incident.
+4. Change Failure Rate — percentage of deployments that cause failures.
 
-**### 8. What is a webhook and how is it used to trigger a pipeline?**
+They provide a balanced view of team velocity and operational stability.
 
-A webhook is an automated HTTP callback. In CI/CD, a Git platform like GitHub is configured to send a webhook to a CI server like Jenkins whenever a specific event occurs, such as a `git push`. This payload tells the CI server to clone the repository and start the pipeline.
+**9. What is a rollback and when would you perform one?**
 
-**### 9. Explain the difference between `git merge` and `git rebase`.**
+A rollback reverts a system to its previous state after a failed deployment. Factors to consider: severity of the issue, user impact, and whether MTTR is lower by rolling back than by rolling forward with a hotfix.
 
-* `git merge` creates a new merge commit in the history, combining two branches. It preserves the exact history of the feature branch.
-* `git rebase` rewrites the commit history by re-applying commits from your feature branch on top of the target branch. This creates a linear history, which is cleaner but alters the original commit data. It's best used on private feature branches before merging.
+**10. What is the "blast radius" and how do deployment strategies like canary help manage it?**
 
-**10. What is a popular Git branching strategy you have used?**
+The blast radius is the potential impact a failure can have. A canary deployment significantly reduces the blast radius by exposing a new version to only a small percentage of users first.
 
-A common and simple strategy is GitHub Flow. You have a `main` branch which is always deployable. All new work is done on a descriptive feature branch created from `main`. When work is complete, a pull request is opened to merge it back into `main`, which then triggers a deployment.
+---
 
-**### 11. What is the purpose of a `.gitignore` file?**
+## Version Control (Git)
 
-The `.gitignore` file specifies files and directories that Git should intentionally ignore. This is used to prevent committing files like build artifacts, log files, dependencies (`node_modules`), and environment-specific files (`.env`).
+**11. What is a webhook and how is it used to trigger a pipeline?**
 
-**2. What's the difference between `git pull` and `git fetch`?**
+A webhook is an automated HTTP callback. A Git platform like GitHub sends a webhook to a CI server like Jenkins whenever a specific event occurs (e.g., a `git push`). This tells the CI server to start the pipeline.
 
-* `git fetch` downloads the latest changes from the remote repository but does not integrate them into your local working branch. It lets you see what others have done.
-* `git pull` is essentially a `git fetch` followed by a `git merge`. It downloads the changes and immediately tries to merge them into your current branch.
+**12. Explain the difference between `git merge` and `git rebase`.**
 
-**13. How would you revert a commit that has already been pushed to a remote repository?**
+- `git merge` creates a new merge commit combining two branches, preserving the full branch history.
+- `git rebase` rewrites history by replaying commits from your feature branch on top of the target branch, creating a linear history. Best used on private feature branches before merging.
 
-You would use `git revert <commit-hash>`. This command creates a new commit that undoes the changes from the specified commit. This is the safe way to undo changes on a shared, public branch because it doesn't rewrite history.
+**13. What is a popular Git branching strategy?**
 
-***
+GitHub Flow: `main` is always deployable. All new work is done on a descriptive feature branch. When complete, a pull request is opened to merge it back into `main`, triggering a deployment.
 
-#### ## CI/CD Orchestrators (Jenkins, GitLab CI, GitHub Actions)
+**14. What is the purpose of a `.gitignore` file?**
 
-**14. What is a `Jenkinsfile`? What's the difference between a Declarative and a Scripted pipeline?**
+It specifies files and directories Git should ignore — build artifacts, log files, dependencies (`node_modules`), and environment-specific files (`.env`).
 
-A `Jenkinsfile` is the text file that defines a Jenkins pipeline.
+**15. What's the difference between `git pull` and `git fetch`?**
 
-* Declarative Pipeline is a newer, more structured syntax. It's easier to read and write, with a pre-defined structure of `pipeline`, `agent`, `stages`, and `steps`.
-* Scripted Pipeline is older and uses a more flexible, imperative Groovy-based syntax. It offers more power but can be more complex to maintain.
+- `git fetch` downloads changes from the remote but does not integrate them into your local branch.
+- `git pull` is `git fetch` followed by `git merge` — downloads and immediately integrates changes.
 
-**15. What is the role of a Jenkins agent (or GitLab Runner)? Why use them?**
+**16. How would you revert a commit already pushed to a remote?**
 
-An agent or runner is a worker machine that executes the jobs defined in the pipeline. We use them to distribute the build load, run builds in parallel, and create clean, isolated environments for each job without bogging down the main CI/CD server.
+Use `git revert <commit-hash>`. This creates a new commit that undoes the specified commit without rewriting history — the safe way to undo changes on a shared branch.
 
-**16. How do you manage secrets in your CI/CD pipeline?**
+**17. What is the purpose of `git stash`?**
 
-Secrets should never be hardcoded. They are managed using the CI tool's built-in secrets management, such as Jenkins Credentials, GitLab CI/CD variables (masked), or GitHub Actions secrets. For more advanced needs, we can integrate with an external vault like HashiCorp Vault or AWS Secrets Manager.
+`git stash` temporarily shelves uncommitted changes, leaving a clean working directory. Useful when you need to switch branches without committing. Re-apply with `git stash pop`.
 
-**17. What is a multi-branch pipeline and why is it useful?**
+**18. How do you resolve a merge conflict?**
 
-A multi-branch pipeline in Jenkins automatically discovers branches in your Git repository and creates a pipeline for each one that contains a `Jenkinsfile`. This is useful because it allows every feature branch to be automatically built and tested without manual job configuration.
+1. Git marks conflicting files.
+2. Open the file and look for conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`).
+3. Manually edit to keep the desired changes and remove markers.
+4. `git add <filename>` to stage the resolved file.
+5. `git commit` to complete the merge.
 
-**18. In GitHub Actions, what is the difference between a workflow, a job, and a step?**
+**19. What does `git cherry-pick` do?**
 
-* Workflow: The highest-level concept. It's the entire automated process, defined in a YAML file.
-* Job: A set of steps that execute on the same runner. A workflow can have one or more jobs that run in parallel or sequentially.
-* Step: An individual task within a job. It can be a shell command or a pre-built Action.
+`git cherry-pick <commit-hash>` applies a specific commit from one branch onto another. Useful when you need only one or two commits from a feature branch instead of merging the entire branch.
 
-**19. How can you optimize the performance of your CI pipelines?**
+**20. Why is `git push --force` dangerous on a shared branch?**
 
-You can optimize by using Docker layer caching, running jobs in parallel, using lighter base images, and storing dependencies in a cache to avoid downloading them on every run.
+It overwrites the remote branch history with your local history. Team members who have pulled the branch will have their work invalidated. Only use on private feature branches, and even then, with extreme caution.
 
-**20. Have you ever had to troubleshoot a failing pipeline? Can you give an example?**
+**21. What is a Git tag and when would you use it?**
 
-"Yes, a common issue is a test failure that only happens in the CI environment. I'd start by checking the logs for the failed step. If that's not enough, I would try to replicate the CI environment locally using Docker. In one instance, a test failed because the CI agent's database version was slightly different from our local ones. We fixed it by specifying the exact database version in our Docker-based test setup."
+A tag is a pointer to a specific commit used to mark release versions (e.g., `v1.4.2`). Unlike branches, tags don't move as new commits are added. CI/CD pipelines often trigger release deployments when a version-matching tag is pushed.
 
-***
+**22. What does it mean to be in a "detached HEAD" state?**
 
-#### ## Containerization (Docker)
+`HEAD` is pointing directly to a specific commit rather than a branch. You can look around and make experimental commits, but they won't belong to any branch and can be lost once you switch back to a branch.
 
-**21. What is a `Dockerfile`? Can you describe its basic structure?**
+---
 
-A `Dockerfile` is a text file with instructions for building a Docker image. It typically starts with a `FROM` instruction to specify a base image, followed by `COPY` or `ADD` to add files, `RUN` to execute commands (like installing packages), `EXPOSE` to document a port, and finally a `CMD` or `ENTRYPOINT` to specify the command to run when a container starts.
+## Jenkins
 
-**22. What is the difference between the `COPY` and `ADD` instructions in a Dockerfile?**
+**23. What is a `Jenkinsfile`? What's the difference between Declarative and Scripted pipelines?**
 
-Both copy files into the image. However, `ADD` has some extra features: it can automatically extract tar files and can fetch files from a URL. The best practice is to always use `COPY` unless you specifically need `ADD`'s extra functionality, as `COPY` is more explicit.
+A `Jenkinsfile` defines a Jenkins pipeline.
+- Declarative Pipeline: Newer, more structured syntax with pre-defined structure (`pipeline`, `agent`, `stages`, `steps`). Easier to read and maintain.
+- Scripted Pipeline: Older, imperative Groovy-based syntax. More flexible but more complex.
 
-**23. Explain the difference between `CMD` and `ENTRYPOINT`.**
+**24. What is the role of a Jenkins agent?**
 
-* `ENTRYPOINT` configures the primary executable for the container. It's not easily overridden.
-* `CMD` provides the default arguments for the `ENTRYPOINT`. These arguments are easily overridden when starting the container.
-* A common pattern is to use `ENTRYPOINT` for the command (e.g., `python`) and `CMD` for the argument (e.g., `app.py`).
+An agent is a worker machine that executes jobs defined in the pipeline. Agents distribute build load, allow parallel runs, and create clean, isolated environments without overloading the main Jenkins server.
 
-**24. What are Docker layers? How does layer caching help in building images faster?**
+**25. What is a multi-branch pipeline and why is it useful?**
 
-Each instruction in a `Dockerfile` creates a read-only layer. When you rebuild an image, Docker caches the layers. If an instruction hasn't changed, Docker reuses the layer from the cache instead of re-running it. This is why you should order your `Dockerfile` instructions from least to most frequently changing to maximize cache usage.
+A multi-branch pipeline automatically discovers branches in your Git repository and creates a pipeline for each one containing a `Jenkinsfile`. Every feature branch is automatically built and tested without manual job configuration.
 
-**25. How can you create a smaller, more secure Docker image?**
+**26. What is the purpose of the `post` section in a Declarative Jenkinsfile?**
 
-By using multi-stage builds. You use one stage with a larger build environment to compile your code and run tests. Then, you `COPY` only the compiled application artifact into a final, smaller base image (like `alpine` or `distroless`) for production. This removes all the build tools and dependencies, reducing size and attack surface.
+The `post` section defines actions that run at the end of a pipeline or stage — cleanup tasks, sending notifications, or different logic based on pipeline status (`always`, `success`, `failure`).
 
-**26. What is `docker-compose` and what is it typically used for?**
+**27. What is a shared library in Jenkins?**
 
-`docker-compose` is a tool for defining and running multi-container Docker applications. It uses a YAML file (`docker-compose.yml`) to configure the application's services, networks, and volumes. It's primarily used for setting up local development and testing environments.
+A shared library provides reusable Groovy code and pipeline logic shared across multiple Jenkins pipelines. It reduces code duplication and allows teams to centralize and version-control common pipeline tasks.
 
-**27. What's the difference between a Docker image and a Docker container?**
+**28. What's the difference between a `script` block and a `sh` step in a Jenkinsfile?**
 
-* An image is a read-only template that contains the application and its environment. It's like a class or a blueprint.
-* A container is a runnable instance of an image. It's like an object or an instance of a class. You can run multiple containers from the same image.
+A `sh` step executes a shell command. A `script` block is used within a Declarative pipeline to allow more complex scripted pipeline logic (if/else conditions, loops, variable definitions).
 
-***
+---
 
-#### ## Artifact & Package Management
+## GitLab CI
 
-**28. Why do we need an artifact repository like JFrog Artifactory or Sonatype Nexus?**
+**29. What is the purpose of the `.gitlab-ci.yml` file?**
 
-We need an artifact repository to store, version, and manage the binary outputs (artifacts) of our build process. It acts as a single source of truth for our deployable units, caches external dependencies for faster and more reliable builds, and helps manage access control and security scanning of artifacts.
+It is the core of GitLab CI/CD — a YAML file in the root of your repository defining pipeline structure: the stages, jobs, and conditions under which they run.
 
-**29. What kind of artifacts have you managed in a repository?**
+**30. What is a GitLab Runner?**
 
-I've managed Docker images in Amazon ECR, Java `.jar` files in Nexus, and npm packages in JFrog Artifactory.
+A GitLab Runner is a worker process that executes CI/CD jobs. Like Jenkins agents, they separate execution from orchestration, enabling parallel runs and isolated build environments.
 
-**30. How do you version your artifacts? What is semantic versioning?**
+**31. How do you manage secrets in GitLab CI?**
 
-Artifact versions should be unique and traceable. A common practice is to tag them with the Git commit hash or a build number. Semantic Versioning (SemVer) is a popular standard that uses a `MAJOR.MINOR.PATCH` format (e.g., `1.2.5`). `MAJOR` versions indicate breaking changes, `MINOR` versions add functionality in a backward-compatible way, and `PATCH` versions are for backward-compatible bug fixes.
+Use GitLab CI/CD variables (masked) in project or group settings. For advanced needs, integrate with HashiCorp Vault or cloud secret managers. Never hardcode secrets in `.gitlab-ci.yml`.
 
-***
+---
 
-#### ## Configuration Management & Infrastructure as Code (IaC)
+## GitHub Actions
 
-**31. What is Ansible and what is it used for in a CI/CD context?**
+**32. In GitHub Actions, what is the difference between a workflow, a job, and a step?**
 
-Ansible is a configuration management tool used to automate application deployment, software provisioning, and system configuration. In a CI/CD context, it's often used in the deploy stage to configure servers and push out the new version of an application.
+- Workflow: The entire automated process defined in a YAML file.
+- Job: A set of steps that execute on the same runner. A workflow can have multiple jobs running in parallel or sequentially.
+- Step: An individual task within a job — a shell command or a pre-built Action.
 
-**32. What is an Ansible playbook? What is a role?**
+**33. Why might a pipeline run on a self-hosted runner instead of a cloud-provided one?**
 
-* A playbook is a YAML file that defines a set of tasks to be executed on a remote server.
-* A role is a standardized, reusable way to organize playbooks and related files (templates, handlers) to facilitate sharing and reuse.
+To access resources in a private network, use custom hardware (like a GPU), comply with security policies, or reduce costs for high-volume builds.
 
-**33. Why is Ansible considered agentless?**
+**34. How do you pass data or artifacts from one stage to another?**
 
-Ansible is agentless because it doesn't require any special software (an agent) to be installed on the managed nodes. It communicates over standard protocols like SSH for Linux and WinRM for Windows.
+Most CI/CD tools provide an artifact mechanism. In Jenkins, use `stash` and `unstash`. In GitLab CI and GitHub Actions, define `artifacts` in one job for download by subsequent jobs.
 
-**34. What is Terraform? How is it different from Ansible?**
+---
 
-Terraform is an Infrastructure as Code (IaC) tool used for provisioning infrastructure (servers, databases, networks).
+## Docker
 
-* The main difference is Terraform provisions infrastructure (the house), while Ansible configures what's inside it (the furniture).
-* Terraform uses a declarative approach (you define the desired state), while Ansible is more procedural (you define the steps to get there).
+**35. What is a `Dockerfile`? Describe its basic structure.**
 
-**35. What is the purpose of the Terraform state file?**
+A `Dockerfile` is a text file with instructions for building a Docker image. It typically starts with `FROM` (base image), followed by `COPY`/`ADD` (add files), `RUN` (execute commands), `EXPOSE` (document a port), and `CMD`/`ENTRYPOINT` (specify the startup command).
 
-The Terraform state file (`terraform.tfstate`) is a JSON file that keeps track of the resources Terraform manages. It maps your configuration to the real-world resources, tracks metadata, and is crucial for planning and applying future changes.
+**36. What is the difference between the `COPY` and `ADD` instructions?**
 
-**36. What does the `terraform plan` command do?**
+Both copy files into the image. `ADD` can also automatically extract tar archives and fetch remote URLs. Best practice: always use `COPY` unless you specifically need `ADD`'s extra functionality, as `COPY` is more transparent and predictable.
 
-`terraform plan` creates an execution plan. It compares the desired state in your configuration files with the current state of the infrastructure (read from the state file) and shows you exactly what changes will be made (created, updated, or destroyed) if you run `terraform apply`.
+**37. Explain the difference between `CMD` and `ENTRYPOINT`.**
 
-**37. What does the term "idempotency" mean?**
+- `ENTRYPOINT` configures the primary executable for the container — not easily overridden.
+- `CMD` provides default arguments for `ENTRYPOINT` — easily overridden at runtime.
+A common pattern: `ENTRYPOINT` for the command (`python`) and `CMD` for the argument (`app.py`).
 
-Idempotency means that running an operation multiple times will have the same result as running it once. Tools like Ansible are designed to be idempotent; if you run a playbook to ensure a package is installed, it will install it the first time and do nothing on subsequent runs if it's already there.
+**38. What are Docker layers? How does layer caching speed up builds?**
 
-***
+Each instruction in a `Dockerfile` creates a read-only layer. Docker caches layers and reuses them if the instruction hasn't changed. Order instructions from least to most frequently changing to maximize cache hits.
 
-#### ## Container Orchestration (Kubernetes)
+**39. How can you create a smaller, more secure Docker image?**
 
-**38. What is a Kubernetes Pod? Is it the smallest deployable unit?**
+Use multi-stage builds: compile in a larger build image, then copy only the binary into a minimal final image (`alpine`, `distroless`, `scratch`). Remove build tools and package caches in the same `RUN` layer that installs them.
 
-Yes, a Pod is the smallest and simplest deployable unit in Kubernetes. It's a wrapper around one or more containers, sharing the same storage, network resources, and a specification for how to run the containers.
+**40. What's the difference between a Docker image and a Docker container?**
 
-**39. What is the difference between a Deployment and a Service in Kubernetes?**
+- An image is a read-only template containing the application and its environment — like a class blueprint.
+- A container is a runnable instance of an image — like an object instance. Multiple containers can run from the same image.
 
-* A Deployment manages the lifecycle of Pods. It ensures that a specified number of replica Pods are running and handles updates using strategies like rolling updates.
-* A Service provides a stable network endpoint (a single IP address and DNS name) to access a group of Pods. It acts as a load balancer, directing traffic to the Pods managed by a Deployment.
+**41. What is a Docker volume and why is it used?**
 
-**40. How does Kubernetes handle a rolling update?**
+A Docker volume persists data generated by containers. Volumes are managed by Docker, exist outside the container's writable layer, and ensure data is not lost when a container is stopped or removed.
 
-During a rolling update, the Kubernetes Deployment incrementally replaces old Pods with new ones. It ensures that a certain number of Pods are always available, avoiding downtime. It will create a new Pod, wait for it to be ready, and then terminate an old one, repeating this process until all Pods are updated.
+**42. What is the purpose of the `.dockerignore` file?**
 
-**41. What is `kubectl`? Name a few commands you use frequently.**
+It lists files and directories excluded from the Docker build context — preventing sensitive files from being copied into the image and speeding up builds by ignoring large files like `.git` or `node_modules`.
 
-`kubectl` is the command-line tool for interacting with a Kubernetes cluster. Common commands I use are:
+**43. What is the difference between `docker stop` and `docker kill`?**
 
-* `kubectl get pods` (to list pods)
-* `kubectl describe pod <pod-name>` (to get detailed info for troubleshooting)
-* `kubectl logs <pod-name>` (to view container logs)
-* `kubectl apply -f <filename.yaml>` (to create or update a resource)
+`docker stop` sends `SIGTERM`, waits (default 10 seconds), then sends `SIGKILL` if the process hasn't stopped. `docker kill` sends `SIGKILL` immediately. `docker stop` is the graceful option.
 
-**42. What is a Helm chart and why is it useful?**
+**44. How do Docker volumes differ from bind mounts?**
 
-Helm is a package manager for Kubernetes. A Helm chart is a collection of files that describe a related set of Kubernetes resources. It's useful because it allows you to package, version, share, and manage complex applications as a single, configurable unit, making deployments much simpler.
+A bind mount maps a specific host path into the container — convenient for development but tightly coupled to host filesystem layout. A named Docker volume is managed by Docker, stored under `/var/lib/docker/volumes/`, and is the recommended approach for production persistent data.
 
-**43. What is the purpose of a `ConfigMap` and a `Secret` in Kubernetes?**
+**45. What is `docker-compose` and what is it typically used for?**
 
-Both are used to decouple configuration from container images.
+`docker-compose` defines and runs multi-container Docker applications using a YAML file (`docker-compose.yml`). Primarily used for local development and testing environments.
 
-* A `ConfigMap` is used to store non-confidential configuration data as key-value pairs (e.g., application URLs, environment settings).
-* A `Secret` is used specifically for sensitive data like passwords, API keys, or TLS certificates. The data is stored in base64 encoding.
+---
 
-**44. Explain the role of the Kubelet.**
+## Kubernetes
 
-The Kubelet is an agent that runs on every node in the Kubernetes cluster. Its primary job is to ensure that the containers described in PodSpecs are running and healthy on its node. It doesn't manage containers it wasn't created to manage.
+**46. What is a Kubernetes Pod?**
 
-***
+A Pod is the smallest deployable unit in Kubernetes. It is a wrapper around one or more containers that share the same storage, network resources, and specification for how to run.
 
-#### ## Monitoring & Observability
+**47. What is the difference between a Deployment and a Service in Kubernetes?**
 
-**45. What's the difference between monitoring and observability?**
+- A Deployment manages the lifecycle of Pods — ensures a specified number of replicas are running and handles rolling updates.
+- A Service provides a stable network endpoint (IP and DNS name) to access a group of Pods — acts as a load balancer.
 
-* Monitoring is about watching for pre-defined problems. You collect metrics for known failure modes (like CPU usage) and get alerted when a threshold is crossed. It tells you _that_ something is wrong.
-* Observability is about having enough data to understand and debug novel problems you've never seen before. It allows you to ask arbitrary questions about your system to figure out _why_ something is wrong.
+**48. How does Kubernetes handle a rolling update?**
 
-**46. What are the three pillars of observability?**
+The Deployment incrementally replaces old Pods with new ones, ensuring a minimum number of Pods are always available. It creates a new Pod, waits for it to be ready, then terminates an old one — repeating until all Pods are updated.
 
-The three pillars are Metrics (numerical, time-series data like request count or CPU usage), Logs (timestamped, unstructured text records of events), and Traces (which show the lifecycle of a request as it travels through a distributed system).
+**49. What is `kubectl`? Name a few commands you use frequently.**
 
-**47. What is Prometheus? How does it collect metrics from applications?**
+`kubectl` is the command-line tool for interacting with a Kubernetes cluster. Common commands:
+- `kubectl get pods` — list pods
+- `kubectl describe pod <name>` — detailed info for troubleshooting
+- `kubectl logs <name>` — view container logs
+- `kubectl apply -f <file>` — create or update a resource
 
-Prometheus is an open-source monitoring and alerting toolkit. It collects metrics using a pull-based model. It periodically scrapes HTTP endpoints (called `/metrics`) exposed by applications, which contain metrics in a simple text-based format.
+**50. What is the purpose of a `ConfigMap` and a `Secret` in Kubernetes?**
 
-**48. What is Grafana used for?**
+Both decouple configuration from container images.
+- `ConfigMap` stores non-confidential configuration data as key-value pairs.
+- `Secret` stores sensitive data like passwords and API keys (base64-encoded).
 
-Grafana is an open-source visualization and analytics tool. It's commonly used to create interactive dashboards and graphs by querying data sources like Prometheus, Elasticsearch, or Loki. It turns raw metrics and logs into meaningful visualizations.
+**51. What is a Namespace in Kubernetes?**
 
-**49. In your pipeline, how would you verify that a deployment was successful?**
+A Namespace creates a virtual cluster inside a physical cluster. Used to isolate resources for different teams, environments (dev, staging), or projects, helping with organization and access control.
 
-A simple verification is to check the exit status of the deployment command. A more robust method is to add a "smoke test" stage after deployment. This stage would run a quick check, like sending an HTTP request to the application's health check endpoint and verifying it returns a `200 OK` status.
+**52. What is an Ingress and what problem does it solve?**
 
-**50. What is a health check or liveness probe in Kubernetes?**
+An Ingress manages external HTTP/HTTPS access to services, acting as a reverse proxy. It defines routing rules to direct external traffic to different services based on hostname or URL path. It requires an Ingress Controller to actually implement the rules.
 
-A liveness probe is a check that the Kubelet performs periodically to determine if a container is still running. If the probe fails (e.g., an HTTP endpoint stops responding), the Kubelet will kill the container and restart it, helping the application to self-heal.
+**53. What is the difference between a liveness, readiness, and startup probe?**
 
+- Liveness Probe: "Is the container alive?" Failure causes a restart.
+- Readiness Probe: "Is the container ready for traffic?" Failure removes the Pod from Service endpoints without restarting.
+- Startup Probe: Disables liveness and readiness probes until it succeeds — protects slow-starting containers from premature kills.
 
+**54. What is a DaemonSet? Give a use case.**
 
+A DaemonSet ensures all (or some) nodes run a copy of a Pod. Common use cases: cluster-wide log collectors (Fluentd), monitoring agents (Prometheus Node Exporter), or network plugins.
 
+**55. How can you limit the CPU and memory resources a Pod can consume?**
 
-Of course! Here are the answers to the second set of 50 questions.
+Set resource requests (guaranteed amount) and limits (maximum allowed) in the Pod spec. Exceeding the memory limit terminates the container.
 
-***
+**56. What is the difference between a Kubernetes Service of type `ClusterIP`, `NodePort`, and `LoadBalancer`?**
 
-#### ## CI/CD Principles & Strategy
+- `ClusterIP`: Internal cluster IP only — not reachable from outside.
+- `NodePort`: Exposes the service on a static port on each Node's IP — reachable from outside.
+- `LoadBalancer`: Provisions a cloud provider load balancer forwarding traffic to the service — standard way to expose services to the internet.
 
-#### **1. What is a build artifact? Can you provide a few examples?**
+**57. What is a Helm chart and why is it useful?**
 
-A build artifact is the output of a build process—the file or set of files that are ready to be tested and deployed. Examples include a Docker image, a Java `.jar` or `.war` file, a compiled C++ executable, or a zipped folder of static HTML/CSS/JS files.
+Helm is a package manager for Kubernetes. A chart bundles related Kubernetes manifests into a parameterized, versioned package — solving the problem of managing nearly-identical YAML files across environments using a single chart with different values files.
 
-**2. Explain the difference between Blue/Green and Canary deployment strategies.**
+**58. What is the difference between a Deployment and a StatefulSet?**
 
-* Blue/Green Deployment: You have two identical production environments: Blue (the current version) and Green (the new version). All traffic is switched from Blue to Green at once. This allows for an instant rollback by simply switching traffic back to Blue. The main drawback is the cost of maintaining two full environments.
-* Canary Deployment: You release the new version to a small subset of users (the "canaries"). You monitor for errors and performance issues. If it's stable, you gradually roll it out to more users. This is lower risk but a more complex and slower process.
+A Deployment manages stateless pods — each is interchangeable with random names. A StatefulSet manages stateful pods that need stable, unique network identities, stable persistent storage per pod, and ordered startup/shutdown — used for databases and message queues.
 
-**3. What are DORA metrics and why are they important?**
+**59. What does a Kubernetes `Ingress` do and why do you need an Ingress Controller?**
 
-DORA (DevOps Research and Assessment) metrics are four key indicators used to measure the performance of a software development team. They are:
+An Ingress resource defines HTTP/HTTPS routing rules. It is just a configuration object — it does nothing alone. An Ingress Controller (nginx-ingress, Traefik, AWS ALB Ingress Controller) is a pod that watches Ingress resources and configures an actual proxy to implement the rules.
 
-1. Deployment Frequency: How often you deploy to production.
-2. Lead Time for Changes: How long it takes from commit to production.
-3. Mean Time to Recovery (MTTR): How long it takes to restore service after an incident.
-4.  Change Failure Rate: The percentage of deployments that cause a failure in production.
+**60. What is the role of the Kubelet?**
 
-    They are important because they provide a balanced view of both team velocity and operational stability.
+The Kubelet is an agent running on every node. It ensures containers described in PodSpecs are running and healthy on its node.
 
-**4. What does it mean for a process to be idempotent? Why is this important for automation scripts?**
+**61. What is the role of etcd in a Kubernetes cluster?**
 
-Idempotency means that an operation can be applied multiple times without changing the result beyond the initial application. This is crucial for automation because it makes scripts safe to re-run. If a deployment script fails halfway, you can simply run it again, and it will only complete the unfinished tasks without breaking what's already done.
+etcd is the primary datastore — a consistent, highly-available key-value store that holds all cluster data including configuration, state, and metadata. It is the single source of truth for the cluster.
 
-**5. What is rollback? What factors would you consider when deciding to perform a rollback?**
+---
 
-A rollback is the process of reverting a system to its previous state after a failed deployment. I would consider the severity of the issue (is it a minor UI bug or a critical outage?), the impact on users, and the time to fix. If the Mean Time to Recovery (MTTR) is lower by rolling back than by rolling forward with a hotfix, then a rollback is the right choice.
+## Helm
 
-**6. How do you ensure the quality of code being merged into the main branch?**
+**62. What is a Helm values file and why is it useful?**
 
-Code quality is ensured through a combination of automated checks and manual reviews. This includes a CI pipeline that runs unit tests, static code analysis (linting), and security scans on every commit. Additionally, a mandatory peer review process (via Pull/Merge Requests) ensures another developer has approved the changes.
+A `values.yaml` file contains default parameters for a Helm chart. Different values files per environment (e.g., `values-dev.yaml`, `values-prod.yaml`) allow deploying the same chart with different configurations without duplicating manifests.
 
-**7. What is the "blast radius" and how do deployment strategies like Canary help manage it?**
+**63. What is the difference between `helm install` and `helm upgrade`?**
 
-The blast radius is the potential impact a failure can have on your users and system. A Canary deployment significantly reduces the blast radius by exposing a new, potentially buggy version of the software to only a small percentage of users. If a failure occurs, only those few users are affected, not the entire user base.
+`helm install` deploys a chart for the first time, creating a new release. `helm upgrade` updates an existing release with a new chart version or new values. Use `helm upgrade --install` to perform either operation in one command.
 
-***
+---
 
-#### ## Version Control & Git
+## Terraform
 
-**8. What is the purpose of the `git stash` command?**
+**64. What is Terraform? How is it different from Ansible?**
 
-`git stash` temporarily shelves (or stashes) your uncommitted changes, leaving you with a clean working directory. This is useful when you need to quickly switch branches to work on something else, but you're not ready to commit your current work. You can later re-apply the stashed changes with `git stash pop`.
+Terraform is an IaC tool for provisioning infrastructure. Ansible is a configuration management tool for configuring software on that infrastructure. Terraform provisions the house; Ansible furnishes it. Terraform is declarative; Ansible is more procedural.
 
-**9. How would you resolve a merge conflict?**
+**65. What is the purpose of the Terraform state file?**
 
-1. Git will mark the conflicting files.
-2. Open the marked file(s) in a text editor.
-3. Look for the conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`).
-4. Manually edit the file to keep the desired changes and remove the conflict markers.
-5. Use `git add <filename>` to stage the newly resolved file.
-6. Finally, run `git commit` to complete the merge.
+The state file (`terraform.tfstate`) tracks the resources Terraform manages, mapping configuration to real-world resources. It is essential for planning and applying future changes.
 
-**10. What is a Pull Request (PR) or Merge Request (MR)?**
+**66. What does `terraform plan` do?**
 
-A Pull Request (on GitHub/Bitbucket) or Merge Request (on GitLab) is a way to propose and collaborate on changes to a repository. It's a formal request to merge code from one branch (a feature branch) into another (like `main`). It allows for code review, discussion, and automated CI checks before the changes are integrated.
+It creates an execution plan — compares the desired state in your configuration with the current state in the state file and shows exactly what will be created, updated, or destroyed if you run `terraform apply`.
 
-**11. What does the `git cherry-pick` command do?**
+**67. What does `terraform init` do?**
 
-`git cherry-pick <commit-hash>` is used to apply a specific commit from one branch onto another branch. It's useful when you only need to bring over one or two specific commits from a feature branch instead of merging the entire branch.
+It initializes the working directory — downloads required provider plugins and sets up the backend for state file storage. Always run it first in a new Terraform project.
 
-**12. What does it mean to be in a "detached HEAD" state in Git?**
+**68. What is a Terraform provider?**
 
-A detached HEAD state means that your `HEAD` (the pointer to your current location) is pointing directly to a specific commit, not to a branch. This can happen if you `git checkout <commit-hash>`. You can look around and make experimental commits, but they won't belong to any branch and can be lost once you switch back to a branch.
+A provider is a plugin that allows Terraform to interact with a specific API — a cloud platform like AWS, a SaaS provider like Cloudflare, or an on-premise technology like vSphere.
 
-**13. Why is it a bad idea to use `git push --force` on a shared branch?**
+**69. Why is it important to keep the Terraform state file secure?**
 
-Using `git push --force` overwrites the history of the remote branch with your local history. If other team members have pulled the branch and based their work on it, a force push will invalidate their work and create major conflicts. It should only be used on your own private feature branches, and even then, with extreme caution.
+The state file can contain sensitive data in plain text (database passwords, private keys). Store it in a secure, encrypted, access-controlled remote backend (like an S3 bucket with encryption).
 
-***
+---
 
-#### ## CI/CD Tools & Pipelines (Jenkins, GitLab CI, etc.)
+## Ansible
 
-**14. How can you pass data or artifacts from one stage to another in a CI/CD pipeline?**
+**70. What is Ansible and what is it used for in a CI/CD context?**
 
-Most CI/CD tools provide a mechanism for this. In Jenkins, you can use the `stash` and `unstash` steps to pass files between stages. In GitLab CI and GitHub Actions, you can define `artifacts` in one job that can be downloaded and used by a subsequent job.
+Ansible is a configuration management tool for automating application deployment, software provisioning, and system configuration. In CI/CD, it is used in the deploy stage to configure servers and push out new application versions.
 
-**15. What is a shared library in Jenkins?**
+**71. What is an Ansible playbook? What is a role?**
 
-A shared library allows you to define reusable Groovy code and pipeline logic that can be shared across multiple Jenkins pipelines. This helps reduce code duplication and allows you to centralize and version-control common pipeline tasks.
+- A playbook is a YAML file defining tasks to be executed on remote servers.
+- A role is a standardized, reusable way to organize playbooks and related files (templates, handlers) to facilitate sharing and reuse.
 
-**16. How would you trigger a pipeline manually with custom parameters?**
+**72. Why is Ansible considered agentless?**
 
-Most CI/CD tools have a "Run Pipeline" or "Trigger Pipeline" UI button. When defining the pipeline-as-code (e.g., in a `Jenkinsfile`), you can define parameters (like string, boolean, or choice parameters). These will appear as a form in the UI, allowing you to input custom values for a manual run.
+Ansible doesn't require special software (an agent) installed on managed nodes. It communicates over SSH for Linux and WinRM for Windows.
 
-**17. What is the purpose of the `post` section in a Declarative Jenkinsfile?**
+**73. What is the difference between Push and Pull configuration management?**
 
-The `post` section defines one or more actions that will be run at the end of a pipeline or stage run. It's useful for cleanup tasks, sending notifications, or running different logic depending on the pipeline's status (`always`, `success`, `failure`, etc.).
+- Push model: A central server initiates and pushes changes to managed nodes (Ansible uses this).
+- Pull model: Managed nodes periodically check a central server and pull any changes (Puppet and Chef use this).
 
-**18. In GitLab CI, what is the purpose of the `.gitlab-ci.yml` file?**
+**74. What is idempotency and why does it matter for automation?**
 
-The `.gitlab-ci.yml` file is the core of GitLab CI/CD. It's a YAML file in the root of your repository where you define the structure of your pipeline: the stages, the jobs to run, and the conditions under which they should run.
+Idempotency means running an operation multiple times produces the same result as running it once. Ansible is designed to be idempotent — running a playbook twice only makes changes the first time.
 
-**19. What's the difference between a `script` block and a `sh` step in a Jenkinsfile?**
+**75. What is a template in Ansible?**
 
-A `sh` step is a specific function in a Jenkinsfile used to execute a shell command. A `script` block is a construct used within a Declarative pipeline to allow for a block of more complex, scripted pipeline logic (like if/else conditions, loops, or variable definitions).
+A template is a file containing variables replaced with actual values when a playbook runs, using the Jinja2 templating engine. Useful for creating configuration files customized per host.
 
-**20. Why might a pipeline run on a self-hosted runner instead of a cloud-provided one?**
+**76. In Ansible, what is an inventory file?**
 
-You might use a self-hosted runner to access resources in a private network (like a database behind a firewall), to use custom hardware (like a GPU), or to comply with security policies that don't allow code to be run on third-party infrastructure. It can also be more cost-effective for high-volume builds.
+An inventory file (INI or YAML format) defines the list of hosts Ansible will manage. It organizes hosts into groups and can set variables specific to those hosts or groups.
 
-***
+---
 
-#### ## Containers & Docker
+## Linux Administration
 
-**21. What is a Docker volume and why is it used?**
+**77. What does the `top` command show?**
 
-A Docker volume is a mechanism for persisting data generated by and used by Docker containers. Volumes are managed by Docker and exist on the host machine, outside the container's writable layer. This ensures that the data is not lost when the container is stopped or removed.
+`top` shows a real-time view of running processes. Key fields: CPU%, RES (resident memory in RAM), VIRT (virtual memory allocated), and load average at the top (1, 5, 15-minute averages). Load average above the number of CPU cores means CPU saturation.
 
-**22. What is the purpose of the `.dockerignore` file?**
+**78. What is the difference between a hard link and a symbolic link?**
 
-The `.dockerignore` file works just like `.gitignore`. It lists files and directories that should be excluded from the Docker build context. This is used to prevent sensitive files from being copied into the image and to speed up builds by ignoring large files or directories like `.git` or `node_modules`.
+A hard link is a directory entry pointing directly to an inode — both the original and the link share the same inode; deleting one doesn't remove data until all hard links are gone. A symbolic link is a special file containing a path to another file — it can cross filesystems but breaks if the target is deleted.
 
-**23. How do Docker containers communicate with each other?**
+**79. How do you check which process is listening on a specific port?**
 
-Containers can communicate by being attached to the same Docker network. By default, containers on the same user-defined bridge network can reach each other by using their container name as a DNS hostname.
+Use `ss -tlnp | grep :8080` or `lsof -i :8080`. `ss` is the modern replacement for `netstat`.
 
-**24. What's the difference between `docker exec` and `docker attach`?**
+**80. What is the difference between `ps aux` and `ps -ef`?**
 
-* `docker exec` is used to run a new command inside an already running container. It's great for debugging.
-* `docker attach` connects your terminal's standard input, output, and error streams to the main running process inside a container.
+Both display all running processes. `ps aux` uses BSD syntax and shows %CPU, %MEM, VSZ, RSS, and TTY. `ps -ef` uses POSIX syntax and shows UID, PID, PPID (parent PID), and the full command.
 
-**25. How do you see the logs of a running container?**
+**81. How do you find which files are consuming the most disk space?**
 
-You use the `docker logs <container-name-or-id>` command. You can also use the `-f` flag (`docker logs -f ...`) to follow the log output in real-time.
+Use `du -sh /* 2>/dev/null | sort -rh | head -20` to sort directories by size. For large individual files: `find / -type f -size +1G 2>/dev/null`. The `df -h` command shows disk utilization per mounted filesystem.
 
-**26. What is the difference between a private and a public Docker registry?**
+**82. What does `chmod 755` mean?**
 
-A public registry, like Docker Hub, allows anyone to pull images. A private registry, like Amazon ECR or a self-hosted one, requires authentication and is used to store an organization's proprietary container images securely.
+7 (owner) = read + write + execute, 5 (group) = read + execute, 5 (others) = read + execute. Standard for directories and executable scripts readable by everyone but writable only by the owner.
 
-**27. Explain the `EXPOSE` instruction in a Dockerfile. Does it actually publish the port?**
+**83. How do you view and follow a log file in real time?**
 
-The `EXPOSE` instruction serves as documentation. It informs Docker that the container listens on the specified network ports at runtime. It does not actually publish the port. To make the port accessible from the host, you must use the `-p` or `-P` flag in the `docker run` command.
+Use `tail -f /var/log/syslog`. For rotating log files, use `tail -F` (follows by filename). `journalctl -fu service-name` is the systemd-native equivalent.
 
-***
+**84. What is a process signal and what do `SIGTERM` and `SIGKILL` do?**
 
-#### ## IaC & Configuration Management
+Signals are inter-process communication mechanisms. `SIGTERM` (15) is a graceful termination request — the process can catch it and clean up. `SIGKILL` (9) cannot be caught or ignored — the kernel immediately terminates the process. Always try `SIGTERM` first.
 
-**28. What is the difference between Push and Pull based configuration management? Which model does Ansible use?**
+**85. What is the `/proc` filesystem?**
 
-* Push Model: A central server initiates changes and pushes them out to the managed nodes. Ansible uses this model.
-* Pull Model: The managed nodes periodically check in with a central server to see if their configuration is up-to-date and pull any changes. Puppet and Chef use this model.
+`/proc` is a virtual filesystem (not on disk) that exposes kernel and process information as files. `/proc/cpuinfo` shows CPU details, `/proc/meminfo` shows memory statistics, and `/proc/<PID>/status` shows a specific process's state. Tools like `top` and `ps` read from `/proc` internally.
 
-**29. What is a Terraform provider?**
+**86. How do you schedule a recurring task on Linux?**
 
-A provider is a plugin that allows Terraform to interact with a specific API. This could be a cloud platform like AWS, a SaaS provider like Cloudflare, or an on-premise technology like vSphere. Each provider adds a set of resources and data sources that Terraform can manage.
+Use `cron`. Edit the crontab with `crontab -e`. Format: `minute hour day-of-month month day-of-week command`. Example: `0 2 * * * /opt/backup.sh` runs a backup every day at 2 AM.
 
-**30. What does the `terraform init` command do?**
+---
 
-`terraform init` is the first command you run in a new Terraform project. It initializes the working directory by downloading the required provider plugins and setting up the backend for state file storage.
+## Shell Scripting
 
-**31. In Ansible, what is an inventory file?**
+**87. What is the difference between `$?` and `$$` in a shell script?**
 
-An inventory is a file (usually in INI or YAML format) that defines the list of hosts (managed nodes) that Ansible will manage. It can also organize hosts into groups and set variables specific to those hosts or groups.
+`$?` holds the exit code of the last executed command (0 = success, non-zero = failure). `$$` holds the PID of the current shell process.
 
-**32. What is a template in Ansible? How is it useful?**
+**88. How do you loop over a list of servers and run a command on each?**
 
-A template in Ansible is a file containing variables that can be dynamically replaced with actual values when a playbook is run. It uses the Jinja2 templating engine. This is useful for creating configuration files that are customized for each specific host.
+```bash
+for server in web01 web02 web03; do
+  ssh "$server" "systemctl status nginx"
+done
+```
 
-**33. Why is it important to keep your Terraform state file secure?**
+**89. What does `set -euo pipefail` do and why should you use it?**
 
-The state file is a record of your infrastructure and can contain sensitive data in plain text, such as database passwords or private keys. It's crucial to store it in a secure, encrypted, and access-controlled remote backend (like an AWS S3 bucket).
+- `set -e`: Exit immediately if any command returns a non-zero exit code.
+- `set -u`: Treat unset variables as errors.
+- `set -o pipefail`: A pipeline fails if any command in it fails.
 
-**34. What is `packer` and how might it be used with Terraform?**
+Together they make a shell script fail fast and loudly — essential for CI pipelines.
 
-Packer is a tool by HashiCorp used to create identical machine images (like AMIs for AWS or VMDKs for VMware) from a single source configuration. You would use Packer to build a custom, pre-configured "golden image" and then use Terraform to provision servers using that image. This speeds up server launch times.
+**90. How do you pass arguments to a shell script and reference them?**
 
-***
+Arguments are referenced as `$1`, `$2`, `$3`, etc. `$0` is the script name. `$#` is the argument count. `$@` expands to all arguments as separate words.
 
-#### ## Kubernetes & Orchestration
+**91. What is the difference between single quotes and double quotes in bash?**
 
-**35. What is a Namespace in Kubernetes used for?**
+Single quotes preserve every character literally — no variable expansion, no command substitution. Double quotes allow variable expansion (`$VAR`) and command substitution (`$(cmd)`).
 
-A Namespace is a way to create a virtual cluster inside a physical Kubernetes cluster. It's used to isolate resources for different teams, environments (e.g., `dev`, `staging`), or projects, helping with organization and access control.
+---
 
-**36. What is an Ingress and what problem does it solve?**
+## Networking Fundamentals
 
-An Ingress is a Kubernetes object that manages external access to services within the cluster, typically HTTP(S). It acts as an API gateway or reverse proxy, allowing you to define routing rules to direct external traffic to different services based on the hostname or URL path.
+**92. What is the difference between TCP and UDP?**
 
-**37. How would you scale a Deployment in Kubernetes?**
+TCP is connection-oriented: establishes a three-way handshake, guarantees ordered and reliable delivery, and retransmits lost packets. UDP is connectionless: packets are sent without a connection, with no delivery guarantee. TCP is used for web traffic and SSH. UDP is used for DNS, video streaming, and VoIP.
 
-You can scale a Deployment using the `kubectl scale` command, for example: `kubectl scale deployment my-app --replicas=5`. Alternatively, you can edit the `replicas` field in the Deployment's YAML manifest and re-apply it with `kubectl apply`.
+**93. What happens when you type a URL into a browser and press Enter?**
 
-**38. What is the role of etcd in a Kubernetes cluster?**
+1. Browser checks local cache and `/etc/hosts`.
+2. DNS resolver queries recursively from root to TLD to authoritative nameserver to resolve to an IP.
+3. Browser opens a TCP connection (three-way handshake) to the IP on port 443.
+4. TLS handshake negotiates cipher and exchanges certificates.
+5. HTTP request is sent and server responds with HTML.
 
-etcd is the primary datastore for a Kubernetes cluster. It's a consistent and highly-available key-value store that holds all cluster data, including the configuration, state, and metadata of all resources. It is the single source of truth for the cluster.
+**94. What is NAT and why is it used?**
 
-**39. What is the difference between a `livenessProbe`, a `readinessProbe`, and a `startupProbe`?**
+NAT (Network Address Translation) maps private IP addresses to a public IP before packets leave a network. It conserves IPv4 addresses and adds a layer of security by hiding internal topology. In cloud environments, instances in private subnets use NAT Gateways to reach the internet without being directly reachable from it.
 
-* Liveness Probe: Asks "Is the application alive?" If it fails, Kubernetes restarts the container.
-* Readiness Probe: Asks "Is the application ready to accept traffic?" If it fails, Kubernetes removes the Pod from the Service's endpoints, so it doesn't receive new requests.
-* Startup Probe: Used for slow-starting containers. It disables the liveness and readiness probes until it succeeds, preventing the container from being killed prematurely.
+**95. What is a subnet mask and what does `/24` mean?**
 
-**40. What is a DaemonSet? Give an example of a use case.**
+A subnet mask defines which portion of an IP address identifies the network vs. the host. `/24` (CIDR notation) means 24 bits are the network prefix, leaving 8 bits for hosts — 256 addresses (254 usable). `192.168.1.0/24` covers `192.168.1.1` to `192.168.1.254`.
 
-A DaemonSet ensures that all (or some) nodes in a cluster run a copy of a Pod. A common use case is for deploying cluster-wide agents like a log collector (Fluentd), a monitoring agent (Prometheus Node Exporter), or a network plugin.
+**96. What is the purpose of SSH and how does key-based authentication work?**
 
-**41. How can you limit the CPU and memory resources a Pod can consume?**
+SSH provides encrypted remote command execution. Key-based authentication: the user generates a key pair, places the public key in `~/.ssh/authorized_keys` on the server, keeps the private key locally. The server issues a challenge encrypted with the public key; only the private key holder can respond, proving identity without a password.
 
-You can set resource requests and limits in the Pod's specification.
+**97. What is a load balancer and what are the two main types?**
 
-* Requests: The amount of resources Kubernetes guarantees for the container.
-* Limits: The maximum amount of resources the container is allowed to use. If it exceeds the memory limit, it will be terminated.
+A load balancer distributes incoming traffic across multiple backend servers. Layer 4 (L4) load balancers route based on IP and port — fast but blind to HTTP content. Layer 7 (L7) load balancers understand HTTP and can route based on URL path, hostname, or headers — enabling sticky sessions, SSL termination, and path-based routing.
 
-***
+**98. What is the difference between a router and a switch?**
 
-#### ## Security in DevOps (DevSecOps)
+A switch operates at Layer 2 (Data Link) and forwards frames based on MAC addresses within the same network. A router operates at Layer 3 (Network) and forwards packets based on IP addresses between different networks.
 
-**42. What is DevSecOps?**
+---
 
-DevSecOps is a cultural shift that integrates security practices into the DevOps process. The goal is to automate and embed security at every stage of the software lifecycle, from design to deployment, rather than treating it as an afterthought.
+## Monitoring & Observability
 
-**43. Where in the CI/CD pipeline would you add a security scan for container images?**
+**99. What's the difference between monitoring and observability?**
 
-A container image scan should be added after the image is built but before it is pushed to the registry. This ensures that you catch vulnerabilities before the artifact is stored. It's also a good practice to periodically re-scan images that are already in the registry.
+Monitoring watches for pre-defined problems — it tells you _that_ something is wrong. Observability is about having enough data to debug novel, previously unseen problems — it lets you ask arbitrary questions to figure out _why_ something is wrong.
 
-**44. What is the difference between SAST and DAST?**
+**100. What are the three pillars of observability?**
 
-* SAST (Static Application Security Testing): A "white-box" testing method that scans the application's source code or binaries for vulnerabilities without running the code.
-* DAST (Dynamic Application Security Testing): A "black-box" testing method that tests the running application from the outside, looking for vulnerabilities by sending malicious requests.
+Metrics (numerical time-series data like request count or CPU usage), Logs (timestamped records of discrete events), and Traces (records of a request's journey through a distributed system showing latency at each hop).
 
-**45. Why is it important to use specific versions for base images in a Dockerfile (e.g., `python:3.9.1`) instead of `latest`?**
+**101. What is Prometheus? How does it collect metrics?**
 
-Using the `latest` tag leads to unpredictable builds, as the `latest` tag can be updated at any time with a new version, potentially introducing breaking changes or vulnerabilities. Pinning to a specific version ensures that your builds are deterministic and reproducible.
+Prometheus is an open-source monitoring and alerting toolkit. It uses a pull model — periodically scraping HTTP `/metrics` endpoints exposed by applications. The data is stored in its local time-series database and evaluated against alerting rules.
 
-**46. What is the principle of least privilege and how does it apply to CI/CD?**
+**102. What is Grafana used for?**
 
-The principle of least privilege states that a user or service should only be granted the minimum permissions necessary to perform its job. In CI/CD, this means the pipeline's service account should only have permissions to, for example, push to a specific container registry or deploy to a specific Kubernetes namespace, and nothing more.
+Grafana is a visualization and dashboarding platform. It connects to data sources (Prometheus, Loki, Elasticsearch, Azure Monitor) and renders time-series graphs, heatmaps, and alert panels for operational dashboards and SLO tracking.
 
-***
+**103. What is the ELK stack?**
 
-#### ## Monitoring & Cloud
+ELK stands for Elasticsearch, Logstash, and Kibana. Logstash (or Filebeat) ships logs to Elasticsearch, which indexes and stores them. Kibana provides a web UI for searching, filtering, and visualizing logs.
 
-**47. What is an SLI (Service Level Indicator) and an SLO (Service Level Objective)?**
+**104. What is an SLI and an SLO?**
 
-* An SLI is a quantitative measurement of some aspect of your service, like request latency, error rate, or system uptime.
-* An SLO is the target value or range for that SLI over a period of time. For example, an SLO could be "99.9% of homepage requests will be served in under 200ms."
+- SLI (Service Level Indicator): A quantitative measurement of some aspect of your service (e.g., request latency, error rate).
+- SLO (Service Level Objective): The target value for an SLI over a period of time (e.g., "99.9% of requests served in under 200ms").
 
-**48. What is distributed tracing?**
+**105. What is distributed tracing?**
 
-Distributed tracing is a method used to profile and monitor applications, especially those built using a microservices architecture. It tracks a single request as it flows through all the different services it interacts with, providing a complete picture of the request's journey and helping to pinpoint performance bottlenecks.
+Distributed tracing tracks a single request as it flows through all the services it interacts with, providing a complete picture of the request's journey and helping pinpoint performance bottlenecks.
 
-**49. How does using a cloud platform (like AWS, GCP, Azure) affect your CI/CD setup?**
+**106. What is a health check or liveness probe in Kubernetes?**
 
-Cloud platforms profoundly affect CI/CD by offering managed services that simplify the process. Instead of building your own Jenkins server, you can use AWS CodePipeline or GCP Cloud Build. You can store artifacts in ECR or GCR and deploy to managed Kubernetes services like EKS or GKE. This reduces the operational overhead of managing the CI/CD infrastructure itself.
+A liveness probe is a check the Kubelet performs periodically to determine if a container is still running. If the probe fails, the Kubelet kills and restarts the container, enabling self-healing.
 
-**50. What is a service mesh (like Istio or Linkerd) and what are some of its benefits?**
+---
 
-A service mesh is a dedicated infrastructure layer for managing service-to-service communication in a microservices architecture. It provides features like traffic management (e.g., intelligent routing), security (e.g., automatic mutual TLS encryption), and observability (e.g., detailed metrics and traces) without requiring any changes to the application code itself.
+## DevSecOps
 
-***
+**107. What is DevSecOps?**
 
-#### ## Azure DevOps & Azure Fundamentals (EASY)
+DevSecOps integrates security practices into the DevOps process. The goal is to automate and embed security at every stage of the software lifecycle — from design to deployment — rather than treating it as an afterthought.
 
-**51. What is an Azure Service Connection in Azure DevOps?**
-A Service Connection is a secure way to authenticate Azure DevOps to Azure RM (Resource Manager) or other external services (like AWS, Docker Hub, or GitHub). It allows pipelines to deploy resources or access external APIs.
+**108. What is the difference between SAST and DAST?**
 
-**52. What is the difference between Microsoft-Hosted and Self-Hosted agents?**
-* Microsoft-Hosted agents are VMs managed by Microsoft. They provide a fresh, clean environment for each build but have limitations on software caching, memory, and access to private VNets.
-* Self-Hosted agents are VMs or containers you manage. You install the Azure Pipelines agent on them. They are faster for incremental builds because they retain layers/packages, and they can securely sit inside your private corporate network.
+- SAST (Static Application Security Testing): A "white-box" method that scans source code or binaries for vulnerabilities without running the code.
+- DAST (Dynamic Application Security Testing): A "black-box" method that tests the running application by sending malicious requests.
 
-**53. Explain what Azure Resource Manager (ARM) is.**
-ARM is the deployment and management service for Azure. It provides a management layer that enables you to create, update, and delete resources in your Azure account. You use management features, like access control (RBAC), locks, and tags, to secure and organize your resources after deployment. ARM templates (and Bicep) use this API declaratively.
+**109. What is a CVE and how does it relate to container scanning?**
 
-**54. How do you pass variables between different jobs in an Azure YAML Pipeline?**
-You can output variables from a script and map them into the pipeline's variable syntax using `echo "##vso[task.setvariable variable=myVar;isOutput=true]someValue"`. Subsequent jobs can access this output variable by referencing the specific job's dependencies.
+CVE (Common Vulnerabilities and Exposures) is a publicly catalogued record of a specific software vulnerability (e.g., CVE-2021-44228). Container scanning tools (Trivy, Grype, Snyk) analyze image layers, identify installed packages, and match them against CVE databases.
 
-**55. What is the purpose of Azure Key Vault?**
-Azure Key Vault is a cloud service for securely storing and accessing secrets. A secret is anything that you want to tightly control access to, such as API keys, passwords, certificates, or cryptographic keys. In DevOps, pipelines fetch credentials from Key Vault rather than storing them in code or plain text variables.
+**110. Why use specific versions for base images (e.g., `python:3.9.1`) instead of `latest`?**
+
+Using `latest` leads to unpredictable builds — the `latest` tag can be updated at any time with breaking changes or new vulnerabilities. Pinning to a specific version ensures deterministic, reproducible builds.
+
+**111. What is the principle of least privilege in CI/CD?**
+
+The pipeline's service account should only have the minimum permissions necessary — for example, only permission to push to a specific container registry or deploy to a specific Kubernetes namespace.
+
+**112. What is a secret in Kubernetes and what is the problem with the default approach?**
+
+A Kubernetes Secret stores sensitive data as base64-encoded values in etcd. The problem: base64 is encoding, not encryption — anyone with `kubectl get secret` access can read them. Solutions: encrypt etcd at rest, use External Secrets Operator with Vault, and enforce RBAC strictly.
+
+**113. What is image signing and why does it matter?**
+
+Image signing cryptographically attests that a container image was produced by a trusted source and has not been tampered with. Tools like Cosign (Sigstore) sign images. Admission controllers (Kyverno, Gatekeeper) can reject unsigned or unverified images, preventing supply chain attacks.
+
+---
+
+## Artifact & Package Management
+
+**114. Why do we need an artifact repository like JFrog Artifactory or Nexus?**
+
+To store, version, and manage binary outputs of the build process. It acts as a single source of truth for deployable units, caches external dependencies for faster builds, and manages access control and security scanning.
+
+**115. What is semantic versioning?**
+
+Semantic Versioning (SemVer) uses a `MAJOR.MINOR.PATCH` format (e.g., `1.2.5`). MAJOR indicates breaking changes, MINOR adds backward-compatible functionality, and PATCH is for backward-compatible bug fixes.
+
+---
+
+## Azure DevOps & Azure Fundamentals
+
+**116. What is an Azure Service Connection?**
+
+A Service Connection is a secure way to authenticate Azure DevOps to Azure RM or external services. It allows pipelines to deploy resources or access external APIs.
+
+**117. What is the difference between Microsoft-Hosted and Self-Hosted agents?**
+
+- Microsoft-Hosted agents are VMs managed by Microsoft — fresh, clean environment per build but limited software caching and no private VNet access.
+- Self-Hosted agents are VMs or containers you manage — faster for incremental builds due to retained layers/packages, and can access private corporate networks.
+
+**118. What is Azure Key Vault?**
+
+Azure Key Vault securely stores and accesses secrets — API keys, passwords, certificates, and cryptographic keys. In DevOps, pipelines fetch credentials from Key Vault rather than storing them in code or plain text variables.
+
+**119. How do you pass variables between different jobs in an Azure YAML Pipeline?**
+
+Output variables from a script using `echo "##vso[task.setvariable variable=myVar;isOutput=true]someValue"`. Subsequent jobs can access this output variable by referencing the specific job's dependencies.
+
+**120. What is Azure Resource Manager (ARM)?**
+
+ARM is the deployment and management service for Azure. It provides a management layer for creating, updating, and deleting resources. ARM templates (and Bicep) use this API declaratively.

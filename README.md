@@ -6,8 +6,9 @@ This repository is now structured as an incremental senior DevOps learning syste
 
 1. [General Guides and Roadmaps](08_General_Guides_and_Roadmaps/1.-devops-terms.md) for overarching topics, roadmaps, and foundational DevOps concepts.
 2. [Senior DevOps Learning Path](06_Advanced_DevOps_and_Architecture/Learning_Path/README.md) for the structured 4-phase curriculum from foundations to senior readiness.
-3. [DevOps Interview Playbook](07_Interview_Preparation/devops-interview-playbook.md) for answer frameworks, command anchors, and senior interview signals.
-4. [MLOps Interview Playbook](07_Interview_Preparation/mlops-interview-playbook.md) for ML platform, model-serving, and MLOps interview preparation.
+3. **[Interview Preparation Hub](07_Interview_Preparation/README.md)** — master navigation for all interview content with role maps, difficulty tiers, and cross-reference tables.
+4. [DevOps Interview Playbook](07_Interview_Preparation/devops-interview-playbook.md) for answer frameworks, command anchors, and senior interview signals.
+5. [MLOps Interview Playbook](07_Interview_Preparation/mlops-interview-playbook.md) for ML platform, model-serving, and MLOps interview preparation.
 
 ## Incremental Directory Structure
 
@@ -44,6 +45,10 @@ This repository is now structured as an incremental senior DevOps learning syste
 | Terraform/IaC | [Terraform README](04_Infrastructure_as_Code_and_Cloud/Terraform/README.md) | [Hard Questions](07_Interview_Preparation/interview-questions-hard.md) |
 | Monitoring | [Monitoring README](05_Observability_and_Troubleshooting/Monitoring/README.md) | [Playbook](07_Interview_Preparation/devops-interview-playbook.md) |
 | Troubleshooting | [K8s Runbook](05_Observability_and_Troubleshooting/Troubleshooting/kubernetes-runbook.md) | [Scenario Drills](07_Interview_Preparation/azure-scenario-based-drills.md) |
+| eBPF & Service Mesh | [eBPF Deep-Dive](07_Interview_Preparation/advanced-ebpf-and-service-mesh.md) | [Hard Questions](07_Interview_Preparation/interview-questions-hard.md) |
+| GitOps & FinOps | [GitOps & FinOps Deep-Dive](07_Interview_Preparation/gitops-at-scale-and-finops.md) | [Hard Questions](07_Interview_Preparation/interview-questions-hard.md) |
+| Feature Stores & CT | [MLOps Pipelines Deep-Dive](07_Interview_Preparation/mlops-feature-stores-and-pipelines.md) | [MLOps Hard](07_Interview_Preparation/mlops-interview-questions-hard.md) |
+| LLMOps & GPU Serving | [LLMOps Deep-Dive](07_Interview_Preparation/mlops-llmops-and-advanced-serving.md) | [MLOps Hard](07_Interview_Preparation/mlops-interview-questions-hard.md) |
 
 ## Repository Notes
 

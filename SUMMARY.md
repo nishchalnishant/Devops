@@ -70,6 +70,7 @@
   * [MLOps](06_Advanced_DevOps_and_Architecture/MLOps.md)
   * [Real-World Test, Career, and Community](06_Advanced_DevOps_and_Architecture/Career_and_Community.md)
 * 07 Interview Preparation
+  * [Interview Preparation Hub](07_Interview_Preparation/README.md)
   * [DevOps Interview Playbook](07_Interview_Preparation/devops-interview-playbook.md)
   * [TCS Cloud Engineer Prep](07_Interview_Preparation/tcs-cloud-engineer-interview-prep.md)
   * [Azure DevOps Playbook](07_Interview_Preparation/azure-devops-interview-playbook.md)
@@ -79,6 +80,11 @@
   * [Interview Questions (Easy)](07_Interview_Preparation/interview-questions-easy.md)
   * [Interview Questions (Medium)](07_Interview_Preparation/interview-questions-medium.md)
   * [Interview Questions (Hard)](07_Interview_Preparation/interview-questions-hard.md)
+  * Advanced Topic Deep-Dives
+    * [MLOps Feature Stores & CT Pipelines](07_Interview_Preparation/mlops-feature-stores-and-pipelines.md)
+    * [LLMOps & Advanced Model Serving](07_Interview_Preparation/mlops-llmops-and-advanced-serving.md)
+    * [eBPF & Service Mesh at Scale](07_Interview_Preparation/advanced-ebpf-and-service-mesh.md)
+    * [GitOps at Scale & FinOps Engineering](07_Interview_Preparation/gitops-at-scale-and-finops.md)
 * 08 General Guides and Roadmaps
   * [DevOps Terms & Staff Dictionary](08_General_Guides_and_Roadmaps/1.-devops-terms.md)
   * [Senior → Staff Roadmap](08_General_Guides_and_Roadmaps/senior-devops-roadmap.md)
