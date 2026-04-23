@@ -1,95 +1,101 @@
-# Table of contents
+* [Table of contents](SUMMARY.md)
 
 * [DevOps Interview Handbook](README.md)
-  * [Repository Audit](REPO-AUDIT.md)
-* 01 Prerequisites and Fundamentals
-  * [Linux OS](01_Prerequisites_and_Fundamentals/Linux/README.md)
-    * [Advanced Linux Performance & Hardening](01_Prerequisites_and_Fundamentals/Linux/advanced-linux-performance-and-hardening.md)
-  * [Linux Cheat Sheet](01_Prerequisites_and_Fundamentals/Linux/CheatSheet_Linux.pdf)
-  * [Linux Notes](01_Prerequisites_and_Fundamentals/Linux/Notes_Linux.pdf)
-  * [Networking](01_Prerequisites_and_Fundamentals/Networking/README.md)
-    * [Enterprise Networking & Protocols](01_Prerequisites_and_Fundamentals/Networking/enterprise-networking-and-protocols.md)
-  * [Networking Cheat Sheet](01_Prerequisites_and_Fundamentals/Networking/CheatSheet_Networking.pdf)
-  * [Networking Notes](01_Prerequisites_and_Fundamentals/Networking/Notes_Networking.pdf)
-  * [Networking Notes 1](01_Prerequisites_and_Fundamentals/Networking/Notes_Networking_1.pdf)
-  * [Networking for DevOps](01_Prerequisites_and_Fundamentals/Networking/networking_for_devops.pdf)
-  * [Scripting](01_Prerequisites_and_Fundamentals/Scripting/README.md)
-    * [Engineering Automation at Scale](01_Prerequisites_and_Fundamentals/Scripting/engineering-automation-at-scale.md)
-  * [Shell Scripting Notes](01_Prerequisites_and_Fundamentals/Scripting/Notes_Shell_Scripting.pdf)
-  * [Shell Scripting for DevOps](01_Prerequisites_and_Fundamentals/Scripting/shell_scripting.pdf)
-* 02 Version Control and CI/CD
-  * [Git & GitHub Cheat Sheet](02_Version_Control_and_CI_CD/Git_GitHub/CheatSheet_Git_GitHub.pdf)
-  * [Git & GitHub Notes](02_Version_Control_and_CI_CD/Git_GitHub/Notes_Git_GitHub.pdf)
-  * [Advanced Git & Monorepos](02_Version_Control_and_CI_CD/Git_GitHub/advanced-git-workflows-and-monorepos.md)
-  * [GitLab Cheat Sheet](02_Version_Control_and_CI_CD/GitLab/CheatSheet_GitLab.pdf)
-  * [Jenkins & CI/CD Pipelines](02_Version_Control_and_CI_CD/Jenkins_CICD/README.md)
-    * [Platform Engineering for CI/CD](02_Version_Control_and_CI_CD/Jenkins_CICD/platform-engineering-for-cicd.md)
-  * [Jenkins Cheat Sheet](02_Version_Control_and_CI_CD/Jenkins_CICD/CheatSheet_Jenkins.pdf)
-  * [Jenkins Notes](02_Version_Control_and_CI_CD/Jenkins_CICD/Notes_Jenkins.pdf)
-  * [End-to-End Pipeline Example](02_Version_Control_and_CI_CD/Jenkins_CICD/end-to-end-ci-cd-pipeline.md)
-  * [ArgoCD & Progressive Delivery](02_Version_Control_and_CI_CD/ArgoCD/progressive-delivery-and-gitops-at-scale.md)
-  * [Supply Chain Security (SLSA)](02_Version_Control_and_CI_CD/DevSecOps/supply-chain-security-and-slsa.md)
-* [03 Containers and Orchestration](03_Containers_and_Orchestration/README.md)
-  * [Docker & Runtimes](03_Containers_and_Orchestration/Docker/container-runtimes-and-security.md)
-  * [Docker Cheat Sheet](03_Containers_and_Orchestration/Docker/CheatSheet_Docker.pdf)
-  * [Docker Networking Notes](03_Containers_and_Orchestration/Docker/Notes_Docker_Networking.pdf)
-  * [Docker Short Notes](03_Containers_and_Orchestration/Docker/Notes_TWS_Docker.pdf)
-  * [Enterprise K8s Architecture](03_Containers_and_Orchestration/Kubernetes/enterprise-kubernetes-architecture.md)
-  * [Advanced K8s Networking](03_Containers_and_Orchestration/Kubernetes/advanced-networking-and-security.md)
-  * [Kubernetes Cheat Sheet](03_Containers_and_Orchestration/Kubernetes/k8_interview_cheat_sheet.pdf)
-  * [K8s Cluster Health Checklist](03_Containers_and_Orchestration/Kubernetes/cluster_health_checklist.pdf)
-  * [Docker & Kubernetes for DevOps](03_Containers_and_Orchestration/Docker_and_kubernetes_for_devops.pdf)
-* 04 Infrastructure as Code and Cloud
-  * [Cloud Services](04_Infrastructure_as_Code_and_Cloud/Cloud_Services/README.md)
-    * [Enterprise Landing Zones](04_Infrastructure_as_Code_and_Cloud/Cloud_Services/enterprise-landing-zones.md)
-  * [Azure Cloud PDF](04_Infrastructure_as_Code_and_Cloud/Cloud_Services/azure_cloud.pdf)
-  * [Azure AWS Similarities](04_Infrastructure_as_Code_and_Cloud/Cloud_Services/azure-aws-similarities.md)
-  * [Azure Easy Questions](04_Infrastructure_as_Code_and_Cloud/Cloud_Services/azure-easy-qeustions.md)
-  * [Azure Medium Questions](04_Infrastructure_as_Code_and_Cloud/Cloud_Services/azure-medium-questions.md)
-  * [Azure Hard Questions](04_Infrastructure_as_Code_and_Cloud/Cloud_Services/azure-hard-questions.md)
-  * [Terraform (IaC)](04_Infrastructure_as_Code_and_Cloud/Terraform/README.md)
-    * [Advanced Terraform Patterns](04_Infrastructure_as_Code_and_Cloud/Terraform/advanced-terraform-patterns.md)
-    * [IaC Policy & GitOps](04_Infrastructure_as_Code_and_Cloud/Terraform/policy-and-gitops.md)
-* 05 Observability and Troubleshooting
-  * [Monitoring & Observability](05_Observability_and_Troubleshooting/Monitoring/README.md)
-  * [Monitoring PDF](05_Observability_and_Troubleshooting/Monitoring/monitoring.pdf)
-  * [Troubleshooting Runbooks](05_Observability_and_Troubleshooting/Troubleshooting/kubernetes-runbook.md)
-    * [Kubernetes Runbook](05_Observability_and_Troubleshooting/Troubleshooting/kubernetes-runbook.md)
-    * [Azure DevOps Triage](05_Observability_and_Troubleshooting/Troubleshooting/azure-devops-troubleshooting.md)
-    * [Incident Response Protocol](05_Observability_and_Troubleshooting/Troubleshooting/incident-response-runbook.md)
-  * [DevOps Errors & Troubleshooting PDF](05_Observability_and_Troubleshooting/Troubleshooting/devops_errors_and_troubleshooting.pdf)
-  * [Real-Time Troubleshooting PDF](05_Observability_and_Troubleshooting/Troubleshooting/devops_real_time_troubleshooting.pdf)
-* [06 Advanced DevOps and Architecture](06_Advanced_DevOps_and_Architecture/Learning_Path/README.md)
-  * [Enterprise Scale Architecture](06_Advanced_DevOps_and_Architecture/Enterprise_Scale_Architecture.md)
-  * [Platform Engineering & FinOps](06_Advanced_DevOps_and_Architecture/Platform_Engineering_and_FinOps.md)
-  * [Phase 1 - Foundations](06_Advanced_DevOps_and_Architecture/Learning_Path/phase-1-foundations.md)
-  * [Phase 2 - Platform And Delivery Core](06_Advanced_DevOps_and_Architecture/Learning_Path/phase-2-platform-and-delivery.md)
-  * [Phase 3 - SRE And Operations](06_Advanced_DevOps_and_Architecture/Learning_Path/phase-3-sre-and-operations.md)
-  * [Phase 4 - Senior Role Readiness](06_Advanced_DevOps_and_Architecture/Learning_Path/phase-4-senior-role-readiness.md)
-  * [Capstone Projects](06_Advanced_DevOps_and_Architecture/Learning_Path/capstone-projects.md)
-  * [MLOps](06_Advanced_DevOps_and_Architecture/MLOps.md)
-  * [Real-World Test, Career, and Community](06_Advanced_DevOps_and_Architecture/Career_and_Community.md)
-* 07 Interview Preparation
-  * [Interview Preparation Hub](07_Interview_Preparation/README.md)
-  * [DevOps Interview Playbook](07_Interview_Preparation/devops-interview-playbook.md)
-  * [TCS Cloud Engineer Prep](07_Interview_Preparation/tcs-cloud-engineer-interview-prep.md)
-  * [Azure DevOps Playbook](07_Interview_Preparation/azure-devops-interview-playbook.md)
-  * [Azure Scenario Drills](07_Interview_Preparation/azure-scenario-based-drills.md)
-  * [MLOps Interview Playbook](07_Interview_Preparation/mlops-interview-playbook.md)
-  * [General Interview Questions](07_Interview_Preparation/general-interview-questions.md)
-  * [Interview Questions (Easy)](07_Interview_Preparation/interview-questions-easy.md)
-  * [Interview Questions (Medium)](07_Interview_Preparation/interview-questions-medium.md)
-  * [Interview Questions (Hard)](07_Interview_Preparation/interview-questions-hard.md)
-  * Advanced Topic Deep-Dives
-    * [MLOps Feature Stores & CT Pipelines](07_Interview_Preparation/mlops-feature-stores-and-pipelines.md)
-    * [LLMOps & Advanced Model Serving](07_Interview_Preparation/mlops-llmops-and-advanced-serving.md)
-    * [eBPF & Service Mesh at Scale](07_Interview_Preparation/advanced-ebpf-and-service-mesh.md)
-    * [GitOps at Scale & FinOps Engineering](07_Interview_Preparation/gitops-at-scale-and-finops.md)
-* 08 General Guides and Roadmaps
-  * [DevOps Terms & Staff Dictionary](08_General_Guides_and_Roadmaps/1.-devops-terms.md)
-  * [Senior → Staff Roadmap](08_General_Guides_and_Roadmaps/senior-devops-roadmap.md)
-  * [Staff Engineering & Leadership](08_General_Guides_and_Roadmaps/staff-engineering-and-platform-leadership.md)
-  * [Original Roadmap Guide](08_General_Guides_and_Roadmaps/roadmap_README.md)
-* [Archive/Other]
-  * PL/SQL Revision Guide (legacy content)
-  * The Mountain Is You (non-technical reference)
+
+* 01 Linux and Scripting
+  * [Interview Questions](01_Linux_and_Scripting/interview.md)
+  * [Linux Cheat Sheet](01_Linux_and_Scripting/CheatSheet_Linux.md)
+  * [Linux Notes](01_Linux_and_Scripting/Notes_Linux.md)
+  * [Shell Scripting Notes](01_Linux_and_Scripting/Notes_Shell_Scripting.md)
+  * [Shell Scripting for DevOps](01_Linux_and_Scripting/shell_scripting.md)
+  * [Advanced Linux Performance & Hardening](01_Linux_and_Scripting/advanced-linux-performance-and-hardening.md)
+  * [Engineering Automation at Scale](01_Linux_and_Scripting/engineering-automation-at-scale.md)
+
+* 02 Networking
+  * [Interview Questions](02_Networking/interview.md)
+  * [Networking Cheat Sheet](02_Networking/CheatSheet_Networking.md)
+  * [Networking Notes](02_Networking/Notes_Networking.md)
+  * [Networking Notes 1](02_Networking/Notes_Networking_1.md)
+  * [Networking for DevOps](02_Networking/networking_for_devops.md)
+  * [Enterprise Networking & Protocols](02_Networking/enterprise-networking-and-protocols.md)
+
+* 03 Git and Version Control
+  * [Interview Questions](03_Git_and_Version_Control/interview.md)
+  * [Git & GitHub Cheat Sheet](03_Git_and_Version_Control/CheatSheet_Git_GitHub.md)
+  * [Git & GitHub Notes](03_Git_and_Version_Control/Notes_Git_GitHub.md)
+  * [Advanced Git & Monorepos](03_Git_and_Version_Control/advanced-git-workflows-and-monorepos.md)
+
+* 04 Docker
+  * [Interview Questions](04_Docker/interview.md)
+  * [Docker Cheat Sheet](04_Docker/CheatSheet_Docker.md)
+  * [Docker Networking Notes](04_Docker/Notes_Docker_Networking.md)
+  * [Docker Short Notes](04_Docker/Notes_TWS_Docker.md)
+  * [Container Runtimes & Security](04_Docker/container-runtimes-and-security.md)
+
+* 05 Kubernetes
+  * [Interview Questions](05_Kubernetes/interview.md)
+  * [Kubernetes Cheat Sheet](05_Kubernetes/k8_interview_cheat_sheet.md)
+  * [Cluster Health Checklist](05_Kubernetes/cluster_health_checklist.md)
+  * [Enterprise Kubernetes Architecture](05_Kubernetes/enterprise-kubernetes-architecture.md)
+  * [Advanced K8s Networking & Security](05_Kubernetes/advanced-networking-and-security.md)
+  * [Kubernetes Runbook](05_Kubernetes/kubernetes-runbook.md)
+  * [K8s Scenario-Based Questions](05_Kubernetes/kubernetes_scenario_based_questions.md)
+  * [K8s Troubleshooting Interview](05_Kubernetes/k8_troubleshooting_interview.md)
+
+* 06 Jenkins
+  * [Interview Questions](06_Jenkins/interview.md)
+  * [Jenkins Cheat Sheet](06_Jenkins/CheatSheet_Jenkins.md)
+  * [Jenkins Notes](06_Jenkins/Notes_Jenkins.md)
+  * [End-to-End CI/CD Pipeline](06_Jenkins/end-to-end-ci-cd-pipeline.md)
+  * [Platform Engineering for CI/CD](06_Jenkins/platform-engineering-for-cicd.md)
+  * [DevOps Interview Playbook](06_Jenkins/devops-interview-playbook.md)
+
+* 07 GitHub Actions
+  * [Interview Questions](07_GitHub_Actions/interview.md)
+
+* 08 GitLab CI
+  * [Interview Questions](08_GitLab_CI/interview.md)
+  * [GitLab Cheat Sheet](08_GitLab_CI/CheatSheet_GitLab.md)
+
+* 09 ArgoCD and GitOps
+  * [Interview Questions](09_ArgoCD_and_GitOps/interview.md)
+  * [Progressive Delivery & GitOps at Scale](09_ArgoCD_and_GitOps/progressive-delivery-and-gitops-at-scale.md)
+  * [GitOps at Scale & FinOps](09_ArgoCD_and_GitOps/gitops-at-scale-and-finops.md)
+
+* 10 Terraform
+  * [Interview Questions](10_Terraform/interview.md)
+  * [Advanced Terraform Patterns](10_Terraform/advanced-terraform-patterns.md)
+  * [IaC Policy & GitOps](10_Terraform/policy-and-gitops.md)
+
+* 11 Ansible
+  * [Interview Questions](11_Ansible/interview.md)
+
+* 12 Azure
+  * [Interview Questions](12_Azure/interview.md)
+
+* 13 AWS
+  * [Interview Questions](13_AWS/interview.md)
+
+* 14 DevSecOps
+  * [Interview Questions](14_DevSecOps/interview.md)
+
+* 15 Observability and SRE
+  * [Interview Questions](15_Observability_and_SRE/interview.md)
+
+* 16 Platform Engineering and FinOps
+  * [Interview Questions](16_Platform_Engineering_and_FinOps/interview.md)
+
+* 17 MLOps
+  * [Interview Questions](17_MLOps/interview.md)
+  * [MLOps Overview](17_MLOps/MLOps.md)
+  * [Feature Stores & CT Pipelines](17_MLOps/mlops-feature-stores-and-pipelines.md)
+  * [LLMOps & Advanced Model Serving](17_MLOps/mlops-llmops-and-advanced-serving.md)
+  * [MLOps Interview Playbook](17_MLOps/mlops-interview-playbook.md)
+  * [MLOps Scenario Drills](17_MLOps/mlops-scenario-based-interview-drills.md)
+
+* Learning Path
+  * [Phase 1 - Foundations](Learning_Path/phase-1-foundations.md)
+  * [Phase 2 - Platform and Delivery Core](Learning_Path/phase-2-platform-and-delivery.md)
+  * [Phase 3 - SRE and Operations](Learning_Path/phase-3-sre-and-operations.md)
+  * [Phase 4 - Senior Role Readiness](Learning_Path/phase-4-senior-role-readiness.md)
+  * [Capstone Projects](Learning_Path/capstone-projects.md)
