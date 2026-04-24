@@ -267,3 +267,230 @@ ssh_args = -o ConnectTimeout=5 -o ServerAliveInterval=10 -o ServerAliveCountMax=
 ```
 
 With a 5-second connection timeout, unreachable hosts fail fast rather than hanging for minutes.
+
+---
+
+## Scenario 9: Role Dependency Resolution Failure in Ansible Galaxy
+**Symptom:** `ansible-playbook site.yml` fails with `ERROR! the role 'geerlingguy.mysql' was not found`. The role is listed in `requirements.yml` and was installed previously. Other engineers on the team can run the playbook fine.
+
+**Diagnosis:**
+```bash
+# Check if the role is actually installed
+ansible-galaxy role list | grep mysql
+
+# Check the roles path
+ansible-config dump | grep ROLES_PATH
+# Default: ~/.ansible/roles:/etc/ansible/roles:/usr/share/ansible/roles
+
+# Check requirements.yml
+cat requirements.yml
+
+# Verify the role exists in the expected path
+ls ~/.ansible/roles/ | grep mysql
+
+# Confirm ansible.cfg roles_path setting
+grep -i roles_path ansible.cfg
+```
+
+**Root Causes and Fixes:**
+
+1. **Roles installed to a different path than Ansible searches** — If `ansible.cfg` defines `roles_path = roles/` (project-local), but `ansible-galaxy install` wrote to `~/.ansible/roles/`, the role isn't found.
+```bash
+# Install to the project-local roles directory
+ansible-galaxy install -r requirements.yml -p roles/
+
+# Or set roles_path in ansible.cfg
+[defaults]
+roles_path = roles/:~/.ansible/roles
+```
+
+2. **requirements.yml version pinning mismatch** — One engineer has a newer cached version; a fresh install resolves a different version.
+```yaml
+# requirements.yml — always pin versions
+roles:
+  - name: geerlingguy.mysql
+    version: 3.4.0
+  - name: geerlingguy.nginx
+    version: 3.1.0
+collections:
+  - name: community.mysql
+    version: ">=3.8.0,<4.0.0"
+```
+
+3. **Galaxy API rate limiting in CI** — Anonymous `ansible-galaxy install` calls are rate-limited. Authenticate or cache:
+```bash
+# Cache galaxy installs in CI
+cache:
+  key: ansible-galaxy-${{ hashFiles('requirements.yml') }}
+  paths:
+    - ~/.ansible/roles
+    - ~/.ansible/collections
+
+# Only install if cache miss
+- name: Install roles
+  run: ansible-galaxy install -r requirements.yml --force-with-deps
+```
+
+**Prevention:** Commit installed roles to the repo (`roles/` directory, excluding `.git` subdirs) for air-gapped environments or reproducible installs. Use `molecule` in CI to test roles in isolation.
+
+---
+
+## Scenario 10: Ansible Parallelism Causing Race on Shared Resource
+**Symptom:** A playbook that deploys a schema migration to a database runs fine with `--forks 1` but corrupts data when run with the default `--forks 5`. Multiple app servers are in the inventory, and the migration task runs on all of them simultaneously.
+
+**Diagnosis:**
+```bash
+# Reproduce: run with forks=1 (works) vs forks=5 (fails)
+ansible-playbook site.yml --forks 1 -v
+ansible-playbook site.yml --forks 5 -v
+
+# Check the task that mutates shared state
+grep -n "migrate\|schema\|flyway\|alembic\|django.*migrate" roles/app/tasks/main.yml
+```
+
+**Root Causes and Fixes:**
+
+1. **Migration task runs on all hosts in parallel** — Database migrations must run exactly once. Use `run_once: true` combined with a dedicated migration play:
+```yaml
+# In playbook: separate migration play runs before app deployment
+- name: Run DB migrations
+  hosts: app_servers[0]   # target only the first host
+  tasks:
+    - name: Apply schema migrations
+      command: python manage.py migrate
+      run_once: true        # belt-and-suspenders: also limit to one execution
+
+- name: Deploy application
+  hosts: app_servers        # now deploy to all
+  tasks:
+    - name: Restart app
+      service: name=myapp state=restarted
+```
+
+2. **File-based locking between Ansible forks** — For tasks that must be serialized but run on all hosts, use `throttle`:
+```yaml
+- name: Reload nginx config
+  command: nginx -s reload
+  throttle: 1   # only 1 host at a time, regardless of --forks
+```
+
+3. **Serial deployment to limit blast radius** — For rolling deployments, use `serial` at the play level:
+```yaml
+- name: Deploy app
+  hosts: app_servers
+  serial: "25%"   # deploy to 25% of hosts at a time
+  max_fail_percentage: 10   # abort if >10% of hosts fail
+  tasks:
+    - include_role: name=app
+```
+
+**Prevention:** Mark all tasks that touch shared state (DB, shared filesystem, load balancer registration) with `throttle: 1` or `run_once: true`. Document which plays are safe to run in parallel in a `RUNBOOK.md`.
+
+---
+
+## Scenario 11: Ansible Callback Plugin Breaking CI Output
+**Symptom:** After adding the `community.general.json` callback plugin to format output, the CI pipeline shows all tasks as failed even though the playbook exits 0. The log parser is misreading the JSON output.
+
+**Diagnosis:**
+```bash
+# Check active callback plugins
+ansible-config dump | grep CALLBACK
+
+# Check ansible.cfg
+grep -A5 "\[defaults\]" ansible.cfg | grep callback
+
+# Run with stdout_callback=yaml to see clean output
+ANSIBLE_STDOUT_CALLBACK=yaml ansible-playbook site.yml
+
+# Check what the CI log parser expects
+# Jenkins / GitHub Actions parse specific patterns
+```
+
+**Root Causes and Fixes:**
+
+1. **`stdout_callback` changes the entire output format** — JSON callback outputs one JSON blob at the end, not per-task lines. CI log parsers that look for `PLAY RECAP` or `ok=X` strings find nothing.
+```ini
+# ansible.cfg — use yaml for human-readable CI output
+[defaults]
+stdout_callback = yaml
+# For JSON artifacts, use a separate callback:
+callback_whitelist = community.general.json
+# This writes to a separate file, not stdout
+```
+
+2. **Multiple callbacks writing to stdout conflict** — Only one `stdout_callback` is active at a time. Additional callbacks go to `callback_whitelist` (or `callbacks_enabled` in Ansible 2.10+).
+```ini
+[defaults]
+stdout_callback = yaml
+callbacks_enabled = profile_tasks, timer   # additional callbacks, not stdout replacements
+```
+
+3. **JSON output breaks `--check` mode parsing** — In dry-run (`--check`) mode, some JSON callbacks emit partial output if tasks are skipped. Add explicit handling:
+```bash
+# In CI, use yaml callback + tee to capture structured output separately
+ANSIBLE_STDOUT_CALLBACK=yaml ansible-playbook site.yml 2>&1 | tee playbook.log
+# Parse playbook.log for PLAY RECAP section
+```
+
+**Prevention:** Test callback plugin changes in CI before merging. Add a smoke test job that runs a trivial playbook and asserts the log contains `PLAY RECAP`.
+
+---
+
+## Scenario 12: Tags Not Limiting Execution as Expected
+**Symptom:** Running `ansible-playbook site.yml --tags deploy` still runs tasks tagged `config` and `always`. The deploy takes 20 minutes when it should take 2.
+
+**Diagnosis:**
+```bash
+# List all tags in the playbook
+ansible-playbook site.yml --list-tags
+
+# List which tasks would run with --tags deploy
+ansible-playbook site.yml --tags deploy --list-tasks
+
+# Check for tasks with multiple tags
+grep -n "tags:" roles/app/tasks/main.yml
+
+# Check for `always` tagged tasks
+grep -rn "always" roles/ --include="*.yml"
+```
+
+**Root Causes and Fixes:**
+
+1. **Tasks tagged `always` run regardless of `--tags`** — `always` is a special Ansible tag. Any task with `tags: always` runs even when other tags are specified.
+```yaml
+# This task ALWAYS runs, even with --tags deploy
+- name: Gather facts
+  setup:
+  tags: always
+
+# Fix: use --skip-tags always to explicitly exclude it
+ansible-playbook site.yml --tags deploy --skip-tags always
+```
+
+2. **Role includes don't propagate tags correctly** — When including a role with `tags: deploy`, the tag applies to the role's `include_role` task, not necessarily to tasks inside the role.
+```yaml
+# This does NOT tag the tasks inside the role:
+- include_role:
+    name: myapp
+  tags: deploy
+
+# Fix: use `apply` to push tags into the role's tasks
+- include_role:
+    name: myapp
+    apply:
+      tags: deploy
+  tags: deploy   # needed on the include AND apply
+```
+
+3. **`import_tasks` vs `include_tasks` tag inheritance** — Static imports (`import_tasks`) inherit tags from the parent; dynamic includes (`include_tasks`) do not. For tag-based task selection, prefer `import_tasks`.
+```yaml
+# Tags propagate into imported tasks
+- import_tasks: deploy_tasks.yml
+  tags: deploy
+
+# Tags do NOT propagate into included tasks at parse time
+- include_tasks: deploy_tasks.yml
+  tags: deploy   # only tags the include statement itself
+```
+
+**Prevention:** After adding new roles or tasks, run `--list-tasks --tags <tag>` to verify exactly which tasks are selected. Add this as a CI check on playbook changes.
