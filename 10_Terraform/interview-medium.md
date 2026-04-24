@@ -51,3 +51,122 @@ Terragrunt is a thin wrapper around Terraform that adds: DRY configuration (keep
 
 ---
 
+
+**17. How do you structure a Terraform project for multiple environments (dev/staging/prod)?**
+
+Two common patterns:
+
+**Pattern A — Directory per environment** (simple, explicit):
+```
+environments/
+  dev/
+    main.tf       # calls shared modules with dev-specific vars
+    terraform.tfvars
+  staging/
+    main.tf
+  prod/
+    main.tf
+modules/
+  vpc/
+  eks/
+  rds/
+```
+Each environment directory has its own backend config and state. Apply per-directory: `cd environments/prod && terraform apply`.
+
+**Pattern B — Terragrunt** (DRY, scales to many accounts/regions):
+```
+live/
+  dev/us-east-1/
+    vpc/terragrunt.hcl
+    eks/terragrunt.hcl
+  prod/us-east-1/
+    vpc/terragrunt.hcl
+terragrunt.hcl   # root: common backend, provider, inputs
+```
+Terragrunt generates backend config and inherits shared inputs. Run `terragrunt run-all apply` to apply an entire environment in dependency order.
+
+**17. How does Terraform handle resource dependencies?**
+
+Terraform builds a directed acyclic graph (DAG) of resources. Dependencies are inferred automatically when one resource references another's attribute (`resource "aws_subnet" "x" { vpc_id = aws_vpc.main.id }`). Unrelated resources are created in parallel. `depends_on` adds explicit edges when there's no attribute reference. `terraform graph | dot -Tsvg > graph.svg` generates a visual dependency graph.
+
+**18. What is the `lifecycle` block and what are its options?**
+
+```hcl
+lifecycle {
+  create_before_destroy = true   # create replacement before destroying old (zero-downtime)
+  prevent_destroy       = true   # error if plan would destroy this resource
+  ignore_changes        = [tags] # don't diff these attributes (useful for auto-managed tags)
+  replace_triggered_by  = [aws_launch_template.app.latest_version] # force replace when this changes
+}
+```
+
+`create_before_destroy` is critical for resources that don't allow in-place updates (SSL certs, Launch Templates) — without it, Terraform destroys first (causing downtime). `ignore_changes` prevents Terraform from reverting auto-scaling-managed `desired_count` or EKS-managed node labels.
+
+**19. Explain Terraform's `for_each` with a map and when you'd use `toset()` with it.**
+
+`for_each` with a map creates one resource per map entry, keyed by the map key:
+```hcl
+variable "buckets" {
+  default = {
+    logs    = "us-east-1"
+    backups = "eu-west-1"
+  }
+}
+
+resource "aws_s3_bucket" "this" {
+  for_each = var.buckets
+  bucket   = each.key
+  region   = each.value
+}
+# Creates: aws_s3_bucket.this["logs"], aws_s3_bucket.this["backups"]
+```
+
+`toset()` converts a list to a set (deduped, unordered) for use with `for_each` when you only need the key (no value):
+```hcl
+resource "aws_iam_user" "devs" {
+  for_each = toset(["alice", "bob", "carol"])
+  name     = each.key
+}
+```
+Advantage over `count`: removing "bob" from the list only destroys `aws_iam_user.devs["bob"]`, not alice and carol.
+
+**20. What is a Terraform backend and what backends are available?**
+
+The backend determines where state is stored and how operations are executed. Types:
+- `local` (default): state in `terraform.tfstate` on disk — only for solo development
+- `s3`: AWS S3 bucket with optional DynamoDB locking — most common for AWS
+- `azurerm`: Azure Blob Storage with native locking
+- `gcs`: Google Cloud Storage
+- `http`: generic HTTP endpoint
+- `terraform cloud` / `remote`: Terraform Cloud/Enterprise (state + remote execution + policy)
+
+Backend config is in the `terraform` block and cannot use variables (must be literal or passed via `-backend-config`):
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "my-tf-state"
+    key            = "prod/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-lock"
+    encrypt        = true
+  }
+}
+```
+
+**21. How do you test Terraform code?**
+
+Testing pyramid for Terraform:
+
+1. **Static analysis** (fast, no cloud): `terraform validate`, `terraform fmt -check`, `tflint` (lint rules), `checkov`/`tfsec` (security misconfig scanning), `terrascan`
+2. **Unit tests** (Terraform 1.6+ native): `terraform test` command runs `.tftest.hcl` files that call modules with mock providers — no real cloud resources created
+3. **Integration tests** (slow, costs money): Terratest (Go library) — provisions real resources, runs assertions, destroys. Runs against a sandbox account.
+
+CI pipeline: static → unit tests on PR; integration tests nightly or on merge to main.
+
+**22. What is Sentinel policy as code in Terraform Enterprise/Cloud?**
+
+Sentinel is HashiCorp's policy-as-code framework embedded in Terraform Enterprise/Cloud. It evaluates policies against the Terraform plan before apply. Enforcement levels: `advisory` (log only), `soft-mandatory` (override allowed with justification), `hard-mandatory` (cannot be overridden).
+
+Example policy: prevent production resources without cost center tags, require approved AMI IDs, block resources outside approved regions. Sentinel policies run in the plan → policy check → apply pipeline stage and block non-compliant infrastructure before it's ever created.
+
+Open-source alternative: OPA/Conftest evaluates Terraform plan JSON against Rego policies (same concept, no Enterprise license required).

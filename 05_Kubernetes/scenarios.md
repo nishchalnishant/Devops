@@ -1346,3 +1346,88 @@ apiserver_request_duration_seconds
 
 ---
 
+
+---
+
+## Level 4: Control Plane & Architecture (Architect Level)
+
+### Scenario 15: etcd "Request Time Too Long"
+**Symptom:** `kubectl` commands are slow, API server logs show `etcdserver: request stack is taking too long`.
+**Diagnosis:** High disk latency on the etcd nodes. etcd is extremely sensitive to disk I/O.
+**Fix:** 
+- Move etcd to **Local SSDs** or Provisioned IOPS (io2) volumes.
+- Check for high snapshotting frequency.
+- Separate etcd for events (`--etcd-servers-overrides="/events#..."`) if event volume is huge.
+
+### Scenario 16: API Server OOM during "Watch" Storm
+**Symptom:** Kubernetes control plane crashes when a large node pool is scaled up.
+**Diagnosis:** Too many clients (controllers, kubelets) are performing "watch" operations on a large set of resources. Each watch consumes memory in the API server.
+**Fix:** 
+- Implement **API Priority and Fairness (APF)** to throttle low-priority requests.
+- Optimize controllers to use **Informers** with proper resync periods instead of raw watches.
+
+### Scenario 17: Mutating Webhook causing "Deployment Deadlock"
+**Symptom:** You try to scale a deployment, but no new pods are created. No errors in the deployment controller.
+**Diagnosis:** A **MutatingAdmissionWebhook** (like Istio sidecar injector) is failing or timing out. The API server cannot validate/mutate the pod, so it rejects the creation.
+**Fix:** 
+1. Check webhook health: `kubectl get mutatingwebhookconfigurations`.
+2. Review logs of the webhook server.
+3. If critical: Set `failurePolicy: Ignore` temporarily (risky, but unblocks deployment).
+
+### Scenario 18: PodDisruptionBudget (PDB) Blocking Maintenance
+**Symptom:** `kubectl drain node-x` hangs indefinitely.
+**Diagnosis:** A PDB is set to `minAvailable: 1` but there is only 1 pod running. Kubernetes refuses to evict that last pod.
+**Fix:** 
+- Temporarily increase the replica count of the deployment.
+- Or, delete the PDB temporarily to allow the drain.
+
+### Scenario 19: Vertical Pod Autoscaler (VPA) fighting HPA
+**Symptom:** Pods are constantly restarting or changing size and count rapidly.
+**Diagnosis:** VPA and HPA are both scaling on CPU. VPA increases CPU request, HPA sees lower % usage and scales down count. VPA sees high % and scales up size.
+**Fix:** NEVER use VPA and HPA on the same resource (CPU/Memory) simultaneously. Use VPA for sizing (recommendation mode) and HPA for scaling (count).
+
+### Scenario 20: PersistentVolume (PV) Node Affinity Conflict
+**Symptom:** Pod is `Pending` with `1 node(s) had volume node affinity conflict`.
+**Diagnosis:** The PV is a Local Volume or EBS volume bound to `us-east-1a`, but the pod is being scheduled on a node in `us-east-1b`.
+**Fix:** 
+- Delete the pod and let it reschedule (if it can).
+- If the node is full, you must move the data or add nodes to that specific AZ.
+
+### Scenario 21: Zombie "Terminating" Namespaces
+**Symptom:** You delete a namespace, but it stays in `Terminating` for hours.
+**Diagnosis:** A "Finalizer" is stuck. Usually a resource (like a Custom Resource) in that namespace cannot be deleted because its controller is down.
+**Fix:** 
+- Identify the resource with a stuck finalizer: `kubectl get all -n <namespace>`.
+- Manually remove the finalizer from the resource metadata (use with caution): `kubectl patch crd <name> -p '{"metadata":{"finalizers":[]}}' --type=merge`.
+
+### Scenario 22: Service Mesh mTLS "Protocol Error"
+**Symptom:** App A can talk to App B via IP, but fails with `503` or `404` when going through the Service name.
+**Diagnosis:** Istio is expecting mTLS (HTTP/2 with certs), but App A is sending raw HTTP. Or, the sidecar is not injected into one of the pods.
+**Fix:** 
+- Check injection status: `kubectl get pod -L istio-injection`.
+- Verify PeerAuthentication policy: `kubectl get peerauthentication -A`.
+
+### Scenario 23: Secret / ConfigMap "Atomic Update" delay
+**Symptom:** You updated a ConfigMap, but the pod is still seeing old values.
+**Diagnosis:** Kubelet syncs ConfigMaps every 60s (default). If the ConfigMap is mounted as a volume, it takes time to propagate. If it's an Environment Variable, the pod **must** be restarted.
+**Fix:** 
+- For Env Vars: Restart pods: `kubectl rollout restart deployment <name>`.
+- For Volumes: Wait for sync or use a tool like **Reloader** to auto-restart pods on config changes.
+
+### Scenario 24: "Too Many Requests" (429) from Cloud Provider
+**Symptom:** Kubernetes fails to create LoadBalancers or attach EBS volumes. Logs show "Rate Limit Exceeded".
+**Diagnosis:** The Kubernetes Cloud Controller Manager (CCM) is making too many API calls to AWS/GCP.
+**Fix:** 
+- Increase the API rate limits in your Cloud Account.
+- Reduce the number of `Service` type `LoadBalancer` objects by using an Ingress Controller (Shared LB).
+
+
+### Scenario 25: Node-to-Node MTU mismatch (VXLAN)
+**Symptom:** Pods on Node A can talk to Pods on Node A, but Pods on Node A cannot talk to Pods on Node B.
+**Diagnosis:** The CNI (Calico/Flannel) is using VXLAN, which adds 50 bytes of overhead. If the physical network MTU is 1500, the pod MTU must be 1450.
+**Fix:** Update the CNI config to set the correct MTU.
+
+### Scenario 26: Kubelet "ImageGCManager" deleting active images
+**Symptom:** Pods fail to start because the image was deleted right after being pulled.
+**Diagnosis:** The disk is near `ImageGCHighThresholdPercent`, causing the kubelet to aggressively prune images.
+**Fix:** Increase the disk size or lower the `ImageGCLowThresholdPercent`.

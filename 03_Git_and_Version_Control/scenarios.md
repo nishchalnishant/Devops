@@ -381,3 +381,77 @@ git show --stat a4f9d12
 # Find the PR/branch that introduced it
 git log --merges --ancestry-path a4f9d12..main | head -5
 ```
+
+---
+
+## 9. Git Worktrees for Multi-Tasking
+**Situation:** You are in the middle of a massive feature branch (`feature/ui-overhaul`) with hundreds of uncommitted changes. Your boss asks for an immediate hotfix on `main`. Stashing and switching is risky and slow.
+**Diagnosis:** You need to work on two branches simultaneously in the same repo without context-switching.
+**Fix:** 
+1. Use **Git Worktrees**: `git worktree add ../hotfix main`.
+2. This creates a new folder `../hotfix` that points to the `main` branch.
+3. Open a new terminal in `../hotfix`, fix the bug, commit, and push.
+4. Go back to your original folder and continue your UI overhaul.
+5. Cleanup: `git worktree remove ../hotfix`.
+
+## 10. The "Lost Stash" Recovery
+**Situation:** You ran `git stash pop`, it had a conflict, and then you ran `git stash drop` or `git reset` thinking you didn't need it, but you actually lost your work.
+**Diagnosis:** `git stash` is just a commit. When "dropped", the commit object still exists in the database for a short time.
+**Fix:** 
+1. Use `git fsck --unreachable | grep commit | cut -d' ' -f3 | xargs git show`.
+2. Look through the output for your lost work.
+3. Once found, run `git stash apply <SHA>`.
+
+## 11. Recovering from Internal Object Corruption
+**Situation:** `git status` fails with `error: object file .git/objects/xx/xxx is empty`. This usually happens after a sudden power loss.
+**Diagnosis:** One or more Git objects are corrupted/empty.
+**Fix:** 
+1. Identify the broken object via `git fsck`.
+2. If it's a blob from another branch, you might be able to find it in the remote: `git fetch origin`.
+3. If it's your local uncommitted work, find the file in the index: `git ls-files --stage`.
+4. Hard fix: Delete the empty object file and run `git fetch` to pull the object from the remote.
+
+## 12. "git rerere" (Reuse Recorded Resolution)
+**Situation:** You have a long-running feature branch that you rebase onto `main` every day. Every time, you have to resolve the same 5 merge conflicts.
+**Diagnosis:** You are wasting time repeating the same manual resolutions.
+**Fix:** 
+1. Enable rerere: `git config --global rerere.enabled true`.
+2. The next time you resolve a conflict, Git will "record" how you did it.
+3. The *next* time that same conflict occurs during a rebase/merge, Git will automatically apply your previous resolution.
+
+## 13. Solving Slow Commit Times (Pre-commit Bloat)
+**Situation:** `git commit` takes 30 seconds because it runs 50 linters and tests via pre-commit hooks.
+**Diagnosis:** The pre-commit hooks are running on the entire codebase or are inefficient.
+**Fix:** 
+1. Use `pre-commit run --files <changed_files>` to only check affected files.
+2. If in an emergency, bypass hooks: `git commit -m "hotfix" --no-verify`.
+3. Optimize: Use a faster linter (e.g., `ruff` instead of `flake8/pylint`) or run hooks in CI instead of locally.
+
+## 14. Collaborative Rebase (The "Shared Branch" Rebase)
+**Situation:** You and a teammate are working on `feature/auth`. You need to rebase it onto `main`, but rebasing changes SHAs and will break your teammate's local copy.
+**Diagnosis:** Standard rebase is dangerous for shared branches.
+**Fix:** 
+1. Coordinate: "Hey, I'm rebasing the auth branch now. Don't push."
+2. Run `git rebase main`.
+3. Force push with caution: `git push --force-with-lease`.
+4. Teammate's fix: `git fetch` followed by `git rebase origin/feature/auth` (NOT `git pull`).
+
+## 15. The "Dirty" Reset Recovery
+**Situation:** You had local changes, then ran `git reset --hard origin/main` and lost your uncommitted work.
+**Diagnosis:** Uncommitted changes are NOT tracked by `git reflog`. If they weren't `add`ed to the index, they might be gone forever.
+**Fix:** 
+- If you ran `git add` at any point, use `git fsck --lost-found`. Check `.git/lost-found/other` for files.
+- **Prevention habit:** Always `git stash` before a `reset --hard`.
+
+
+### Scenario 16: Git LFS Quota Exhaustion
+**Symptom:** `git push` fails with `LFS: Batch response: Git LFS is disabled for this repository`.
+**Diagnosis:** You've reached the storage or bandwidth limit for Large File Storage.
+**Fix:** 
+1. Clean up old LFS objects: `git lfs prune`.
+2. Increase the quota in GitHub/GitLab settings.
+
+### Scenario 17: SSH Key Type Incompatibility
+**Symptom:** `git clone` fails with `sign_and_send_pubkey: no mutual signature supported`.
+**Diagnosis:** Your local SSH is too new and deprecated `ssh-rsa` (SHA-1), but the server only supports it.
+**Fix:** Generate an Ed25519 key: `ssh-keygen -t ed25519`.

@@ -1,47 +1,38 @@
-### 🔷 Advanced Linux Internals (6-10 YOE)
+---
 
-#### 1. Container Primitives: Namespaces & Cgroups
-To understand Docker/K8s, you must understand the underlying Linux primitives.
-- **Namespaces (Isolation):**
-  - `mnt`: Isolated mount points.
-  - `pid`: Isolated process IDs (Process 1 in container).
-  - `net`: Isolated network stacks (NICs, routing tables).
-  - `uts`: Isolated hostnames.
-  - `ipc`: Isolated inter-process communication.
-  - `user`: Isolated User/Group IDs (Root in container != Root on host).
-- **Cgroups (Resource Limits):**
-  - **v2 (Unified Hierarchy):** Modern Linux uses a single tree for all controllers (CPU, Memory, I/O). 
-  - **Memory Pressure Stall Information (PSI):** Allows services to detect when they are struggling for resources before the OOM Killer strikes.
+## 4. The Linux Boot Process (Mastery Hub)
 
-#### 2. Advanced Storage Internals
-- **I/O Schedulers:** 
-  - `mq-deadline`: Default for many. Good for balanced workloads.
-  - `kyber`: Optimized for low-latency NVMe storage.
-  - `none`: Used in virtualized environments where the hypervisor handles scheduling.
-- **LVM Thin Provisioning:** Allows over-committing storage. Critical for database snapshots but carries risk of "Metadata Exhaustion."
+Understanding the boot process is critical for troubleshooting "Kernel Panic" or "Init" failures.
 
-#### 3. Kernel Memory Management
-- **HugePages:** Increases the page size from 4KB to 2MB or 1GB. Reduces the size of the TLB (Translation Lookaside Buffer) cache, significantly speeding up large memory apps (Postgres, Oracle, JVM).
-- **Transparent HugePages (THP):** Usually an anti-pattern for databases (causes latency spikes during allocation). SREs usually disable this via `sysctl` or kernel boot params.
+```mermaid
+graph TD
+    A[BIOS/UEFI] --> B[MBR/GPT - Bootloader]
+    B --> C[GRUB2]
+    C --> D[Kernel - vmlinuz]
+    D --> E[Initrd/Initramfs]
+    E --> F[Systemd - PID 1]
+    F --> G[Target/Runlevel]
+```
 
-#### 4. The "D" State (Uninterruptible Sleep)
-When a process is in `D` state, it is waiting for I/O and **cannot be killed**, even with `kill -9`. 
-- **Cause:** Usually a hung NFS mount or a failing hardware device.
-- **Diagnosis:** `ps aux | awk '$8 ~ /D/'`. The only fix is usually resolving the I/O bottleneck or a hard reboot.
+### Logic & Trickiness: Boot Failures
+| Stage | Failure Symptom | Troubleshooting Step |
+| :--- | :--- | :--- |
+| **GRUB** | `grub>` prompt | Check `root` and `prefix` variables. Reinstall via Live ISO. |
+| **Kernel** | `Kernel Panic - not syncing` | Check for driver conflicts or corrupted `initrd`. |
+| **Systemd** | Hangs at "Starting..." | Use `systemd-analyze blame` to find the culprit service. |
 
 ---
 
-#### 💡 Senior Interview Strategy: "The Syscall Overhead"
-When discussing application performance, mention the cost of context switching. 
-- A "Context Switch" occurs when the CPU moves from **User Mode** (App code) to **Kernel Mode** (Syscall). 
-- High context switching (viewed via `vmstat` or `pidstat -w`) often indicates excessive locking or too many threads for the available cores.
+## 5. Senior Logic & Trickiness: The Kernel Matrix
+
+| Concept | The "Junior" Answer | The "Senior/Staff" Answer |
+| :--- | :--- | :--- |
+| **OOM Kill** | "It kills the largest process." | "It calculates an **oom_score** based on RSS, child processes, and `oom_score_adj`." |
+| **Swap** | "It's slow RAM on disk." | "It provides **Anonymous Page** pressure relief, allowing the kernel to prioritize the **Page Cache** for I/O." |
+| **Load Avg** | "CPU usage over time." | "The count of processes in **R** (Running) + **D** (Uninterruptible Sleep) states." |
+| **iNode** | "A file index." | "The metadata structure containing pointers to data blocks; exhaustion stops writes even if space is free." |
 
 ---
-
-**Continue your preparation with these specialized deep-dives:**
-1. `[HARD]` [Advanced Troubleshooting & Performance](./interview.md)
-2. `[COMMANDS]` [SRE Command Reference](./cheatsheet.md)
-# Advanced Linux Performance & Hardening
 
 ## 1. Advanced Performance Profiling: The USE Method
 

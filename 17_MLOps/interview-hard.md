@@ -420,3 +420,215 @@ Mention:
 - I can explain safe rollout patterns for new models.
 - I can troubleshoot wrong predictions even when infrastructure is healthy.
 - I can discuss GPU scheduling, latency, and cost trade-offs at a senior level.
+
+---
+
+**57. Design a platform for fine-tuning and serving open-source LLMs at scale.**
+
+Architecture for an internal LLM fine-tuning and serving platform supporting 20 teams:
+
+**Fine-tuning layer:**
+- Job submission via a REST API or GitOps: team pushes a `finetune.yaml` with base model, dataset path, LoRA config, resource request
+- Kubernetes operator (custom or Kubeflow PyTorchJob) schedules training on GPU node pool
+- Parameter-Efficient Fine-Tuning (PEFT) with LoRA: only adapter weights are trained — base model is frozen. Adapter size: ~50-200 MB vs 14 GB for full 7B model weights
+- Distributed training with DeepSpeed ZeRO-2 for 7B-70B models
+- Experiment tracking: all runs logged to MLflow with base model version, dataset version (DVC), LoRA rank/alpha, evaluation metrics (perplexity, task-specific benchmarks)
+- Artifacts: save adapter weights to S3 with SHA256 hash; register in model registry
+
+**Serving layer:**
+- LoRA adapter hot-swap on vLLM: load base model once, swap adapter per-request using `--enable-lora` flag
+- Multiple teams share one base model instance — reduces GPU memory from N×14GB to 14GB + N×200MB
+- Per-team routing at the API gateway: `X-Model-Adapter: team-a-v3` header routes to the correct adapter
+- Autoscaling: KEDA on queue depth; pre-warm adapters during business hours
+
+**Governance:**
+- Model card required before promotion to production
+- Red-teaming: automated safety evaluation pipeline before each adapter promotion
+- Cost allocation: GPU-hours per team per adapter, billed monthly
+
+**58. How do you implement end-to-end ML lineage from raw data to production prediction?**
+
+Lineage traces every production prediction back to: the raw data record, the feature computation, the model version, the hyperparameters, and the code commit.
+
+Implementation using ML Metadata (MLMD) or MLflow:
+
+```python
+with mlflow.start_run() as run:
+    # Log all upstream pointers
+    mlflow.log_param("dataset_version", "s3://data/train_v42.parquet")
+    mlflow.log_param("feature_view_version", "user_features_v7")
+    mlflow.log_param("git_commit", subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip())
+    mlflow.log_param("data_validation_run_id", validation_run_id)
+    mlflow.set_tag("base_model", "xgboost-3.0.0")
+
+    # Train
+    model = train(X_train, y_train, params)
+    mlflow.xgboost.log_model(model, "model",
+        registered_model_name="fraud-detector")
+
+# At prediction time, log which model version served the request
+prediction_log = {
+    "request_id": str(uuid.uuid4()),
+    "model_version": "fraud-detector/v12",
+    "mlflow_run_id": "abc123",
+    "feature_view_version": "user_features_v7",
+    "dataset_version": "train_v42",
+    "prediction": 0.97,
+    "timestamp": datetime.utcnow().isoformat()
+}
+```
+
+Full lineage query: "Which predictions were made by a model trained on data_batch_v41?" → query prediction logs by `mlflow_run_id` → look up run's `dataset_version` parameter → join.
+
+**59. How do you design an ML platform for regulated financial services (model risk management)?**
+
+SR 11-7 (Federal Reserve) and OCC guidance require:
+
+**Model inventory and tiering:**
+- Tier 1 (high-impact, e.g., credit decisions, AML): full independent validation annually, mandatory challenge before deployment
+- Tier 2 (medium-impact): streamlined validation, monitoring triggers mandatory re-validation
+- Tier 3 (low-impact): self-validation with documentation
+
+**Platform controls to enforce SR 11-7:**
+```
+Developer trains model
+         │
+         ▼
+Automated checks: data quality, bias metrics, back-test on out-of-time sample
+         │
+         ▼
+Model Risk team review (mandatory for Tier 1) — separate system access
+         │
+         ▼
+Model committee approval (audit trail in JIRA + model registry tag)
+         │
+         ▼
+Production deployment with immutable artifact ID in serving config
+         │
+         ▼
+Monthly monitoring report (PSI, AUC trend, fairness metrics) → MRM team
+```
+
+**Immutable audit trail:**
+- All model promotions captured as signed events (Git commit + registry metadata)
+- Prediction logs retained 7 years (S3 Glacier for cost)
+- SHAP explanations stored per-prediction for credit decisions
+- Zero-delete policy on training datasets used for production models
+
+**60. Design a streaming feature computation pipeline for a fraud detection system with < 50ms end-to-end SLO.**
+
+The full path: transaction event received → features computed → model scores → decision returned in < 50ms.
+
+Budget allocation:
+- Network + deserialization: ~2ms
+- Feature lookup (online store): ~5ms
+- Feature computation (real-time aggregates): ~8ms
+- Model inference: ~15ms
+- Serialization + network return: ~5ms
+- Buffer: ~15ms
+
+**Architecture:**
+
+```
+Transaction event (Kafka)
+        │
+        ├──► Flink streaming job (real-time feature computation)
+        │    - user_tx_count_1min: sliding window count
+        │    - user_avg_amount_5min: sliding window average
+        │    - merchant_velocity_1min: keyed by merchant_id
+        │    Writes to Redis (sub-millisecond, atomic INCR/ZADD)
+        │
+        └──► Scoring API (receives same event via Kafka or direct HTTP)
+             - Reads precomputed features from Redis (HGETALL: ~3ms)
+             - Reads static features (user profile, device history) from Redis (~2ms)
+             - Runs XGBoost or neural network model (~10ms on CPU)
+             - Returns {score, explanation} to caller
+```
+
+**Critical design choices:**
+- Use Redis HGETALL to retrieve all entity features in one round-trip — not N individual GETs
+- Flink computes aggregates ahead of the scoring request (pre-compute, not on-demand) — eliminates real-time computation from the critical path
+- Feature schema validated via schema registry (Avro/Protobuf) — type mismatch fails fast at ingest, not at inference
+- Circuit breaker: if Redis P99 > 15ms, serve with stale features (< 30s old) rather than blocking the request
+
+**61. What are the key differences between transformer decoder-only and encoder-decoder architectures and when do you use each in production?**
+
+| | Decoder-only (GPT, Llama) | Encoder-Decoder (T5, BART) |
+|---|---|---|
+| Architecture | Causal self-attention; predicts next token | Separate encoder (bidirectional) + decoder (causal) |
+| Use cases | Text generation, chat, code | Translation, summarization, QA |
+| Inference mode | Autoregressive generation | Encode once, decode iteratively |
+| KV cache | Grows with sequence length | Encoder KV cache is fixed per prompt |
+| Serving complexity | PagedAttention / continuous batching | Two-phase: encode (parallelizable) + decode |
+| Fine-tuning | LoRA on Q/K/V projections | LoRA on encoder + decoder |
+
+**Production preference:** Decoder-only (Llama, Mistral, Qwen) dominates for most production LLM use cases because: instruction tuning is mature, community tooling (vLLM, TGI, Ollama) is optimized for decoder-only, and multi-task capability reduces the need for task-specific models.
+
+**Encoder-decoder still preferred for:** multilingual translation (NLLB, mBART), structured extraction with a fixed output schema (T5 fine-tuned for JSON extraction), and tasks where bidirectional context on the input is critical.
+
+**62. How do you implement a model evaluation framework that detects silent failures?**
+
+Silent failures: the endpoint returns 200, predictions look plausible, but accuracy has degraded — nobody notices until the business KPI moves.
+
+**Multi-layer detection:**
+
+```python
+# Layer 1: Statistical process control on confidence distribution
+import numpy as np
+from scipy import stats
+
+def detect_confidence_shift(reference_confidence, current_confidence):
+    stat, pvalue = stats.ks_2samp(reference_confidence, current_confidence)
+    return pvalue < 0.05  # distribution has shifted
+
+# Layer 2: Output distribution monitoring
+def check_label_distribution_shift(reference_labels, current_predicted_labels):
+    ref_pct = np.bincount(reference_labels) / len(reference_labels)
+    cur_pct = np.bincount(current_predicted_labels) / len(current_predicted_labels)
+    psi = np.sum((cur_pct - ref_pct) * np.log(cur_pct / ref_pct + 1e-8))
+    return psi > 0.1  # output distribution shifted
+
+# Layer 3: Delayed label evaluation (runs when labels arrive)
+def evaluate_on_cohort(cohort_date, predictions_df, labels_df):
+    joined = predictions_df.join(labels_df, on="request_id")
+    auc = roc_auc_score(joined["label"], joined["score"])
+    log_metric(f"auc_cohort_{cohort_date}", auc)
+    if auc < MINIMUM_AUC:
+        trigger_alert("AUC below minimum on cohort " + cohort_date)
+
+# Layer 4: Proxy metric monitoring (business signal, no labels needed)
+def monitor_proxy_metrics():
+    # For fraud: approval rate should be stable
+    # For recommendation: CTR should be stable
+    # For credit: default rate should be predictable
+    current_approval_rate = compute_approval_rate(last_24h_predictions)
+    if abs(current_approval_rate - BASELINE_APPROVAL_RATE) > 0.05:
+        alert("Approval rate shifted 5% — investigate model or input data")
+```
+
+**63. How does gradient accumulation work and when is it preferable to increasing batch size?**
+
+In standard training, gradients are computed for a batch of N samples, then optimizer.step() updates weights. With gradient accumulation, you simulate a large batch by accumulating gradients over K smaller batches before calling optimizer.step():
+
+```python
+optimizer.zero_grad()
+for i, (inputs, labels) in enumerate(dataloader):
+    outputs = model(inputs)
+    loss = criterion(outputs, labels) / accumulation_steps  # scale loss
+    loss.backward()  # accumulate gradients
+
+    if (i + 1) % accumulation_steps == 0:
+        optimizer.step()  # update once every K batches
+        optimizer.zero_grad()
+```
+
+**When to use gradient accumulation over larger batch size:**
+- GPU memory is the constraint, not compute — accumulation uses constant memory regardless of effective batch size
+- Using very large batches (> 32K tokens for LLMs) requires learning rate warmup and scaling — accumulation is simpler
+- Multi-node synchronization is expensive — accumulation reduces all-reduce frequency
+
+**Tradeoffs:**
+- Batch norm statistics are computed per micro-batch, not per accumulated batch — use Layer Norm for LLMs (no batch norm)
+- Throughput is identical to a single large batch on the same hardware
+- Wall-clock time per optimizer step increases linearly with accumulation steps
+

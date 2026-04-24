@@ -69,6 +69,8 @@
     * [Hard](05_Kubernetes/interview-hard.md)
   * [Cheatsheet](05_Kubernetes/cheatsheet.md)
   * [Scenarios & Troubleshooting](05_Kubernetes/scenarios.md)
+  * [Tips & Tricks](05_Kubernetes/tips-and-tricks.md)
+  * [Troubleshooting Runbooks](05_Kubernetes/troubleshooting.md)
 
 * 6 Jenkins
   * [Overview](06_Jenkins/README.md)

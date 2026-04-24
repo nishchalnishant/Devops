@@ -206,6 +206,38 @@ echo "Build completed successfully"
 
 ---
 
+## 3. Advanced Pattern: Idempotent Scripting
+
+In DevOps, a script should be **Idempotent**—running it multiple times results in the same state without errors.
+
+```bash
+#!/bin/bash
+
+# Anti-Pattern: Failing if directory exists
+# mkdir /data/logs
+
+# Idempotent Pattern: Check before act
+if [ ! -d "/data/logs" ]; then
+  mkdir -p /data/logs
+fi
+
+# Idempotent Pattern: User management
+id -u devuser &>/dev/null || useradd devuser
+
+# Idempotent Pattern: Apt install (Built-in idempotency)
+sudo apt-get install -y nginx
+```
+
+### Senior Logic & Trickiness: Tool Selection
+| Feature | Shell (Bash) | Python | Go |
+| :--- | :--- | :--- | :--- |
+| **Bootstrap** | Best (Zero deps) | Moderate (Needs interpreter) | Hard (Needs compilation) |
+| **Logic** | Poor (String-heavy) | Best (Rich libraries) | Moderate (Strict typing) |
+| **Concurrency** | Hacky (`&`, `wait`) | Good (AsyncIO/Threads) | **Best (Goroutines)** |
+| **Distribution** | Single file | Venv/Pip dependency hell | **Best (Static Binary)** |
+
+---
+
 ## Script Best Practices
 
 ### 1. Error Handling

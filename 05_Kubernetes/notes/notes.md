@@ -998,3 +998,239 @@ Before a resource (like a Pod) is saved to `etcd`, the API Server sends a reques
 1. **Validation:** Reject any Pod that runs as `root`.
 2. **Mutation:** Automatically inject a sidecar container or specific tolerations into a pod manifest based on its namespace.
 3. **Generation:** Whenever a new developer namespace is created, automatically generate standard `NetworkPolicies`, `RoleBindings`, and `ResourceQuotas` explicitly for that namespace.
+
+---
+
+## API Server Mechanics: Watch, List, and Server-Side Apply
+
+### The Watch Cache
+
+The API server maintains an in-memory watch cache populated by etcd watch events. When clients do LIST requests with `resourceVersion=0`, they hit the cache (not etcd directly). This is critical for scale — thousands of informers in a cluster all doing LIST would overwhelm etcd without the cache.
+
+Watch cache is per-resource and stores the last N events (default 1000 per resource type). If a client's `resourceVersion` falls outside the cache window, they get a 410 Gone and must restart their watch from `resourceVersion=0`.
+
+### Server-Side Apply (SSA)
+
+SSA (GA in 1.22) moves the three-way merge logic from kubectl to the API server. The server tracks **field ownership** — each field records which manager last applied it.
+
+```yaml
+# Field manager example in managedFields
+managedFields:
+- manager: kubectl
+  operation: Apply
+  fieldsV1:
+    f:spec:
+      f:replicas: {}
+- manager: my-operator
+  operation: Apply
+  fieldsV1:
+    f:spec:
+      f:template:
+        f:spec:
+          f:containers:
+            k:{"name":"app"}:
+              f:image: {}
+```
+
+If two managers try to own the same field, SSA returns a conflict error (409). This prevents kubectl and an operator from fighting over the same field. Operators should use SSA with `force: true` for fields they own exclusively.
+
+---
+
+## etcd Internals: Raft Consensus
+
+etcd uses the Raft consensus algorithm. Key properties:
+
+**Leader election**: The node with the most up-to-date log and a majority vote becomes leader. Split votes trigger re-election with randomized timeouts.
+
+**Log replication**: The leader appends entries to its log, sends AppendEntries RPCs to followers, and marks entries committed once a majority acknowledge.
+
+**Quorum requirement**: A 3-node etcd cluster requires 2 nodes for quorum (can tolerate 1 failure). A 5-node cluster requires 3 (can tolerate 2 failures). An even number is NEVER recommended — a 4-node cluster still requires 3 for quorum (can tolerate 1 failure), same as 3 nodes but with more overhead.
+
+**Performance sensitivity**: etcd is sensitive to disk write latency (fsync calls). AWS EBS gp2 is marginal; NVMe/io2 is recommended. `etcd_disk_wal_fsync_duration_seconds_bucket` histogram in Prometheus reveals disk issues.
+
+**DB size management**: etcd compacts old key revisions to prevent unbounded growth. `--auto-compaction-mode=periodic` with `--auto-compaction-retention=8h` is a safe default. After compaction, run `etcdctl defrag` to reclaim space on disk.
+
+---
+
+## kube-proxy Modes: iptables vs IPVS
+
+### iptables Mode (default pre-1.30)
+- Every Service creates DNAT rules in the `KUBE-SERVICES` chain
+- Random endpoint selection via `statistic` module (probability-based)
+- O(N) rule traversal for every packet — scales poorly beyond ~10,000 rules
+- Debugging: `iptables-save | grep KUBE`
+
+### IPVS Mode
+- Uses Linux IPVS (IP Virtual Server) for load balancing — designed for high-performance L4 LB
+- Hash table lookups: O(1) regardless of service count
+- Supports additional load balancing algorithms: round-robin, least-connection, source hash, etc.
+- Enable: `--proxy-mode=ipvs` in kube-proxy config; requires `ip_vs` kernel modules
+- Debugging: `ipvsadm -Ln`
+
+### eBPF/Cilium (no kube-proxy)
+- Complete replacement: no iptables, no IPVS
+- eBPF maps for O(1) service lookup at the TC hook level
+- Enable: deploy Cilium with `kubeProxyReplacement=true`
+
+---
+
+## Secrets Encryption at Rest
+
+By default, Secrets are stored in etcd as base64-encoded plaintext. Anyone with etcd access can read all Secrets.
+
+**Enabling encryption**:
+```yaml
+# /etc/kubernetes/encryption-config.yaml
+apiVersion: apiserver.config.k8s.io/v1
+kind: EncryptionConfiguration
+resources:
+- resources: [secrets]
+  providers:
+  - aescbc:
+      keys:
+      - name: key1
+        secret: <base64-encoded-32-byte-key>
+  - identity: {}  # fallback: allows reading unencrypted secrets during migration
+```
+
+Add to API server: `--encryption-provider-config=/etc/kubernetes/encryption-config.yaml`
+
+After enabling, existing secrets must be re-encrypted:
+```bash
+kubectl get secrets -A -o json | kubectl replace -f -
+```
+
+**Better alternatives**: Use KMS providers (AWS KMS, GCP KMS, Azure Key Vault) — the encryption key is never on the API server node, and key rotation is handled by the KMS.
+
+**Best practice**: Don't store real secrets in Kubernetes Secrets at all. Use External Secrets Operator + HashiCorp Vault or cloud secret managers.
+
+---
+
+## Cluster Autoscaling: Karpenter vs Cluster Autoscaler
+
+### Cluster Autoscaler Internals
+CA runs a simulation loop every 10s:
+1. Get list of unschedulable pods
+2. For each pod, simulate scheduling against each node group's template node
+3. If simulation succeeds, scale up that node group
+4. Scale-down: find nodes where all pods could fit on other nodes; drain after 10 minutes of underutilization
+
+**Limitations**: Node groups must be pre-defined. Instance type is fixed per node group. Bin-packing is done against node group templates, not actual available instance types.
+
+### Karpenter Architecture
+Karpenter watches for `pods.kubernetes.io/scheduling-failure` events. For each unschedulable pod:
+1. Evaluates `NodePool` constraints (instance families, zones, capacity types)
+2. Calls EC2 Fleet API (or equivalent) to find the cheapest instance that fits
+3. Registers the node in Kubernetes BEFORE the instance is running (fast node registration)
+4. Schedules the pod to the provisioned node
+
+**Consolidation loop**: Karpenter periodically asks "can I fit all workloads onto fewer nodes?" — simulates removing each node and checks if pods can be rescheduled. If yes, it cordons, drains, and terminates the node.
+
+---
+
+## Observability Stack on Kubernetes
+
+### Prometheus Architecture for Kubernetes
+
+```
+Kubernetes API Server
+        ↓ (SD: service discovery)
+Prometheus → TSDB (local storage)
+        ↓
+AlertManager → PagerDuty/Slack
+        ↓
+Grafana (dashboards)
+```
+
+Key service discovery configs for Kubernetes:
+- `kubernetes_sd_configs` role `pod`: scrapes pods with annotation `prometheus.io/scrape: "true"`
+- `kubernetes_sd_configs` role `endpoints`: scrapes service endpoints
+- `kubernetes_sd_configs` role `node`: scrapes node exporters via kubelet
+
+**Critical metrics to monitor**:
+```
+# API server
+apiserver_request_duration_seconds_p99
+apiserver_current_inflight_requests
+
+# etcd
+etcd_server_leader_changes_seen_total (should be ~0)
+etcd_disk_wal_fsync_duration_seconds_bucket
+
+# Nodes
+node_cpu_utilization
+node_memory_MemAvailable_bytes
+kubelet_running_pods
+
+# Workloads
+kube_deployment_status_replicas_unavailable
+kube_pod_container_status_restarts_total
+container_oom_events_total
+```
+
+### OpenTelemetry on Kubernetes
+
+The OTel Operator manages `OpenTelemetryCollector` CRDs. Sidecar injection mode: annotate pods with `instrumentation.opentelemetry.io/inject-<language>: "true"` for zero-code-change auto-instrumentation.
+
+Collector pipeline: OTLP receive → filter/batch processors → export to Jaeger/Tempo (traces), Prometheus (metrics), Loki (logs).
+
+---
+
+## Advanced Scheduling: Preemption and Gang Scheduling
+
+### Preemption
+When a high-priority pod can't be scheduled, the scheduler tries to evict lower-priority pods to make room. Algorithm:
+1. Find nodes where evicting lower-priority pods would make the high-priority pod fit
+2. Select the node with the fewest evictions and lowest victim priority sum
+3. Preempt (evict with `gracePeriod`) the victims
+
+Configure via `PriorityClass`:
+```yaml
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: high-priority
+value: 1000000
+preemptionPolicy: PreemptLowerPriority  # or Never (for priority without preemption)
+globalDefault: false
+```
+
+### Gang Scheduling
+All-or-nothing scheduling: either ALL pods of a group are scheduled, or none are. Critical for ML training jobs — a TensorFlow job that can only run 7 of 8 workers is worthless.
+
+Kubernetes doesn't support this natively. Solutions:
+- **Volcano** (CNCF): full batch scheduler with gang scheduling, queue fairness
+- **Yunikorn** (Apache): queue-based scheduling with gang scheduling
+- **Scheduler Framework Permit phase**: custom plugins can implement gang scheduling by holding all pods in the permit phase until the full group is ready
+
+---
+
+## Operator Pattern: Controller-Runtime Deep Dive
+
+A Kubernetes operator is a controller that understands domain-specific operational knowledge. Built on the controller-runtime library:
+
+```go
+// Reconcile is called whenever the watched resource changes
+func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+    db := &myv1.Database{}
+    if err := r.Get(ctx, req.NamespacedName, db); err != nil {
+        return ctrl.Result{}, client.IgnoreNotFound(err)
+    }
+    
+    // Reconcile: make actual state match desired state
+    if err := r.ensureDeployment(ctx, db); err != nil {
+        return ctrl.Result{RequeueAfter: 30 * time.Second}, err
+    }
+    
+    return ctrl.Result{}, nil
+}
+```
+
+**Key patterns**:
+- **Idempotency**: Reconcile is called multiple times; must be safe to call N times
+- **Requeue**: Return `RequeueAfter` to check state again; return empty `Result{}` when done
+- **Status conditions**: Use `metav1.Condition` slice in status subresource, not free-form fields
+- **Owner references**: Set owner reference on child resources so they're garbage collected with the CR
+- **Finalizers**: Add a finalizer on creation; remove it after external cleanup in deletion path
+
+**Testing**: Use `envtest` (from controller-runtime) to run a real API server + etcd in tests without a full cluster.

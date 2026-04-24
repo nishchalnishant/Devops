@@ -909,3 +909,76 @@ Compare the source/destination IPs and MAC addresses to see if they match the ex
 6. **Hypothesize:** Form theory based on evidence
 7. **Test:** Try fix, verify it resolves the issue
 8. **Document:** Record root cause and resolution for future
+
+---
+
+## Scenario 9: The "Black Hole" MTU / PMTUD Failure
+**Symptom:** Small packets (ping) work, but large packets (HTTP/SSH) hang indefinitely.
+**Diagnosis:** 
+1. Use `ping -s 1472 -M do <IP>`. If it fails, the path MTU is less than 1500.
+2. A router in the path is dropping packets larger than its MTU but is configured to drop ICMP "Fragmentation Needed" messages (PMTUD Black Hole).
+**Fix:** 
+- Lower the MTU on the source interface (e.g., set to 1400).
+- Or, enable **TCP MSS Clamping** on the edge router/firewall: `iptables -t mangle -A POSTROUTING -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu`.
+
+## Scenario 10: gRPC Load Balancing "Hot" Nodes
+**Symptom:** One backend pod is at 100% CPU while others are at 5%, even though traffic is distributed across multiple clients.
+**Diagnosis:** gRPC uses HTTP/2, which keeps a single TCP connection open for thousands of requests. Standard L4 (TCP) Load Balancers see only one connection and send it to one pod.
+**Fix:** Use an **L7 Load Balancer** (Envoy, Istio, or Nginx with `grpc_pass`) that can balance requests *within* a single TCP connection.
+
+## Scenario 11: Conntrack Table Exhaustion
+**Symptom:** New connections are dropped randomly. `dmesg` shows `nf_conntrack: table full, dropping packet`.
+**Diagnosis:** Check current usage: `sysctl net.netfilter.nf_conntrack_count`. Check limit: `sysctl net.netfilter.nf_conntrack_max`.
+**Fix:** 
+1. Increase the limit: `sysctl -w net.netfilter.nf_conntrack_max=1048576`.
+2. Optimization: Use `NOTRACK` in iptables for high-traffic, stateless services like DNS.
+
+## Scenario 12: Asymmetric Routing in Hybrid Cloud
+**Symptom:** Traffic goes out via Direct Connect but returns via VPN, causing firewalls to drop packets because they don't see the SYN.
+**Diagnosis:** Use `tcpdump` on both interfaces. If you see only outbound or only inbound traffic, you have an asymmetric path.
+**Fix:** Use **BGP AS-Path Prepending** on the VPN to make it less preferred for return traffic, ensuring symmetric flow over Direct Connect.
+
+## Scenario 13: mTLS Handshake "Certificate Unknown" in Istio
+**Symptom:** Services cannot talk to each other; logs show `SSL: CERTIFICATE_VERIFY_FAILED`.
+**Diagnosis:** Check the `istiod` root CA. If you recently rotated the root CA, the old sidecars might not have the new root.
+**Fix:** Restart sidecar proxies to pull the new root certificate. Verify with `istioctl proxy-config secret <pod-name>`.
+
+## Scenario 14: BGP Route Flapping
+**Symptom:** Latency jumps from 20ms to 200ms every few minutes.
+**Diagnosis:** A BGP peer is losing its session, causing the route to flap to a backup path.
+**Fix:** Check BGP peer logs. Adjust **Hold Time** or implement **BGP Route Dampening** to prevent unstable routes from affecting the routing table.
+
+## Scenario 15: DNS Caching "Ghost" IPs
+**Symptom:** You migrated a service to a new IP, but 20% of traffic still goes to the old IP.
+**Diagnosis:** Clients (especially Java/JVM apps) cache DNS forever by default.
+**Fix:** 
+1. Set a lower **TTL** on the DNS record *before* the migration.
+2. In JVM apps, set `networkaddress.cache.ttl=60` in `java.security`.
+
+## Scenario 16: TCP "TIME_WAIT" Saturation
+**Symptom:** Server cannot open new outbound connections to a database. `netstat` shows 60,000 connections in `TIME_WAIT`.
+**Diagnosis:** Short-lived connections are exhausting the ephemeral port range.
+**Fix:** 
+1. Enable `net.ipv4.tcp_tw_reuse = 1`.
+2. Use **Connection Pooling** in the application to keep connections alive.
+
+## Scenario 17: Packet Drops in SoftIRQ
+**Symptom:** High CPU usage on one core, high packet loss, but low overall load.
+**Diagnosis:** Check `/proc/softirqs`. Core 0 is likely overwhelmed handling NIC interrupts.
+**Fix:** Enable **RSS (Receive Side Scaling)** or **RPS (Receive Packet Steering)** to distribute packet processing across multiple CPU cores.
+
+
+### Scenario 18: BGP Hijacking Awareness
+**Symptom:** Traffic to your public IP is being routed to a different country.
+**Diagnosis:** A rogue ISP is announcing your IP prefix via BGP.
+**Fix:** Coordinate with your upstream ISP to implement **RPKI (Resource Public Key Infrastructure)** to validate BGP announcements.
+
+### Scenario 19: SCTP Multi-homing Failure
+**Symptom:** Telco application fails over to the backup link but latency spikes 10x.
+**Diagnosis:** One path is congested or has a smaller MTU.
+**Fix:** Tune SCTP `pathmaxrxt` and `hb_interval`. Ensure symmetric MTU across all links.
+
+### Scenario 20: DNS "Glue Record" Mismatch
+**Symptom:** Your nameservers are correct in your zone file, but the internet can't find your domain.
+**Diagnosis:** The "Glue Records" at the Registrar (TLD level) are pointing to old, non-existent IPs.
+**Fix:** Update the nameserver IPs at the domain registrar level.

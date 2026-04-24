@@ -615,3 +615,15 @@ Say:
 - You discuss rollout safety, rollback, and governance for models.
 - You think about latency, accuracy, and cost together.
 - You describe both the immediate mitigation and the prevention plan.
+
+---
+
+## Scenario 1: Model Training Data Drift
+**Symptom:** The model's accuracy in production has dropped by 10% compared to validation.
+**Diagnosis:** The real-world data distribution has changed compared to the training set.
+**Fix:** Implement **Monitoring for Data Drift** (e.g., using EvidentlyAI). Retrain the model on the latest data.
+
+## Scenario 2: GPU Resource Starvation
+**Symptom:** ML training jobs are stuck in `Pending` for hours.
+**Diagnosis:** The Kubernetes cluster has run out of GPU-enabled nodes.
+**Fix:** Use the **Cluster Autoscaler** with GPU node groups. Implement "Multi-Instance GPU" (MIG) on A100s to slice one physical GPU for multiple small jobs.

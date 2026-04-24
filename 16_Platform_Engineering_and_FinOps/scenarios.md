@@ -11,3 +11,15 @@
 ### Scenario 3: FinOps - The "Chargeback" Challenge
 **Problem:** The Finance team wants to know which team spent $50k on EKS last month.
 **Fix:** Implement a strict **Tagging Policy**. Use **KubeCost** to break down EKS costs by Namespace, Label, or Service, and export it to a BI tool like Tableau.
+
+---
+
+## Scenario 1: The "Unattached EBS" Cost Leak
+**Symptom:** Your AWS bill shows $5,000 for EBS volumes, but you only have 10 instances.
+**Diagnosis:** When EC2 instances are deleted, their EBS volumes are often left behind as "Available" (orphaned).
+**Fix:** Use a script or tool (like CloudCustodian) to find and delete unattached EBS volumes.
+
+## Scenario 2: Internal Developer Platform (IDP) "Click Moment"
+**Symptom:** Developers are complaining that it takes 2 weeks to get a new S3 bucket.
+**Diagnosis:** The process is manual and tickets-based.
+**Fix:** Build a "Self-Service" portal using Backstage or a Terraform-based internal module that allows developers to provision standard resources via a simple YAML config.

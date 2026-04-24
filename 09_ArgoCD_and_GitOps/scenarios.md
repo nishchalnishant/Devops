@@ -488,3 +488,20 @@ In GitHub: Settings → Webhooks → Add webhook
 - Content type: `application/json`
 - Secret: value from `argocd-secret.webhook.github.secret`
 - Events: `Push events`, `Pull request events` (for PR generator)
+
+---
+
+## Scenario 1: Sync Wave Deadlock
+**Symptom:** ArgoCD stays in `Progressing` indefinitely. One resource is healthy, but the next one won't start.
+**Diagnosis:** Using `argocd.argoproj.io/sync-wave` incorrectly. Resource A (Wave 1) is "Healthy" in K8s, but its controller is failing, preventing Wave 2 from starting.
+**Fix:** Check the health of Resource A. Adjust sync waves or use `argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource`.
+
+## Scenario 2: GitOps "Manual Change" Conflict
+**Symptom:** You manually edited a service in the K8s cluster, but ArgoCD reverted it 30 seconds later.
+**Diagnosis:** ArgoCD "Self-Heal" is enabled. It enforces the state defined in Git.
+**Fix:** Never edit resources manually in Production. Update the Git repository. If urgent, disable "Self-Heal" in ArgoCD temporarily.
+
+## Scenario 3: Helm Chart Version Drift
+**Symptom:** Multiple environments look different even though they use the same Helm chart.
+**Diagnosis:** You are using a floating version (e.g., `version: 1.x.x`) in `Chart.yaml`.
+**Fix:** Always pin the `version` and `appVersion` in `Chart.yaml`. Use `helm-docs` to track changes.

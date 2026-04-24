@@ -24,3 +24,60 @@ Workflows are triggered by events defined in the `on:` block: `push`, `pull_requ
 
 ---
 
+
+**6. What does `actions/checkout` do and why is it almost always the first step?**
+
+`actions/checkout` clones the repository into the runner's workspace (`$GITHUB_WORKSPACE`). Without it, subsequent steps have no access to the repo's code. By default it checks out the commit that triggered the workflow. Options: `fetch-depth: 0` to get full git history (needed for changelog generation or `git log`), `ref` to check out a specific branch/tag/SHA.
+
+**7. What is `GITHUB_TOKEN` and what can it do?**
+
+`GITHUB_TOKEN` is an automatically generated short-lived token provided by GitHub for each workflow run. It can authenticate against the GitHub API and GitHub Packages within the scope of the repository. Permissions are configurable via the `permissions` key. It expires when the job finishes. It cannot access other repositories or trigger new workflow runs by default (to prevent recursive loops).
+
+**8. How do you run a step only on the `main` branch?**
+
+Use an `if` condition:
+```yaml
+- run: ./deploy.sh
+  if: github.ref == 'refs/heads/main'
+```
+
+Or at the job level:
+```yaml
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+```
+
+**9. What is `concurrency` in a GitHub Actions workflow?**
+
+`concurrency` prevents multiple workflow runs from executing the same job simultaneously. Commonly used to prevent overlapping deploys:
+```yaml
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+```
+`cancel-in-progress: true` cancels the older run when a new one starts. Set `false` for deploys to avoid interrupting a running rollout.
+
+**10. How do environment variables work in GitHub Actions?**
+
+Three scopes: workflow-level (`env:` at the top), job-level (`env:` under the job), step-level (`env:` under the step). Inner scopes override outer. Set dynamic values with `echo "KEY=value" >> $GITHUB_ENV` — available to all subsequent steps in the same job. Access in expressions with `${{ env.KEY }}`.
+
+**11. What is the difference between `uses` and `run` in a step?**
+
+`uses` invokes a pre-built Action (JavaScript, Docker, or composite) from a repository or the Marketplace: `uses: actions/setup-node@v4`. `run` executes shell commands directly on the runner: `run: npm ci`. Both can be combined in the same job.
+
+**12. How do you make one job wait for another in the same workflow?**
+
+Use `needs`:
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps: [...]
+
+  test:
+    needs: build     # waits for build to succeed
+    runs-on: ubuntu-latest
+```
+
+Multiple dependencies: `needs: [build, lint]` — waits for both. If any dependency fails, the dependent job is skipped by default.

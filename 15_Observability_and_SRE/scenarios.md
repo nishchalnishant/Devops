@@ -1520,3 +1520,25 @@ An alert is worth paging an engineer at 3 AM **only if** it meets all three crit
 3. **Customer-impacting** — there is measurable user harm, not just an internal metric anomaly.
 
 If an alert does not meet all three, it belongs in a Slack channel or a Jira ticket, not a phone call.
+
+---
+
+## Scenario 1: Prometheus "Cardinality Explosion"
+**Symptom:** Prometheus is OOMing and slow. Memory usage spiked suddenly.
+**Diagnosis:** A new metric was introduced with a "high cardinality" label (e.g., `user_id` or `timestamp` in a label).
+**Fix:** 
+1. Identify the metric: `topk(10, count by (__name__) ({__name__=~".+"}))`.
+2. Remove the high-cardinality label in the application code or use Prometheus `relabel_configs` to drop it.
+
+## Scenario 2: Grafana Dashboard "Data Gap"
+**Symptom:** Graphs show gaps or "No Data" during high traffic.
+**Diagnosis:** Prometheus is "throttling" scrapes or the target is too slow to respond, causing a timeout.
+**Fix:** 
+1. Increase the `scrape_timeout` in Prometheus config.
+2. Optimize the `/metrics` endpoint of the application (e.g., pre-calculate metrics).
+
+
+### Scenario 3: Prometheus "Target Scrape Latency"
+**Symptom:** Metrics are "choppy" and alerts are flapping.
+**Diagnosis:** The `/metrics` endpoint takes 15s to respond, but the scrape interval is 15s.
+**Fix:** Increase the scrape interval or optimize the metrics generation logic (e.g., use a cache).

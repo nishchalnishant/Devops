@@ -2534,3 +2534,318 @@ Use cases:
 - StatefulSet peer discovery (`postgres-0.postgres-headless.ns.svc.cluster.local`)
 - Applications that manage their own load balancing (Cassandra, Kafka, etcd)
 - Client-side load balancing with gRPC (which uses long-lived connections)
+
+---
+
+## Advanced Architecture Questions (Staff/Principal Level)
+
+**Q: How does eBPF change the Kubernetes networking and observability model compared to iptables-based approaches?**
+
+Traditional kube-proxy uses iptables for service load balancing: every Service creates O(N×M) iptables rules (N services × M endpoints). At 10,000 services with 10 endpoints each, that's 100,000+ rules processed linearly for every packet. Performance degrades nonlinearly.
+
+eBPF (extended Berkeley Packet Filter) runs sandboxed programs in the kernel at hook points (XDP, TC ingress/egress, socket, tracepoints). Cilium replaces kube-proxy entirely with eBPF maps (hash tables with O(1) lookups) for service load balancing. Benefits:
+
+**Networking**: Identity-based policies (cryptographic workload identity, not IP-based), L7 policies at kernel level, direct endpoint routing (bypass iptables NAT entirely), transparent encryption via WireGuard at kernel level.
+
+**Observability**: Cilium Hubble intercepts every packet at kernel level without any changes to application code or sidecars. Full L3-L7 visibility, DNS requests, HTTP headers — zero overhead because it's kernel-level, not userspace sidecar proxy.
+
+**Tradeoffs**: Requires kernel ≥5.4 (ideally 5.10+), more complex debugging (bpftool, bpftrace instead of iptables-save), CNI-specific — can't mix with other CNIs.
+
+For CKA/CKAD: understand that Cilium = eBPF CNI. For architecture interviews: the key insight is that eBPF moves enforcement to the kernel data path, making it both faster and more observable than userspace proxies (Envoy sidecars) for L3/L4 policies.
+
+---
+
+**Q: What is the Kubernetes Gateway API and how does it improve on Ingress?**
+
+Ingress has fundamental limitations: it only defines HTTP host/path routing; all other capabilities (TLS passthrough, TCP routing, header manipulation, traffic splitting) are implemented via non-standard annotations that differ between controllers. An NGINX Ingress annotation doesn't work on Traefik.
+
+Gateway API (GA in 1.28) introduces a role-oriented, expressive API:
+
+```
+GatewayClass (cluster-scoped) → Gateway (namespace, provisions LB) → HTTPRoute/TCPRoute/GRPCRoute (attach to Gateway)
+```
+
+**Role separation**: Infrastructure admin manages GatewayClass and Gateway. Application developer manages Routes. This maps to real organizations: platform team owns the load balancer; dev teams own their routing rules.
+
+**Expressiveness built-in** (no annotations needed):
+- `HTTPRoute`: header matching, URL rewriting, traffic splitting by weight (canary), request mirroring
+- `TCPRoute`: L4 TCP routing
+- `GRPCRoute`: gRPC-aware routing
+- `TLSRoute`: TLS passthrough
+
+**Multi-tenant**: Multiple teams can attach routes to a shared Gateway via `parentRefs` with namespace restrictions defined in the Gateway's `allowedRoutes`.
+
+Migration path: Ingress still works and won't be removed. New deployments should use Gateway API. Major controllers (NGINX, Traefik, Istio, Envoy Gateway, GKE NEG) all support it.
+
+---
+
+**Q: Explain how you would design a multi-cluster Kubernetes architecture for a global SaaS application. What components are needed and what are the failure modes?**
+
+**Architecture layers**:
+
+1. **Cluster topology**: Region-per-cluster (us-east-1, eu-west-1, ap-southeast-1). Active-active, not active-passive — traffic is routed to the nearest region. Control plane HA within each cluster (3 control plane nodes per region).
+
+2. **Global traffic routing**: DNS-based (Route 53 latency routing, Cloudflare Load Balancer) or Anycast. Health checks at the edge detect cluster unavailability.
+
+3. **Multi-cluster service discovery**: 
+   - Option A: Istio multi-cluster with shared control plane or replicated control planes — services in cluster A can reach services in cluster B via the mesh
+   - Option B: Submariner (CNCF) — cross-cluster service discovery and network connectivity
+   - Option C: Pure DNS federation — each cluster exposes services via external DNS, other clusters call the DNS name
+
+4. **Configuration management**: Cluster API (CAPI) for cluster lifecycle. ArgoCD Hub-Spoke pattern: one ArgoCD instance manages all clusters via ApplicationSets with cluster generators. GitOps is the only sane way to manage N clusters.
+
+5. **Data layer** (hardest part):
+   - Stateless services: easy, deploy everywhere
+   - Databases: regional write primaries with cross-region async replication (Postgres with pglogical, CockroachDB, YugabyteDB for multi-primary)
+   - Global cache: Redis with regional instances, eventual consistency accepted
+
+**Failure modes**:
+- Split-brain: region becomes isolated but thinks it's primary — use fencing (STONITH equivalent) and design for AP (accept availability, tolerate partition) vs CP (accept downtime)
+- Configuration drift: clusters diverge without GitOps enforcement — ArgoCD auto-sync with prune+self-heal
+- Network partitions during cross-cluster calls: circuit breakers via Istio (Envoy `outlierDetection`)
+- etcd quorum loss: 3-node control plane requires 2 nodes for quorum — a zone failure with 2 nodes in one zone is catastrophic
+
+**Interview answer key**: Mention CAPI for fleet management, ArgoCD ApplicationSet for GitOps at scale, the data layer complexity, and that you prefer regional clusters over a single global mega-cluster for blast radius containment.
+
+---
+
+**Q: How does the Kubernetes scheduler framework work and how would you write a custom scheduler plugin?**
+
+The scheduler framework (GA in 1.19) replaces the old predicates/priorities model with a lifecycle of extension points. Every scheduling decision passes through phases:
+
+```
+PreFilter → Filter → PostFilter → PreScore → Score → Reserve → Permit → PreBind → Bind → PostBind
+```
+
+**Key phases**:
+- `Filter`: eliminates nodes that can't run the pod (node affinity, resource fit, taints). All filter plugins must pass.
+- `Score`: ranks remaining nodes 0-100. Multiple plugins run and scores are weighted-summed.
+- `Reserve`: optimistically claims resources before binding (prevents race conditions in multi-scheduler setups).
+- `Permit`: can delay or reject binding (used for gang scheduling — wait until all pods of a job can be scheduled simultaneously).
+
+**Writing a custom plugin**:
+```go
+type MyPlugin struct{}
+
+func (pl *MyPlugin) Name() string { return "MyPlugin" }
+
+func (pl *MyPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) (int64, *framework.Status) {
+    // score this node for this pod
+    // return 0-100
+    return 50, nil
+}
+
+func (pl *MyPlugin) ScoreExtensions() framework.ScoreExtensions { return nil }
+
+// Register it:
+func New(obj runtime.Object, h framework.Handle) (framework.Plugin, error) {
+    return &MyPlugin{}, nil
+}
+```
+
+Deploy as a separate scheduler binary (not a webhook — it's compiled in). Configure pods to use it via `schedulerName: my-scheduler` in PodSpec.
+
+**Real use cases**: GPU topology-aware scheduling (place pods on nodes where their GPUs share NVLink), cost-aware scheduling (prefer spot nodes, fallback to on-demand), gang scheduling for ML jobs (Volcano, YuniKorn use this).
+
+---
+
+**Q: Explain API Priority and Fairness (APF) and how it prevents API server overload.**
+
+Before APF (pre-1.18), the API server had a single queue. A single client hammering the API server (e.g., a buggy controller doing 10,000 LIST pods/second) could starve legitimate traffic.
+
+APF introduces two concepts:
+- `PriorityLevelConfiguration`: defines queue parameters (queue count, queue length, concurrency shares)
+- `FlowSchema`: classifies requests into priority levels based on user, group, namespace, verb, resource
+
+**Built-in priority levels** (highest to lowest):
+1. `exempt`: system:masters, exempted from all queuing
+2. `leader-election`: leader election requests (high priority to prevent HA disruption)
+3. `workload-high`: controller manager, scheduler
+4. `workload-low`: default for most authenticated requests
+5. `global-default`: catch-all
+6. `catch-all`: last resort
+
+**Fair queuing within a priority level**: requests from different flows (different users/namespaces) are served in a round-robin fashion to prevent one flow from starving others.
+
+**When it matters**: A namespace with a broken operator doing constant LIST operations gets rate-limited at the `workload-low` level without affecting system components or other namespaces. The API server becomes multi-tenant at the request scheduling level.
+
+**Debugging**: `kubectl get flowschema`, `kubectl get prioritylevelconfiguration`. Metrics: `apiserver_flowcontrol_rejected_requests_total`, `apiserver_flowcontrol_current_inqueue_requests`.
+
+---
+
+**Q: What is Karpenter and how does it differ from Cluster Autoscaler? When would you choose each?**
+
+**Cluster Autoscaler (CA)**:
+- Watches for unschedulable Pods, finds a Node Group that could fit them, scales that Node Group up
+- Scale-down: identifies underutilized nodes and cordon/drains them
+- Works with pre-defined Node Groups (AWS ASGs, Azure VMSSs). Each node group is a specific instance type.
+- Limitation: you must pre-create node groups for every instance type you might want. Bin-packing is basic.
+
+**Karpenter** (now a CNCF project):
+- Watches for unschedulable Pods and directly provisions EC2 instances (or Azure VMs in AKS) via cloud provider APIs — no Node Groups needed
+- Selects instance type based on Pod requirements (CPU, memory, GPU, architecture) — bin-packs optimally
+- Consolidation: proactively terminates underutilized nodes and repacks workloads onto fewer, cheaper instances
+- Supports Spot interruption handling natively
+- `NodePool` (formerly Provisioner) defines constraints (instance families, zones, taints, labels) rather than specific instance types
+
+**When to use CA**: You need Node Groups for compliance/cost reasons, or you're on a cloud provider Karpenter doesn't support yet (GKE has its own equivalent in Autopilot).
+
+**When to use Karpenter**: AWS (most mature implementation), you want instance-type flexibility, you want automatic Spot-to-on-demand fallback, or you want consolidation to reduce costs.
+
+**Key Karpenter concepts for interviews**: `NodePool` (node constraints), `EC2NodeClass` (AWS-specific config: AMI, subnet, security groups), disruption budget (how aggressively to consolidate).
+
+---
+
+**Q: How does Pod Security Admission work in Kubernetes 1.25+ and what replaced PodSecurityPolicy?**
+
+PodSecurityPolicy was deprecated in 1.21 and removed in 1.25. It had fatal flaws: it required RBAC to USE a PSP (not just have it exist), leading to privilege escalation via the `use` verb; the admission model was confusing.
+
+**Pod Security Admission (PSA)** is the built-in replacement. Three policy levels:
+- `privileged`: unrestricted (used for infrastructure workloads like CNI, CSI drivers)
+- `baseline`: prevents known privilege escalation (no privileged containers, no host namespaces, limited volume types)
+- `restricted`: heavily hardened (no root, read-only root FS required, seccomp required, all capabilities dropped)
+
+Applied per namespace via labels:
+```yaml
+metadata:
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+```
+
+Three modes: `enforce` (reject), `warn` (allow but show warning), `audit` (allow but log).
+
+**Limitations of PSA**: Not granular enough for complex environments (can't say "team A gets baseline, service account B gets privileged in the same namespace"). For fine-grained policies, use **OPA/Gatekeeper** or **Kyverno** (policy as code, can write arbitrary validation logic).
+
+**Interview answer**: PSA for standard security baselines, Kyverno/Gatekeeper for custom policies (e.g., "all images must come from our private registry", "all deployments must have resource limits set").
+
+---
+
+**Q: Explain how Sigstore/Cosign can be used to enforce image supply chain security in Kubernetes.**
+
+The supply chain problem: anyone with registry push access can push any image. How do you verify that the image running in your cluster was actually built by your CI pipeline and not tampered with?
+
+**Sigstore components**:
+- `Cosign`: signs container images (attaches signature as a separate OCI artifact in the same registry)
+- `Fulcio`: keyless signing CA — issues short-lived certificates tied to OIDC identity (GitHub Actions, Google SA, etc.) so you don't manage long-lived signing keys
+- `Rekor`: immutable transparency log — all signatures are recorded; you can prove a signature existed at a point in time
+
+**Workflow**:
+```bash
+# In CI (GitHub Actions) — keyless signing via OIDC
+cosign sign --yes ghcr.io/myorg/myapp:sha-abc123
+
+# Sign with SBOMs attached
+cosign attest --yes --predicate sbom.json --type spdxjson ghcr.io/myorg/myapp:sha-abc123
+```
+
+**Enforcement in Kubernetes**:
+- **Policy Controller** (from Sigstore project): admission webhook that verifies signatures before pod admission
+- **Kyverno**: `verifyImages` rule checks cosign signatures
+- **Connaisseur**: dedicated admission controller for image trust
+
+```yaml
+# Kyverno policy
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image
+spec:
+  rules:
+  - name: check-image-signature
+    match:
+      resources: {kinds: [Pod]}
+    verifyImages:
+    - imageReferences: ["ghcr.io/myorg/*"]
+      attestors:
+      - entries:
+        - keyless:
+            subject: "https://github.com/myorg/myapp/.github/workflows/build.yml@refs/heads/main"
+            issuer: "https://token.actions.githubusercontent.com"
+```
+
+**What this achieves**: Only images signed by your specific GitHub Actions workflow can run in the cluster. Tampering with the image changes its digest, invalidating the signature.
+
+---
+
+**Q: Walk through debugging a scenario where the API server is experiencing high latency (>500ms p99) and some requests are timing out.**
+
+**Immediate triage** (first 5 minutes):
+
+```bash
+# 1. API server metrics (if accessible)
+kubectl get --raw /metrics | grep apiserver_request_duration_seconds
+
+# 2. Check API server pod resource usage
+kubectl top pod -n kube-system -l component=kube-apiserver
+
+# 3. Check etcd latency (API server depends on etcd for reads/writes)
+kubectl get --raw /metrics | grep etcd_request_duration_seconds
+
+# 4. Check request inflight
+kubectl get --raw /metrics | grep apiserver_current_inflight_requests
+```
+
+**Systematic investigation**:
+
+```bash
+# 5. Enable audit logging if not already (requires API server restart)
+# Check: --audit-log-path, --audit-policy-file in API server flags
+
+# 6. Identify which request types are slow
+kubectl get --raw /metrics | grep 'apiserver_request_duration_seconds_bucket{.*le="0.5"'
+# Look for verbs+resources with high latency (LIST operations are most common offender)
+
+# 7. Check for expensive LIST operations
+kubectl get events -A --sort-by=.lastTimestamp | grep "List"
+
+# 8. Check for watch cache starvation
+kubectl get --raw /metrics | grep watch_cache
+```
+
+**Common root causes**:
+
+| Symptom | Root Cause | Fix |
+|---------|-----------|-----|
+| etcd p99 >100ms | etcd disk I/O saturation | Move etcd to NVMe SSD; separate etcd disk from OS |
+| High LIST latency | Unparameterized LIST without label selectors | Add `--label-selector` to controller; enable pagination |
+| OOM on API server pod | Large watch cache consuming all memory | Set `--watch-cache-sizes` limits; add memory to node |
+| `apiserver_current_inflight_requests` at limit | Too many concurrent requests | Tune APF priority levels; investigate misbehaving controllers |
+| Slow webhook responses | Admission webhook timing out | Optimize webhook or increase timeout; set `failurePolicy: Ignore` for non-critical |
+
+**Long-term fixes**: Enable APF fine-tuning; ensure etcd has dedicated fast disk; set up API server horizontal scaling (in managed clusters this is automatic); implement client-side caching in controllers (use informers, not direct API calls).
+
+---
+
+**Q: How would you implement zero-downtime migration of a stateful application (PostgreSQL primary) from one Kubernetes cluster to another?**
+
+This is a distributed systems problem: you must avoid data loss AND avoid downtime simultaneously.
+
+**Phase 1: Setup dual-cluster** (no traffic change yet)
+1. Deploy PostgreSQL in the new cluster with streaming replication FROM the source cluster's primary
+2. Source = primary (writes), Target = streaming replica (reads only)
+3. Verify replication lag is consistently <1s: `SELECT pg_last_wal_receive_lsn()` vs source's `pg_current_wal_lsn()`
+
+**Phase 2: Application preparation**
+1. Add connection string configuration support (app must be able to point to either cluster)
+2. Deploy app to new cluster in read-only mode, connecting to source DB
+3. This validates new cluster networking, compute, and app config
+
+**Phase 3: Cutover** (the tricky part)
+1. Set application maintenance page / feature flag to pause writes
+2. Verify replication lag reaches 0 (`pg_last_wal_receive_lsn() = pg_current_wal_lsn()`)
+3. Promote replica in new cluster to primary: `pg_promote()`
+4. Update DNS/connection strings to point to new cluster's PostgreSQL
+5. Remove maintenance mode
+
+**Phase 4: Validation and cleanup**
+1. Monitor error rates, query latency, replication metrics
+2. Keep old cluster running in standby for 24-48 hours
+3. After confidence, decommission old cluster
+
+**Downtime window**: Step 3 is the only true downtime — typically <30 seconds for DNS TTL and connection drain.
+
+**Tools**: Patroni for automated failover, PgBouncer for connection pooling with transparent failover, Velero for backup before cutover.
+
+**Key insight for interview**: Never do a big-bang migration. Always set up replication first, validate in parallel, then do a planned, reversible cutover with a short maintenance window.

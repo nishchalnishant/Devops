@@ -144,3 +144,185 @@ An ML-BOM (Machine Learning Bill of Materials) extends the software SBOM concept
 
 ---
 
+
+---
+
+**44. How do you implement a model promotion gate in a CI/CD pipeline?**
+
+A promotion gate is an automated check that blocks a model from advancing to production unless it clears quantitative thresholds:
+
+```python
+# evaluation_gate.py — run after training, before registry promotion
+import mlflow
+
+client = mlflow.MlflowClient()
+run = client.get_run(run_id)
+
+challenger_auc = float(run.data.metrics["auc_val"])
+challenger_psi  = float(run.data.metrics["psi_max"])
+
+# Load champion's last recorded metric
+champion = client.get_model_version_by_alias("fraud-detector", "champion")
+champion_auc = float(client.get_run(champion.run_id).data.metrics["auc_val"])
+
+# Gate conditions
+assert challenger_auc >= champion_auc - 0.005, "AUC regression > 0.5%"
+assert challenger_psi < 0.2, "Input drift too high — feature pipeline suspect"
+assert challenger_auc >= 0.88, "Below absolute minimum AUC"
+
+# Promote
+client.set_registered_model_alias("fraud-detector", "challenger", run.info.run_id)
+```
+
+In the CI pipeline: if `evaluation_gate.py` exits non-zero, the promotion step is skipped and the champion continues serving. Alert the ML team via Slack/PagerDuty.
+
+**45. How do you handle model cold start latency in a Kubernetes serving environment?**
+
+Cold start occurs when a pod starts and must download + load model weights before serving traffic. For large models (2-70 GB), this can take minutes.
+
+Mitigation strategies:
+1. **Pre-pull images**: DaemonSet to pull the inference container image on all GPU nodes before a rollout
+2. **Warm pool**: Keep a minimum replica count > 0 (never scale to zero for latency-critical models)
+3. **Init containers**: Download model weights from S3 into a shared `emptyDir` volume before the serving container starts — model loading and network download happen in parallel with cluster scheduling
+4. **Model caching on node**: Use a persistent volume or node-local cache so weights survive pod restarts on the same node
+5. **KServe storage initializer**: Runs as an init container, downloads weights from S3/GCS before the predictor starts
+
+```yaml
+spec:
+  initContainers:
+  - name: model-downloader
+    image: amazon/aws-cli
+    command: ["aws", "s3", "cp", "s3://models/fraud/v12/", "/mnt/model/", "--recursive"]
+    volumeMounts:
+    - mountPath: /mnt/model
+      name: model-cache
+  containers:
+  - name: predictor
+    volumeMounts:
+    - mountPath: /mnt/model
+      name: model-cache
+```
+
+**46. What is the difference between online evaluation and offline evaluation for ML models?**
+
+| | Offline Evaluation | Online Evaluation |
+|---|---|---|
+| Data | Held-out test set from historical data | Live production traffic |
+| Labels | Available immediately | May be delayed (days/weeks) |
+| Speed | Fast (minutes) | Slow (requires observation period) |
+| Signal | Measures model quality on a snapshot | Measures real-world business impact |
+| Limitation | Test set may not match production distribution | Requires A/B infrastructure |
+| Tools | sklearn metrics, RAGAS | Evidently, Prometheus, A/B framework |
+
+Offline: AUC, F1, RMSE on test set. Online: business KPIs (click-through, conversion, fraud catch rate) on live traffic. Both are required — offline catches regressions before deployment; online validates that offline improvements translate to real-world value.
+
+**47. How do you implement safe model rollback in a production ML system?**
+
+```python
+# GitOps-style: serving config stored in Git
+# Rollback = revert the serving config commit
+
+# Step 1: identify champion alias in registry
+client = mlflow.MlflowClient()
+champion = client.get_model_version_by_alias("fraud-detector", "champion")
+
+# Step 2: check what's serving
+current_serving_version = get_deployment_model_version("fraud-detector-svc")
+
+if current_serving_version != champion.version:
+    # Step 3: revert deployment config
+    patch_kserve_isvc("fraud-detector", model_uri=champion.source)
+    # Step 4: record the rollback event
+    client.set_tag(champion.run_id, "rollback_at", datetime.utcnow().isoformat())
+    notify_oncall("Rolled back fraud-detector to v" + champion.version)
+```
+
+Rollback checklist:
+- Does the previous model version's artifact still exist in S3? (verify before initiating rollback)
+- Are the previous version's features still materialized in the online store?
+- Is the rollback captured as a registry event for the audit trail?
+- Does the rollback update the canary traffic split back to 100/0?
+
+**48. What is the difference between Kubeflow Pipelines and Apache Airflow for ML workflows?**
+
+| | Kubeflow Pipelines (KFP) | Apache Airflow |
+|---|---|---|
+| Native ML support | First-class (artifacts, lineage, component caching) | Generic DAG — no native ML concepts |
+| Execution model | Each step = Kubernetes pod (isolated, reproducible) | Tasks run on workers (shared environment) |
+| Artifact tracking | Built-in (MLMD) | External (MLflow, S3) |
+| Caching | Automatic component output caching | No built-in caching |
+| Learning curve | Steeper (Kubernetes) | Lower (Python DAGs) |
+| Best for | ML training + evaluation + promotion pipelines | Data engineering, ETL, scheduling |
+
+Use KFP when: the pipeline produces ML artifacts, you need reproducibility, or you're already on Kubernetes. Use Airflow when: the pipeline is mostly data transformation, you need rich scheduling, or the team is unfamiliar with Kubernetes.
+
+**49. How do you design a feature pipeline for low-latency online serving?**
+
+Requirements: feature lookup at inference time must be < 10ms P99.
+
+Architecture:
+```
+Batch/streaming source (Kafka, BigQuery)
+           │
+     Feature computation (Spark / Flink)
+           │
+    Offline store (Parquet/Delta Lake)   ──► Training
+           │
+    Materialization job (Feast / Tecton)
+           │
+    Online store (Redis / DynamoDB)      ──► Inference API
+```
+
+Design decisions for low latency:
+- **Redis Cluster**: Use Redis with read replicas in the same AZ as inference pods. Pipeline multiple feature lookups in a single MGET/HGETALL call.
+- **Entity encoding**: Encode entity IDs as compact binary keys. Avoid string concatenation at request time.
+- **Feature pre-computation**: Compute expensive aggregates (7-day rolling counts) in batch; serve pre-computed values, not real-time computation.
+- **TTL**: Set per-feature TTL matching the feature's natural staleness (e.g., session features: 30 minutes; user demographics: 7 days). Stale features are better than slow features for most use cases.
+- **Connection pooling**: Reuse Redis connections across requests. Each cold connection adds 2-5ms.
+
+**50. How do you monitor prediction confidence in production?**
+
+Confidence monitoring detects silent model failures — the model serves a prediction but is uncertain.
+
+```python
+# Log confidence distribution metrics
+from prometheus_client import Histogram
+
+CONFIDENCE_HISTOGRAM = Histogram(
+    "model_prediction_confidence",
+    "Distribution of model output confidence",
+    buckets=[0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0]
+)
+
+def predict(request):
+    proba = model.predict_proba(request.features)
+    confidence = proba.max(axis=1)
+    CONFIDENCE_HISTOGRAM.observe(confidence[0])
+
+    if confidence[0] < CONFIDENCE_THRESHOLD:
+        # Route to human review or fallback model
+        return fallback_predict(request)
+    return {"label": proba.argmax(), "confidence": float(confidence[0])}
+```
+
+Alert on:
+- Median confidence drops > 10% from baseline (model uncertain about typical inputs)
+- P5 confidence drops near 0.5 (model essentially random for some inputs)
+- Confidence distribution bimodal shift (model highly confident but wrong — indicates distribution shift)
+
+**51. What is Continuous Training (CT) and how do you decide when to trigger it?**
+
+CT is the automated pipeline that detects a retraining signal, retrains the model, evaluates it, and promotes it if it passes gates — without human intervention.
+
+Trigger conditions (choose based on business context):
+
+| Trigger | Condition | When to Use |
+|---------|-----------|-------------|
+| Schedule | Weekly/daily cron | Slowly evolving data, low label delay |
+| Data volume | New data batch > N rows | High-volume systems with fresh labels |
+| Drift threshold | PSI > 0.2 on key feature | Rapid covariate shift |
+| Performance degradation | Rolling AUC drops > X% | When labels are available with short delay |
+| Business KPI | CTR drops > Y% week-over-week | When business signal is the most reliable |
+
+Avoid triggering CT on every data update — it wastes compute and can cause instability if new data is temporarily corrupted. Set a minimum training frequency (e.g., no more than once per day) and a minimum data volume requirement.
+

@@ -60,3 +60,86 @@ A paved road is a standardized, opinionated CI/CD path that builds in mandatory 
 
 ---
 
+
+**13. How do you implement a dynamic matrix build where the matrix values are generated at runtime?**
+
+Generate the matrix JSON in a prior job and pass it via outputs:
+
+```yaml
+jobs:
+  compute-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+    - id: set
+      run: |
+        SERVICES=$(ls services/ | jq -R -s -c 'split("\n")[:-1]')
+        echo "matrix={\"service\":$SERVICES}" >> $GITHUB_OUTPUT
+
+  test:
+    needs: compute-matrix
+    strategy:
+      matrix: ${{ fromJson(needs.compute-matrix.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    steps:
+    - run: pytest services/${{ matrix.service }}/
+```
+
+Useful for monorepos where the list of services changes over time — no manual matrix updates needed.
+
+**14. What is the difference between `secrets` and `vars` in GitHub Actions?**
+
+`secrets` are encrypted at rest and masked in logs — values are never visible after being stored. `vars` (repository/environment variables) are plain-text, visible to anyone with read access to the repo settings. Use `secrets` for credentials, tokens, API keys. Use `vars` for non-sensitive configuration that differs between environments (URLs, feature flags, region names).
+
+Access: `${{ secrets.MY_SECRET }}` and `${{ vars.MY_VAR }}`.
+
+**15. How do you prevent a workflow from being triggered by bot commits?**
+
+```yaml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    if: github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]'
+```
+
+Or skip at the commit level by including `[skip ci]` in the commit message — GitHub Actions honors this by default.
+
+**16. How do you implement rollback in a GitHub Actions deployment workflow?**
+
+Pattern: deploy and verify, then rollback on failure:
+
+```yaml
+- name: Deploy
+  id: deploy
+  run: helm upgrade --install myapp ./chart --set image.tag=${{ env.IMAGE_TAG }}
+
+- name: Verify
+  id: verify
+  run: ./scripts/smoke-test.sh
+  
+- name: Rollback on failure
+  if: failure() && steps.deploy.outcome == 'success'
+  run: helm rollback myapp
+```
+
+For Kubernetes: `kubectl rollout undo deployment/myapp` as the rollback step. The `if: failure()` condition means this step only runs if a previous step failed.
+
+**17. How does GitHub Actions handle workflow permissions in a fork?**
+
+Workflows triggered by `pull_request` from a fork run without access to secrets. The `GITHUB_TOKEN` is read-only. This protects against secret exfiltration from malicious forks. For workflows that need secrets (e.g., to post a comment with test results), use `pull_request_target` combined with an environment protection rule requiring reviewer approval before the job runs.
+
+**18. What are composite actions and when would you use them over reusable workflows?**
+
+| | Composite Action | Reusable Workflow |
+|---|---|---|
+| Unit | Steps | Jobs |
+| Outputs | Step outputs | Job outputs |
+| Secrets | Via inputs | Via `secrets:` block |
+| Parallelism | Sequential steps | Can have parallel jobs |
+| Use case | Encapsulate a sequence of steps | Encapsulate an entire pipeline |
+
+Use composite actions for small reusable step sequences (setup, build, test). Use reusable workflows when you need multiple jobs with dependencies, environments, or matrix builds.
