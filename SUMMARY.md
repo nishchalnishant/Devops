@@ -1,6 +1,12 @@
 * [Table of contents](SUMMARY.md)
 
 * [DevOps Interview Handbook](README.md)
+* [Learning Path](Learning_Path/README.md)
+  * [Phase 1: Foundations](Learning_Path/phase-1-foundations.md)
+  * [Phase 2: Platform and Delivery](Learning_Path/phase-2-platform-and-delivery.md)
+  * [Phase 3: SRE and Operations](Learning_Path/phase-3-sre-and-operations.md)
+  * [Phase 4: Senior Role Readiness](Learning_Path/phase-4-senior-role-readiness.md)
+  * [Capstone Projects](Learning_Path/capstone-projects.md)
 
 * 1 Linux and Scripting
   * [Overview](01_Linux_and_Scripting/README.md)
@@ -33,9 +39,9 @@
 * 3 Git and Version Control
   * [Overview](03_Git_and_Version_Control/README.md)
   * Detailed Notes
-    * [Notes_Git_Github](03_Git_and_Version_Control/notes/Notes_Git_GitHub.md)
+    * [Git and GitHub Deep Dive](03_Git_and_Version_Control/notes/Notes_Git_GitHub.md)
     * [Advanced Git Workflows And Monorepos](03_Git_and_Version_Control/notes/advanced-git-workflows-and-monorepos.md)
-    * [Notes](03_Git_and_Version_Control/notes/notes.md)
+    * [Reference Notes](03_Git_and_Version_Control/notes/notes.md)
   * Interview Questions
     * [Easy](03_Git_and_Version_Control/interview-easy.md)
     * [Medium](03_Git_and_Version_Control/interview-medium.md)
@@ -46,10 +52,10 @@
 * 4 Docker
   * [Overview](04_Docker/README.md)
   * Detailed Notes
-    * [Notes_Docker_Networking](04_Docker/notes/Notes_Docker_Networking.md)
-    * [Notes_Tws_Docker](04_Docker/notes/Notes_TWS_Docker.md)
+    * [Docker Networking Deep Dive](04_Docker/notes/Notes_Docker_Networking.md)
+    * [Docker Technical Mastery](04_Docker/notes/Notes_TWS_Docker.md)
     * [Container Runtimes And Security](04_Docker/notes/container-runtimes-and-security.md)
-    * [Notes](04_Docker/notes/notes.md)
+    * [Reference Notes](04_Docker/notes/notes.md)
   * Interview Questions
     * [Easy](04_Docker/interview-easy.md)
     * [Medium](04_Docker/interview-medium.md)
@@ -62,7 +68,7 @@
   * Detailed Notes
     * [Containers Orchestration Readme](05_Kubernetes/notes/containers-orchestration-README.md)
     * [Enterprise Kubernetes Architecture](05_Kubernetes/notes/enterprise-kubernetes-architecture.md)
-    * [Notes](05_Kubernetes/notes/notes.md)
+    * [Reference Notes](05_Kubernetes/notes/notes.md)
   * Interview Questions
     * [Easy](05_Kubernetes/interview-easy.md)
     * [Medium](05_Kubernetes/interview-medium.md)
@@ -75,8 +81,8 @@
 * 6 Jenkins
   * [Overview](06_Jenkins/README.md)
   * Detailed Notes
-    * [Notes_Jenkins](06_Jenkins/notes/Notes_Jenkins.md)
-    * [Notes](06_Jenkins/notes/notes.md)
+    * [Jenkins Technical Mastery](06_Jenkins/notes/Notes_Jenkins.md)
+    * [Reference Notes](06_Jenkins/notes/notes.md)
     * [Platform Engineering For Cicd](06_Jenkins/notes/platform-engineering-for-cicd.md)
   * Interview Questions
     * [Easy](06_Jenkins/interview-easy.md)
@@ -143,7 +149,7 @@
 * 12 Azure
   * [Overview](12_Azure/README.md)
   * Detailed Notes
-    * [Azure_Cloud](12_Azure/notes/azure_cloud.md)
+    * [Azure Cloud Mastery](12_Azure/notes/azure_cloud.md)
   * Interview Questions
     * [Easy](12_Azure/interview-easy.md)
     * [Medium](12_Azure/interview-medium.md)
@@ -200,10 +206,10 @@
 * 17 MLOps
   * [Overview](17_MLOps/README.md)
   * Detailed Notes
-    * [Mlops](17_MLOps/notes/MLOps.md)
+    * [MLOps Fundamentals](17_MLOps/notes/MLOps.md)
     * [Mlops Feature Stores And Pipelines](17_MLOps/notes/mlops-feature-stores-and-pipelines.md)
     * [Mlops Llmops And Advanced Serving](17_MLOps/notes/mlops-llmops-and-advanced-serving.md)
-    * [Notes](17_MLOps/notes/notes.md)
+    * [Reference Notes](17_MLOps/notes/notes.md)
   * Interview Questions
     * [Easy](17_MLOps/interview-easy.md)
     * [Medium](17_MLOps/interview-medium.md)
