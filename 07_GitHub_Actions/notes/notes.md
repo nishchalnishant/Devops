@@ -342,3 +342,246 @@ permissions:
   contents: read    # minimal: only read repo
   # don't grant write permissions unless the job specifically needs them
 ```
+
+***
+
+## Self-Hosted Runners
+
+### Runner Architecture
+
+```
+GitHub Actions service (cloud)
+    │  webhook: job queued
+    ▼
+Runner process (on-prem or cloud VM)
+    │  polls GitHub API for jobs matching its labels
+    │  downloads workflow steps + actions
+    ▼
+Job execution (subprocess or container)
+    │  streams logs back to GitHub
+    ▼
+GitHub Actions service
+    │  stores logs, artifacts
+```
+
+```bash
+# Install runner on a Linux VM
+mkdir actions-runner && cd actions-runner
+curl -o actions-runner-linux-x64-2.319.0.tar.gz -L \
+  https://github.com/actions/runner/releases/download/v2.319.0/actions-runner-linux-x64-2.319.0.tar.gz
+tar xzf ./actions-runner-linux-x64-2.319.0.tar.gz
+
+# Configure (get token from GitHub repo/org Settings > Actions > Runners)
+./config.sh --url https://github.com/myorg --token <TOKEN> \
+  --labels self-hosted,linux,x64,gpu \
+  --name prod-runner-01 \
+  --runnergroup "production"
+
+# Install as systemd service
+sudo ./svc.sh install
+sudo ./svc.sh start
+
+# Check status
+sudo ./svc.sh status
+journalctl -u actions.runner.myorg.prod-runner-01 -f
+```
+
+### Kubernetes-Based Runners (Actions Runner Controller)
+
+ARC (Actions Runner Controller) provisions ephemeral Kubernetes pods as runners:
+
+```yaml
+# RunnerDeployment — persistent runner pods
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: myorg-runners
+spec:
+  replicas: 3
+  template:
+    spec:
+      organization: myorg
+      labels: [self-hosted, linux, k8s]
+      image: summerwind/actions-runner:latest
+      resources:
+        limits: {cpu: "2", memory: "4Gi"}
+        requests: {cpu: "500m", memory: "1Gi"}
+---
+# HorizontalRunnerAutoscaler — scale based on queue depth
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: HorizontalRunnerAutoscaler
+metadata:
+  name: myorg-runners-autoscaler
+spec:
+  scaleTargetRef:
+    name: myorg-runners
+  minReplicas: 1
+  maxReplicas: 20
+  metrics:
+  - type: TotalNumberOfQueuedAndInProgressWorkflowRuns
+    repositoryNames: [myorg/myrepo]
+```
+
+**Use self-hosted for:** GPU workloads, access to internal resources (VPC databases, private registries), build caching on fast local storage, cost control on long builds.
+
+**Security isolation:** Each job should run in a fresh pod/container. Never share a runner across untrusted repos — a malicious PR can exfiltrate runner credentials.
+
+```yaml
+# Always use ephemeral runners for untrusted input (PRs from forks)
+runs-on: [self-hosted, ephemeral]
+
+# In ARC, set ephemeral: true to delete runner after each job
+spec:
+  ephemeral: true
+```
+
+***
+
+## Larger GitHub-Hosted Runners
+
+GitHub offers larger runners (2–64 cores, up to 256 GB RAM) for high-compute jobs:
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest-16-cores   # 16-core GitHub-hosted runner
+    # or: ubuntu-latest-4-cores, ubuntu-latest-8-cores, ubuntu-latest-64-cores
+```
+
+Runners can be assigned to a runner group for access control. Configured in org/repo Settings → Actions → Runners.
+
+***
+
+## Workflow Expressions and Context
+
+```yaml
+# Contexts available in workflows
+${{ github.sha }}              # full commit SHA
+${{ github.ref }}              # refs/heads/main or refs/tags/v1.0
+${{ github.ref_name }}         # main or v1.0 (short name)
+${{ github.event_name }}       # push, pull_request, etc.
+${{ github.actor }}            # username who triggered
+${{ runner.os }}               # Linux, Windows, macOS
+${{ env.MY_VAR }}              # env var set in this job
+${{ secrets.MY_SECRET }}       # org/repo secret
+${{ vars.MY_VAR }}             # org/repo variable (non-secret)
+
+# Conditional expressions
+if: github.ref == 'refs/heads/main'
+if: contains(github.event.pull_request.labels.*.name, 'hotfix')
+if: failure() && github.ref == 'refs/heads/main'   # only notify on main branch failure
+if: always()   # run even if previous steps failed
+
+# fromJson / toJson
+- run: echo "${{ toJson(github.event) }}"
+- env:
+    MATRIX: ${{ toJson(matrix) }}
+```
+
+### Setting outputs and env vars
+
+```yaml
+steps:
+- id: compute
+  run: |
+    VERSION=$(cat version.txt)
+    echo "version=$VERSION" >> $GITHUB_OUTPUT
+    echo "DEPLOY_ENV=staging" >> $GITHUB_ENV    # available to subsequent steps
+    echo "::add-mask::$SECRET_VALUE"            # mask value from logs
+
+- run: echo "Deploying ${{ steps.compute.outputs.version }} to $DEPLOY_ENV"
+```
+
+### Multiline strings
+
+```yaml
+- run: |
+    echo "line 1"
+    echo "line 2"
+
+# Folded scalar for long single-line values
+- run: >-
+    aws s3 sync ./dist
+    s3://my-bucket/
+    --delete
+    --cache-control "max-age=31536000"
+```
+
+***
+
+## Debugging Workflows
+
+```yaml
+# Enable debug logging: set secret ACTIONS_STEP_DEBUG=true
+# Or trigger with debug flag:
+- name: Enable debug
+  run: echo "::debug::This is a debug message"
+
+# Group log output
+- run: |
+    echo "::group::Install dependencies"
+    npm ci
+    echo "::endgroup::"
+
+# Add warning/error annotations
+- run: |
+    echo "::warning file=app.js,line=12::Deprecated API used"
+    echo "::error file=app.js,line=45::Null pointer exception"
+
+# Re-run failed jobs with debug logging (GitHub UI: Re-run jobs > Enable debug logging)
+```
+
+```bash
+# Local testing with act (https://github.com/nektos/act)
+act push                              # simulate push event
+act pull_request -e event.json        # simulate PR with custom event payload
+act -j build --secret-file .secrets   # run specific job with secrets file
+act --list                            # list available workflows and jobs
+```
+
+***
+
+## Artifact Management
+
+```yaml
+# Upload build artifacts
+- uses: actions/upload-artifact@v4
+  with:
+    name: dist-${{ github.sha }}
+    path: dist/
+    retention-days: 7       # default 90 days; reduce to save storage
+    if-no-files-found: error
+
+# Download in another job
+- uses: actions/download-artifact@v4
+  with:
+    name: dist-${{ github.sha }}
+    path: ./dist
+
+# Upload to GitHub releases
+- uses: softprops/action-gh-release@v2
+  with:
+    files: |
+      dist/myapp-linux-amd64
+      dist/myapp-darwin-arm64
+    generate_release_notes: true
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+***
+
+## Key Gotchas
+
+| Gotcha | Detail |
+|--------|--------|
+| `$GITHUB_OUTPUT` vs `set-output` | `set-output` command is deprecated; must use `echo "key=value" >> $GITHUB_OUTPUT` |
+| Secrets not available in fork PRs | `pull_request` from forks doesn't have access to secrets — use `pull_request_target` carefully (security risk) |
+| `pull_request_target` context is the base branch | The workflow runs in the context of the target branch, not the PR branch — `${{ github.sha }}` is the base commit |
+| Reusable workflows don't inherit secrets | Must pass explicitly with `secrets:` or use `secrets: inherit`; not automatically passed |
+| Matrix strategy `fail-fast: true` by default | One failed matrix job cancels all others; set `fail-fast: false` for independent dimensions |
+| `actions/cache` only saves on cache miss | Cache is saved at end of job only if there was a cache miss; a cache hit doesn't re-save |
+| Environment protection rules block all branches by default | After adding a required reviewer, all deployments need approval including automated ones |
+| `concurrency: cancel-in-progress: true` on deploys | Can interrupt a running deploy mid-flight — use `cancel-in-progress: false` for production deployments |
+| Self-hosted runner labels are additive | A job `runs-on: [self-hosted, linux]` matches any runner with ALL those labels, not just one |
+| SHA-pinned actions need Dependabot | Pin to immutable SHA but keep a comment with the version; set up `dependabot.yml` to keep SHAs current |

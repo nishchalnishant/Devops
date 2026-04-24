@@ -52,7 +52,7 @@
 * 4 Docker
   * [Overview](04_Docker/README.md)
   * Detailed Notes
-    * [Docker Networking Deep Dive](04_Docker/notes/Notes_Docker_Networking.md)
+    * [Docker Networking Internals](04_Docker/notes/docker-networking-internals.md)
     * [Docker Technical Mastery](04_Docker/notes/Notes_TWS_Docker.md)
     * [Container Runtimes And Security](04_Docker/notes/container-runtimes-and-security.md)
     * [Reference Notes](04_Docker/notes/notes.md)
