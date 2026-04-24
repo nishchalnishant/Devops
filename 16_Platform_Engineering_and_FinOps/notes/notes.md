@@ -167,7 +167,7 @@ Practical steps to translate technical skills into professional opportunities.
 * Generative AI tools:
   * Leveraging ChatGPT, Gemini, and Dall-e for productivity and learning.
 
----
+***
 
 ## 🔷 Beyond the 11 Steps: Senior → Staff Roadmap (7 YOE)
 
@@ -187,7 +187,7 @@ ROADMAP
 created by  
 
 
----
+***
 
 ## Page 2
 
@@ -206,7 +206,7 @@ https://www.techworld-with-nana.com/devops-
 bootcamp#devops-curriculum-and-projects
 
 
----
+***
 
 ## Page 3
 
@@ -243,7 +243,7 @@ DevSecOps and MLOps Engineer
 26
 
 
----
+***
 
 ## Page 4
 
@@ -274,7 +274,7 @@ expanding your knowledge, even after you have become a DevOps
 engineer.
 
 
----
+***
 
 ## Page 5
 
@@ -304,7 +304,7 @@ Automated testing and
 test scopes
 
 
----
+***
 
 ## Page 6
 
@@ -344,7 +344,7 @@ advanced use cases.
 www.techworld-with-nana.com/devops-roadmap
 
 
----
+***
 
 ## Page 7
 
@@ -385,7 +385,7 @@ environment.
 www.techworld-with-nana.com/devops-roadmap
 
 
----
+***
 
 ## Page 8
 
@@ -431,7 +431,7 @@ Actions, Travis CI, Bamboo
 www.techworld-with-nana.com/devops-roadmap
 
 
----
+***
 
 ## Page 9
 
@@ -471,7 +471,7 @@ learn the EKS service as well.
 www.techworld-with-nana.com/devops-roadmap
 
 
----
+***
 
 ## Page 10
 
@@ -508,7 +508,7 @@ Namespaces
 www.techworld-with-nana.com/devops-roadmap
 
 
----
+***
 
 ## Page 11
 
@@ -543,7 +543,7 @@ with the goal of using it to troubleshoot,
 gain business insights etc.
 
 
----
+***
 
 ## Page 12
 
@@ -585,7 +585,7 @@ popular configuration
 management tool
 
 
----
+***
 
 ## Page 13
 
@@ -631,7 +631,7 @@ make you much more valuable as a
 DevOps engineer.
 
 
----
+***
 
 ## Page 14
 
@@ -667,7 +667,7 @@ project, like create pull requests, code
 reviews, branching
 
 
----
+***
 
 ## Page 15
 
@@ -679,7 +679,7 @@ literally changed lives and careers
 of our students
 
 
----
+***
 
 ## Page 16
 
@@ -697,7 +697,7 @@ Test Automation Engineer
 www.techworld-with-nana.com/devops-roadmap
 
 
----
+***
 
 ## Page 17
 
@@ -728,7 +728,7 @@ How to create a CI/CD pipeline
 www.techworld-with-nana.com/devops-roadmap
 
 
----
+***
 
 ## Page 18
 
@@ -760,7 +760,7 @@ application development and
 deployment processes.
 
 
----
+***
 
 ## Page 19
 
@@ -789,7 +789,7 @@ order to automate and streamline delivering your application changes all the way
 to the production environment, you need extensive automated testing:
 
 
----
+***
 
 ## Page 20
 
@@ -824,7 +824,7 @@ Some network engineers even know scripting in bash or python for example, which
 is another helpful skill when it comes to automation part of DevOps.
 
 
----
+***
 
 ## Page 21
 
@@ -850,7 +850,7 @@ don't understand those, you won't know what you're automating or why you even
 need DevOps.
 
 
----
+***
 
 ## Page 22
 
@@ -879,7 +879,7 @@ understand, why we're using Git, why we need Jenkins, why we're learning
 Linux and scripting, we we use containers etc.
 
 
----
+***
 
 ## Page 23
 
@@ -901,7 +901,7 @@ potential:
 3.Platform Engineer
 
 
----
+***
 
 ## Page 24
 
@@ -930,7 +930,7 @@ Most direct path!
 Focus: Cloud platform expertise and architecture design
 
 
----
+***
 
 ## Page 25
 
@@ -959,7 +959,7 @@ Focus: System reliability, performance, and incident management
 Focus: Internal developer platforms and tool creation
 
 
----
+***
 
 ## Page 26
 
@@ -991,7 +991,7 @@ machine learning workflows.
 Focus: Security integration throughout development lifecycle.
 
 
----
+***
 
 ## Page 27
 
@@ -1015,7 +1015,7 @@ DevOps Engineer
 I Analyzed 100+ Job Posts
 
 
----
+***
 
 ## Page 28
 
@@ -1062,7 +1062,7 @@ you should learn how to evaluate and test many new tools, always with the same g
 and automate existing processes and make them more efficient.
 
 
----
+***
 
 ## Page 29
 
@@ -1080,13 +1080,13 @@ as simple as possible!
 Take Action Today
 
 
----
+***
 
 # Senior DevOps Engineer Roadmap (7 YOE → Staff / Principal)
 
 This roadmap picks up where the 11-step foundational roadmap ends. Having mastered the core tools (Docker, Kubernetes, Terraform, and CI/CD pipelines), you now shift your mental model from **"deploying things"** to **"designing and governing the systems that deploy things"**.
 
----
+***
 
 ## The Mindset Shift at 7 YOE
 
@@ -1098,7 +1098,7 @@ This roadmap picks up where the 11-step foundational roadmap ends. Having master
 | Fixes a Terraform bug | Designs the state isolation and GitOps governance model |
 | Attends post-mortems | Runs post-mortems and identifies systemic process gaps |
 
----
+***
 
 ## Phase A: Platform Engineering
 
@@ -1116,7 +1116,7 @@ Platform Engineering is the discipline of building an internal product for devel
 - "I shifted our team's identity from the team that blocked deployments to the team that made deployments invisible for developers."
 - "I reduced our onboarding time for new microservices from 3 weeks to 2 days by building a service template in Backstage."
 
----
+***
 
 ## Phase B: Enterprise Architecture at Scale
 
@@ -1134,7 +1134,7 @@ Replace one large cluster with N smaller "cells", each serving a fixed subset of
 - **Principle:** Every request, internal or external, must be authenticated and authorized. The internal network is not trusted.
 - **Implementation:** mTLS between all microservices (via Istio/Linkerd), workload identity (SPIFFE/SPIRE), and deny-all NetworkPolicies with explicit allow rules only.
 
----
+***
 
 ## Phase C: DevSecOps at Enterprise Scale
 
@@ -1150,7 +1150,7 @@ The SolarWinds and Log4j attacks were supply chain attacks. SLSA (pronounced "sa
 - **Validation Policies:** Reject pods that run as root, use `latest` image tags, or lack resource limits.
 - **Generation Policies:** When a new Namespace is created, automatically provision the `NetworkPolicy`, `LimitRange`, and `RoleBinding` for that namespace's team.
 
----
+***
 
 ## Phase D: FinOps (Cloud Financial Engineering)
 
@@ -1166,7 +1166,7 @@ At 7 YOE, you own the cloud bill. FinOps is the discipline of making engineering
 ### The Cost Optimisation Narrative
 Senior engineers frame cost savings in business terms: "By migrating our batch processing jobs to a Spot fleet and implementing the Descheduler, I reduced our compute bill by $240,000 annually — equivalent to hiring two additional engineers."
 
----
+***
 
 ## Phase E: Advanced Observability
 
@@ -1186,7 +1186,7 @@ Proactively discover failure modes before customers do:
 4. Measure: did the steady state hold?
 5. Fix any surprises found before the hypothesis validated.
 
----
+***
 
 ## Phase F: Leadership & Influence
 
@@ -1342,7 +1342,7 @@ A senior engineer designs for failure, expecting hardware, networks, and softwar
 
 
 
----
+***
 
 ## Page 2
 
@@ -1360,7 +1360,7 @@ For DevOps and Tutorials
 TWS Website
 
 
----
+***
 
 ## Page 3
 
@@ -1380,7 +1380,7 @@ is all about real-world, practical information
 that you can apply from Day 1. 
 
 
----
+***
 
 ## Page 4
 
@@ -1404,7 +1404,7 @@ practical.
 PREFACE
 
 
----
+***
 
 ## Page 5
 
@@ -1430,7 +1430,7 @@ glossary, and additional reading material.
 PREFACE
 
 
----
+***
 
 ## Page 6
 
@@ -1456,7 +1456,7 @@ emerging trends and how to adapt to them.
 PREFACE
 
 
----
+***
 
 ## Page 7
 
@@ -1492,7 +1492,7 @@ problems! But better days were just around the corner.
 1
 
 
----
+***
 
 ## Page 8
 
@@ -1507,7 +1507,7 @@ and how it evolved.
 2
 
 
----
+***
 
 ## Page 9
 
@@ -1548,7 +1548,7 @@ Part I: The Fundamentals (Days 1-20)
 Shubham Londhe
 
 
----
+***
 
 ## Page 10
 
@@ -1588,7 +1588,7 @@ Shubham Londhe
 Part I: The Fundamentals (Days 1-20)
 
 
----
+***
 
 ## Page 11
 
@@ -1621,7 +1621,7 @@ Part I: Introduction to Linux and Setting Up  (Day 4)
 Shubham Londhe
 
 
----
+***
 
 ## Page 12
 
@@ -1656,7 +1656,7 @@ Shubham Londhe
 Part I: Introduction to Linux and Setting Up  (Day 4)
 
 
----
+***
 
 ## Page 13
 
@@ -1689,7 +1689,7 @@ Part I: File Operations & Basic Text Manipulation (Day 5)
 Shubham Londhe
 
 
----
+***
 
 ## Page 14
 
@@ -1719,7 +1719,7 @@ Part I: File Operations & Basic Text Manipulation (Day 5)
 Shubham Londhe
 
 
----
+***
 
 ## Page 15
 
@@ -1754,7 +1754,7 @@ Shubham Londhe
 Part I: Permissions and Ownership (Day 6)
 
 
----
+***
 
 ## Page 16
 
@@ -1786,7 +1786,7 @@ Part I: Permissions and Ownership (Day 6)
 Shubham Londhe
 
 
----
+***
 
 ## Page 17
 
@@ -1821,7 +1821,7 @@ Part I: Permissions and Ownership (Day 6)
 Shubham Londhe
 
 
----
+***
 
 ## Page 18
 
@@ -1853,7 +1853,7 @@ Part I: Process Management (Day 7)
 Shubham Londhe
 
 
----
+***
 
 ## Page 19
 
@@ -1885,7 +1885,7 @@ Part I: Process Management (Day 7)
 Shubham Londhe
 
 
----
+***
 
 ## Page 20
 
@@ -1919,7 +1919,7 @@ Part I: Package Management and Software Installation  (Day 8)
 Shubham Londhe
 
 
----
+***
 
 ## Page 21
 
@@ -1951,7 +1951,7 @@ Shubham Londhe
 Part I: Package Management and Software Installation  (Day 8)
 
 
----
+***
 
 ## Page 22
 
@@ -1980,7 +1980,7 @@ Shubham Londhe
 Part I: Networking Basics & Text Processing Tools  (Day 9)
 
 
----
+***
 
 ## Page 23
 
@@ -2016,7 +2016,7 @@ Part I: Networking Basics & Text Processing Tools (Day 9)
 Shubham Londhe
 
 
----
+***
 
 ## Page 24
 
@@ -2051,7 +2051,7 @@ Part I: Basic Shell Scripting & Task Scheduling (Day 10)
 Shubham Londhe
 
 
----
+***
 
 ## Page 25
 
@@ -2079,7 +2079,7 @@ Part I: Basic Shell Scripting & Task Scheduling (Day 10)
 Shubham Londhe
 
 
----
+***
 
 ## Page 26
 
@@ -2110,7 +2110,7 @@ Part I: Basic Shell Scripting & Task Scheduling (Day 10)
 Shubham Londhe
 
 
----
+***
 
 ## Page 27
 
@@ -2132,7 +2132,7 @@ Part I: Filesystem Hierarchy and Disk Management (Day 11)
 Shubham Londhe
 
 
----
+***
 
 ## Page 28
 
@@ -2154,7 +2154,7 @@ Part I: Logs and Monitoring (Day 12)
 Shubham Londhe
 
 
----
+***
 
 ## Page 29
 
@@ -2173,7 +2173,7 @@ hesitate to dive into complex tasks or tackle challenging
 problems. 
 
 
----
+***
 
 ## Page 30
 
@@ -2217,7 +2217,7 @@ Part II: The Journey Is Far from Over
 Shubham Londhe
 
 
----
+***
 
 ## Page 31
 
@@ -2255,7 +2255,7 @@ Part II: Introduction to Version Control System (Day 13)
 Shubham Londhe
 
 
----
+***
 
 ## Page 32
 
@@ -2288,7 +2288,7 @@ Part II: Introduction to Version Control System (Day 13)
 Shubham Londhe
 
 
----
+***
 
 ## Page 33
 
@@ -2330,7 +2330,7 @@ Part II: Introduction to Version Control System (Day 13)
 Shubham Londhe
 
 
----
+***
 
 ## Page 34
 
@@ -2372,7 +2372,7 @@ Part II: Debunking Myths & some key points (Before Day 14)
 Shubham Londhe
 
 
----
+***
 
 ## Page 35
 
@@ -2405,7 +2405,7 @@ Part II: Debunking Myths & some key points (Before Day 14)
 Shubham Londhe
 
 
----
+***
 
 ## Page 36
 
@@ -2434,7 +2434,7 @@ Part II: Setting Up and Basic Commands (Day 14)
 Shubham Londhe
 
 
----
+***
 
 ## Page 37
 
@@ -2467,7 +2467,7 @@ Part II: Setting Up and Basic Commands (Day 14)
 Shubham Londhe
 
 
----
+***
 
 ## Page 38
 
@@ -2502,7 +2502,7 @@ Part II: Remote Repositories, Branching, and Branching Strategies (Day 15)
 Shubham Londhe
 
 
----
+***
 
 ## Page 39
 
@@ -2535,7 +2535,7 @@ Part II: Remote Repositories, Branching, and Branching Strategies (Day 15)
 Shubham Londhe
 
 
----
+***
 
 ## Page 40
 
@@ -2575,7 +2575,7 @@ Part II: Merging and Handling Conflicts (Day 16)
 Shubham Londhe
 
 
----
+***
 
 ## Page 41
 
@@ -2612,7 +2612,7 @@ Part II: Merging and Handling Conflicts (Day 16)
 Shubham Londhe
 
 
----
+***
 
 ## Page 42
 
@@ -2650,7 +2650,7 @@ Part II: Advanced Rebasing, Git Log, Stash, Reset, and More (Day 17)
 Shubham Londhe
 
 
----
+***
 
 ## Page 43
 
@@ -2677,7 +2677,7 @@ Part II: Advanced Rebasing, Git Log, Stash, Reset, and More (Day 17)
 Shubham Londhe
 
 
----
+***
 
 ## Page 44
 
@@ -2712,7 +2712,7 @@ Part II: Advanced Rebasing, Git Log, Stash, Reset, and More (Day 17)
 Shubham Londhe
 
 
----
+***
 
 ## Page 45
 
@@ -2747,7 +2747,7 @@ Part II: Engage, Reflect & Share: Best Practices and... (Day 18)
 Shubham Londhe
 
 
----
+***
 
 ## Page 46
 
@@ -2780,7 +2780,7 @@ Part II: Engage, Reflect & Share: Best Practices and... (Day 18)
 Shubham Londhe
 
 
----
+***
 
 ## Page 47
 
@@ -2799,7 +2799,7 @@ exactly happens behind the scenes for this page to load in a
 fraction of a second?" 
 
 
----
+***
 
 ## Page 48
 
@@ -2840,7 +2840,7 @@ Part III: Networking Roadmap for DevOps and Cloud Professionals (Day 19)
 Shubham Londhe
 
 
----
+***
 
 ## Page 49
 
@@ -2880,7 +2880,7 @@ Part III: Networking Roadmap for DevOps and Cloud Professionals (Day 19)
 Shubham Londhe
 
 
----
+***
 
 ## Page 50
 
@@ -2921,7 +2921,7 @@ Part III: Networking Roadmap for DevOps and Cloud Professionals (Day 19)
 Shubham Londhe
 
 
----
+***
 
 ## Page 51
 
@@ -2942,7 +2942,7 @@ Part III: Networking Roadmap for DevOps and Cloud Professionals (Day 19)
 Shubham Londhe
 
 
----
+***
 
 ## Page 52
 
@@ -2962,7 +2962,7 @@ understand why mastering Python, especially building logic
 with it, is invaluable for a DevOps professional. 
 
 
----
+***
 
 ## Page 53
 
@@ -3000,7 +3000,7 @@ Part IV: Building Logic with Python:Why It Matters for DevOps (Day 20)
 Shubham Londhe
 
 
----
+***
 
 ## Page 54
 
@@ -3019,7 +3019,7 @@ Part IV: Building Logic with Python:Why It Matters for DevOps (Day 20)
 Shubham Londhe
 
 
----
+***
 
 ## Page 55
 
@@ -3058,7 +3058,7 @@ Part IV: Introduction to Python and Tasks (Day 21)
 Shubham Londhe
 
 
----
+***
 
 ## Page 56
 
@@ -3076,7 +3076,7 @@ Part IV: Introduction to Python and Tasks (Day 21)
 Shubham Londhe
 
 
----
+***
 
 ## Page 57
 
@@ -3115,7 +3115,7 @@ Part IV: Python Fundamentals and Tasks (Day 22)
 Shubham Londhe
 
 
----
+***
 
 ## Page 58
 
@@ -3145,7 +3145,7 @@ Part IV: Python Fundamentals and Tasks (Day 22)
 Shubham Londhe
 
 
----
+***
 
 ## Page 59
 
@@ -3181,7 +3181,7 @@ Part IV: Python Libraries, Cloud Integration, and Data Parsing (Day 23)
 Shubham Londhe
 
 
----
+***
 
 ## Page 60
 
@@ -3217,7 +3217,7 @@ Part IV: Python Libraries, Cloud Integration, and Data Parsing (Day 23)
 Shubham Londhe
 
 
----
+***
 
 ## Page 61
 
@@ -3233,7 +3233,7 @@ delivery and improved collaboration in the fast-paced world of
 software development and IT operations.
 
 
----
+***
 
 ## Page 62
 
@@ -3274,7 +3274,7 @@ Part V: Containerization and Automation with Docker and Jenkins  (Day 24)
 Shubham Londhe
 
 
----
+***
 
 ## Page 63
 
@@ -3311,7 +3311,7 @@ Part V: Containerization and Automation with Docker and Jenkins (Day 24)
 Shubham Londhe
 
 
----
+***
 
 ## Page 64
 
@@ -3348,7 +3348,7 @@ Part V: Docker Installation and some key points (Day 25)
 Shubham Londhe
 
 
----
+***
 
 ## Page 65
 
@@ -3384,7 +3384,7 @@ Part V: Docker Installation and some key points (Day 25)
 Shubham Londhe
 
 
----
+***
 
 ## Page 66
 
@@ -3413,7 +3413,7 @@ Part V: Docker Installation and some key points (Day 25)
 Shubham Londhe
 
 
----
+***
 
 ## Page 67
 
@@ -3443,7 +3443,7 @@ Part V: Delving into Docker Images and Containers (Day 26)
 Shubham Londhe
 
 
----
+***
 
 ## Page 68
 
@@ -3478,7 +3478,7 @@ Part V: Delving into Docker Images and Containers (Day 26)
 Shubham Londhe
 
 
----
+***
 
 ## Page 69
 
@@ -3502,7 +3502,7 @@ Part V: Delving into Docker Images and Containers (Day 26)
 Shubham Londhe
 
 
----
+***
 
 ## Page 70
 
@@ -3549,7 +3549,7 @@ Part V: Into Docker Networking (Day 27)
 Shubham Londhe
 
 
----
+***
 
 ## Page 71
 
@@ -3589,7 +3589,7 @@ Part V: Into Docker Networking (Day 27)
 Shubham Londhe
 
 
----
+***
 
 ## Page 72
 
@@ -3615,7 +3615,7 @@ Part V: Into Docker Networking (Day 27)
 Shubham Londhe
 
 
----
+***
 
 ## Page 73
 
@@ -3649,7 +3649,7 @@ Part V: Docker Data Management - Volumes and Bind Mounts (Day 28)
 Shubham Londhe
 
 
----
+***
 
 ## Page 74
 
@@ -3682,7 +3682,7 @@ Part V: Docker Data Management - Volumes and Bind Mounts (Day 28)
 Shubham Londhe
 
 
----
+***
 
 ## Page 75
 
@@ -3709,7 +3709,7 @@ Part V: Docker Data Management - Volumes and Bind Mounts (Day 28)
 Shubham Londhe
 
 
----
+***
 
 ## Page 76
 
@@ -3743,7 +3743,7 @@ Part V: Docker Compose - Orchestrating... (Day 29)
 Shubham Londhe
 
 
----
+***
 
 ## Page 77
 
@@ -3761,7 +3761,7 @@ Part V: Docker Compose - Orchestrating... (Day 29)
 Shubham Londhe
 
 
----
+***
 
 ## Page 78
 
@@ -3784,7 +3784,7 @@ Part V: Docker Compose - Orchestrating... (Day 29)
 Shubham Londhe
 
 
----
+***
 
 ## Page 79
 
@@ -3811,7 +3811,7 @@ Part V: Building Custom Docker Images - Dockerfile Basics (Day 30)
 Shubham Londhe
 
 
----
+***
 
 ## Page 80
 
@@ -3846,7 +3846,7 @@ Part V: Building Custom Docker Images - Dockerfile Basics (Day 30)
 Shubham Londhe
 
 
----
+***
 
 ## Page 81
 
@@ -3879,7 +3879,7 @@ Part V: Consolidation and Creation of a Docker Cheat Sheet (Day 31)
 Shubham Londhe
 
 
----
+***
 
 ## Page 82
 
@@ -3893,7 +3893,7 @@ that emphasize frequent commits to the main branch and
 automated testing and deployments. 
 
 
----
+***
 
 ## Page 83
 
@@ -3924,7 +3924,7 @@ Part VI: CI/CD - The Heartbeat of DevOps (Day 32)
 Shubham Londhe
 
 
----
+***
 
 ## Page 84
 
@@ -3961,7 +3961,7 @@ Part VI: CI/CD - The Heartbeat of DevOps (Day 32)
 Shubham Londhe
 
 
----
+***
 
 ## Page 85
 
@@ -3994,7 +3994,7 @@ Part VI: CI/CD - The Heartbeat of DevOps (Day 32)
 Shubham Londhe
 
 
----
+***
 
 ## Page 86
 
@@ -4029,7 +4029,7 @@ Part VI: Building and Managing Jobs in Jenkins (Day 33)
 Shubham Londhe
 
 
----
+***
 
 ## Page 87
 
@@ -4055,7 +4055,7 @@ Part VI: Building and Managing Jobs in Jenkins (Day 33)
 Shubham Londhe
 
 
----
+***
 
 ## Page 88
 
@@ -4091,7 +4091,7 @@ Part VI: Jenkins Integrations and Plugins (Day 34)
 Shubham Londhe
 
 
----
+***
 
 ## Page 89
 
@@ -4119,7 +4119,7 @@ Part VI: Jenkins Integrations and Plugins (Day 34)
 Shubham Londhe
 
 
----
+***
 
 ## Page 90
 
@@ -4150,7 +4150,7 @@ Part VI: Integrating Jenkins with Docker (Day 35)
 Shubham Londhe
 
 
----
+***
 
 ## Page 91
 
@@ -4185,7 +4185,7 @@ Part VI: Integrating Jenkins with Docker (Day 35)
 Shubham Londhe
 
 
----
+***
 
 ## Page 92
 
@@ -4222,7 +4222,7 @@ Part VI: Jenkins Declarative Pipelines: Deep Dive (Day 36)
 Shubham Londhe
 
 
----
+***
 
 ## Page 93
 
@@ -4243,7 +4243,7 @@ Part VI: Jenkins Declarative Pipelines: Deep Dive (Day 36)
 Shubham Londhe
 
 
----
+***
 
 ## Page 94
 
@@ -4267,7 +4267,7 @@ Part VI: Jenkins Declarative Pipelines: Deep Dive (Day 36)
 Shubham Londhe
 
 
----
+***
 
 ## Page 95
 
@@ -4308,7 +4308,7 @@ Part VI: Scaling Jenkins: Master-Agent Architecture (Day 37)
 Shubham Londhe
 
 
----
+***
 
 ## Page 96
 
@@ -4347,7 +4347,7 @@ Part VI: Scaling Jenkins: Master-Agent Architecture (Day 37)
 Shubham Londhe
 
 
----
+***
 
 ## Page 97
 
@@ -4363,7 +4363,7 @@ budding engineer, the coming chapters promise a deep dive
 into the world of Kubernetes. 
 
 
----
+***
 
 ## Page 98
 
@@ -4401,7 +4401,7 @@ Automated Rollouts & Rollbacks: Manage the life cycle of containerized
 apps without any downtime. 
 
 
----
+***
 
 ## Page 99
 
@@ -4440,7 +4440,7 @@ applications.
 Part VII: Introduction to Kubernetes and Overview (Day 38)
 
 
----
+***
 
 ## Page 100
 
@@ -4464,7 +4464,7 @@ machine.
 Part VII: Kubernetes and Its Overview Contd... (Day 39)
 
 
----
+***
 
 ## Page 101
 
@@ -4507,7 +4507,7 @@ provides a visual interface to understand and manage your cluster components.
 Part VII: Kubernetes and Its Overview Contd... (Day 39)
 
 
----
+***
 
 ## Page 102
 
@@ -4522,7 +4522,7 @@ RESOURCES & READINGS
 Part VII: Kubernetes and Its Overview Contd... (Day 39)
 
 
----
+***
 
 ## Page 103
 
@@ -4566,7 +4566,7 @@ shared networking and storage for the containers inside.
 Part VII: Understanding Namespaces and Pods in Kubernetes (Day 40)
 
 
----
+***
 
 ## Page 104
 
@@ -4599,7 +4599,7 @@ NOTE
 Part VII: Understanding Namespaces and Pods in Kubernetes (Day 40)
 
 
----
+***
 
 ## Page 105
 
@@ -4636,7 +4636,7 @@ networking is crucial.
 Part VII: Deployments, Services, and Networking in Kubernetes (Day 41)
 
 
----
+***
 
 ## Page 106
 
@@ -4673,7 +4673,7 @@ RESOURCES & READINGS
 Part VII: Deployments, Services, and Networking in Kubernetes (Day 41)
 
 
----
+***
 
 ## Page 107
 
@@ -4689,7 +4689,7 @@ NOTE
 Part VII: Deployments, Services, and Networking in Kubernetes (Day 41)
 
 
----
+***
 
 ## Page 108
 
@@ -4723,7 +4723,7 @@ Best Practices: A great article about the best practices when using Secrets.
 Part VII: Kubernetes ConfigMaps and Secrets (Day 42)
 
 
----
+***
 
 ## Page 109
 
@@ -4752,7 +4752,7 @@ NOTE
 Part VII: Kubernetes ConfigMaps and Secrets (Day 42)
 
 
----
+***
 
 ## Page 110
 
@@ -4781,7 +4781,7 @@ CONTD...
 Part VII: Kubernetes ConfigMaps and Secrets (Day 42)
 
 
----
+***
 
 ## Page 111
 
@@ -4819,7 +4819,7 @@ Reclaim Policies: Know what happens to a PV after a PVC is deleted.
 Part VII: Persistent Storage in Kubernetes... (Day 43)
 
 
----
+***
 
 ## Page 112
 
@@ -4855,7 +4855,7 @@ RESOURCES & READINGS
 Part VII: Persistent Storage in Kubernetes... (Day 43)
 
 
----
+***
 
 ## Page 113
 
@@ -4894,7 +4894,7 @@ classes.
 Part VII: StatefulSets - Managing Stateful Applications... (Day 44)
 
 
----
+***
 
 ## Page 114
 
@@ -4934,7 +4934,7 @@ remains persistent.
 Part VII: StatefulSets - Managing Stateful Applications... (Day 44)
 
 
----
+***
 
 ## Page 115
 
@@ -4958,7 +4958,7 @@ RESOURCES
 Part VII: StatefulSets - Managing Stateful Applications... (Day 44)
 
 
----
+***
 
 ## Page 116
 
@@ -4999,7 +4999,7 @@ and configurations that harden the API server against malicious users.
 Part VII: Kubernetes Security Best Practices... (Day 45)
 
 
----
+***
 
 ## Page 117
 
@@ -5037,7 +5037,7 @@ pods and test to ensure only one can communicate based on your policy.
 Part VII: Kubernetes Security Best Practices... (Day 45)
 
 
----
+***
 
 ## Page 118
 
@@ -5063,7 +5063,7 @@ Blog on Kubernetes Best Security Practices.
 Part VII: Kubernetes Security Best Practices... (Day 45)
 
 
----
+***
 
 ## Page 119
 
@@ -5102,7 +5102,7 @@ code for the application, its settings, and any other important information.
 Part VII: Helm: The Kubernetes Package Manager (Day 46)
 
 
----
+***
 
 ## Page 120
 
@@ -5141,7 +5141,7 @@ especially when dealing with complex applications. Let us understand how Helm
 makes working easier.
 
 
----
+***
 
 ## Page 121
 
@@ -5180,7 +5180,7 @@ https://github.com/LondheShubham153/kubestarter/tree/main/exampl
 es/helm 
 
 
----
+***
 
 ## Page 122
 
@@ -5220,7 +5220,7 @@ To remove a release, you can use the helm uninstall command:
 This command rolls back the release my-web-app to version 1. 
 
 
----
+***
 
 ## Page 123
 
@@ -5253,7 +5253,7 @@ HELM Packaging of Two-Tier Applications for DevOps
 Engineers
 
 
----
+***
 
 ## Page 124
 
@@ -5301,21 +5301,21 @@ something new.
 118
 
 
----
+***
 
 ## Page 125
 
 ENDING OF THE PART ONE 
 
 
----
+***
 
 ## Page 126
 
 STARTING OF THE PART TWO 
 
 
----
+***
 
 ## Page 127
 
@@ -5329,7 +5329,7 @@ with Cloud. By this time you have created multiple EC2
 instances, if not let's begin the journey:
 
 
----
+***
 
 ## Page 128
 
@@ -5363,7 +5363,7 @@ of Avengers and assign them to devops groups with IAM policy.
 2. Task: 
 
 
----
+***
 
 ## Page 129
 
@@ -5396,7 +5396,7 @@ AWS Resource for more further details read from here
 To get to know IAM more deeply Click Here!!
 
 
----
+***
 
 ## Page 130
 
@@ -5438,7 +5438,7 @@ instances with the same configuration, you can launch them from a single
 AMI.
 
 
----
+***
 
 ## Page 131
 
@@ -5460,7 +5460,7 @@ Templates in AWS EC2 Read more from here
 Instance Types Read from here
 
 
----
+***
 
 ## Page 132
 
@@ -5492,7 +5492,7 @@ Classic Load Balancer (CLB) - operates at layer 4 of the OSI model and is
 ideal for applications that require basic load balancing features.
 
 
----
+***
 
 ## Page 133
 
@@ -5522,7 +5522,7 @@ Network Load Balancer (NLB) Read more from here
 Classic Load Balancer (CLB) Read more here
 
 
----
+***
 
 ## Page 134
 
@@ -5557,7 +5557,7 @@ Tasks/Exercises:
 2. Task: 
 
 
----
+***
 
 ## Page 135
 
@@ -5596,7 +5596,7 @@ EC2 instance using a MySQL client.
 Tasks: 
 
 
----
+***
 
 ## Page 136
 
@@ -5612,7 +5612,7 @@ you.
 NOTE
 
 
----
+***
 
 ## Page 137
 
@@ -5649,7 +5649,7 @@ free tier, but it's good to know and set up something, which will inform you
 whenever a bill touches a Threshold.
 
 
----
+***
 
 ## Page 138
 
@@ -5684,7 +5684,7 @@ the term "ECS". As you know, 90 Days Of DevOps Challange is mostly about
 'learning new', let's learn then ;)
 
 
----
+***
 
 ## Page 139
 
@@ -5721,7 +5721,7 @@ Tasks/Exercises:
 1. Task: 
 
 
----
+***
 
 ## Page 140
 
@@ -5760,7 +5760,7 @@ Tasks/Exercises:
 2. Task: 
 
 
----
+***
 
 ## Page 141
 
@@ -5789,7 +5789,7 @@ For more details watch this video.
 2. Task: 
 
 
----
+***
 
 ## Page 142
 
@@ -5827,7 +5827,7 @@ For more details watch this video.
 2. Task: 
 
 
----
+***
 
 ## Page 143
 
@@ -5849,7 +5849,7 @@ For more details watch this video.
 1. Task: 
 
 
----
+***
 
 ## Page 144
 
@@ -5865,7 +5865,7 @@ and physical inputs, requirements, design, and operations of
 that product remain consistent.
 
 
----
+***
 
 ## Page 145
 
@@ -5897,7 +5897,7 @@ Write a blog on this topic in the most creative way and post it on linkedIn :)
 1. Task: 
 
 
----
+***
 
 ## Page 146
 
@@ -5920,7 +5920,7 @@ linkedIn :)
 3. Task: 
 
 
----
+***
 
 ## Page 147
 
@@ -5956,7 +5956,7 @@ and try out them, post the screenshots in a blog with an explanation.
 1. Task: 
 
 
----
+***
 
 ## Page 148
 
@@ -5989,7 +5989,7 @@ Let me or anyone in the community know if you face any challenges
 2. Task: 
 
 
----
+***
 
 ## Page 149
 
@@ -6009,7 +6009,7 @@ Let me or anyone in the community know if you face any challenges.
 1. Task: 
 
 
----
+***
 
 ## Page 150
 
@@ -6042,7 +6042,7 @@ Let me or anyone in the community know if you face any challenges
 2. Task: 
 
 
----
+***
 
 ## Page 151
 
@@ -6054,7 +6054,7 @@ ec2 instance (mostly). Today let’s automate this process. How
 to do it? Well, Terraform is the solution.
 
 
----
+***
 
 ## Page 152
 
@@ -6091,7 +6091,7 @@ Want a Free video Course for terraform? Click here.
 3. Find purpose of basic Terraform commands: 
 
 
----
+***
 
 ## Page 153
 
@@ -6116,7 +6116,7 @@ registry.terraform.io/kreuzwerker/docker.
 NOTE
 
 
----
+***
 
 ## Page 154
 
@@ -6144,7 +6144,7 @@ chown $USER /var/run/docker.sock
 NOTE
 
 
----
+***
 
 ## Page 155
 
@@ -6156,7 +6156,7 @@ I can imagine, that Terraform can be tricky, so
 best to use a Free video Course for terraform here.
 
 
----
+***
 
 ## Page 156
 
@@ -6180,7 +6180,7 @@ Tasks/Exercises:
 1. Create a local file using Terraform Hint: 
 
 
----
+***
 
 ## Page 157
 
@@ -6195,7 +6195,7 @@ Use terraform refresh
 To refresh the state by your configuration file, reloads the variables.
 
 
----
+***
 
 ## Page 158
 
@@ -6224,7 +6224,7 @@ multiple AWS services from the command line and automate them through
 scripts.
 
 
----
+***
 
 ## Page 159
 
@@ -6236,7 +6236,7 @@ Tasks/Exercises:
 ❖ Hint:
 
 
----
+***
 
 ## Page 160
 
@@ -6266,7 +6266,7 @@ these steps:
 ❖ Run Terraform apply to create the security group.
 
 
----
+***
 
 ## Page 161
 
@@ -6284,7 +6284,7 @@ AWS documentation.
 NOTE
 
 
----
+***
 
 ## Page 162
 
@@ -6311,7 +6311,7 @@ RESOURCES
 Terraform S3 bucket resource.
 
 
----
+***
 
 ## Page 163
 
@@ -6339,7 +6339,7 @@ the current demand. Follow these steps to create an Auto Scaling Group:
 ❖ Run terraform apply to create the Auto Scaling Group.
 
 
----
+***
 
 ## Page 164
 
@@ -6360,7 +6360,7 @@ instances to be terminated.
 terminated.
 
 
----
+***
 
 ## Page 165
 
@@ -6385,7 +6385,7 @@ resource block.
 Next Page-
 
 
----
+***
 
 ## Page 166
 
@@ -6423,7 +6423,7 @@ as appropriate.
 eg.
 
 
----
+***
 
 ## Page 167
 
@@ -6487,7 +6487,7 @@ for_each.
 ❖ Write about meta-arguments and their use in Terraform.
 
 
----
+***
 
 ## Page 168
 
@@ -6510,7 +6510,7 @@ configuration or in separate configurations, allowing resource configurations
 to be packaged and re-used.
 
 
----
+***
 
 ## Page 169
 
@@ -6525,7 +6525,7 @@ from Internet:
 ❖ Are modules and Namespaces are same? Justify your answer for both Yes/No.
 
 
----
+***
 
 ## Page 170
 
@@ -6537,7 +6537,7 @@ deep insights into the behavior of systems through logs,
 metrics, and traces. 
 
 
----
+***
 
 ## Page 171
 
@@ -6570,7 +6570,7 @@ metrics, and traces.
 What is Observability? 
 
 
----
+***
 
 ## Page 172
 
@@ -6607,7 +6607,7 @@ Digging Deeper into Logs, Metrics, and Traces:
 172
 
 
----
+***
 
 ## Page 173
 
@@ -6627,7 +6627,7 @@ continuous improvement.
 173
 
 
----
+***
 
 ## Page 174
 
@@ -6663,7 +6663,7 @@ digital environment.
 174
 
 
----
+***
 
 ## Page 175
 
@@ -6700,7 +6700,7 @@ brings logs to life, turning text into visual stories for quicker insights.
 175
 
 
----
+***
 
 ## Page 176
 
@@ -6737,7 +6737,7 @@ can be tailored to various operational needs.
 176
 
 
----
+***
 
 ## Page 177
 
@@ -6772,7 +6772,7 @@ monitoring strengths and when you would choose one over the other.
 177
 
 
----
+***
 
 ## Page 178
 
@@ -6788,7 +6788,7 @@ NOTE
 178
 
 
----
+***
 
 ## Page 179
 
@@ -6818,7 +6818,7 @@ Grafana uses (default is 3000) in your security group settings.
 179
 
 
----
+***
 
 ## Page 180
 
@@ -6855,7 +6855,7 @@ NOTE
 180
 
 
----
+***
 
 ## Page 181
 
@@ -6868,7 +6868,7 @@ documentation.
 181
 
 
----
+***
 
 ## Page 182
 
@@ -6905,7 +6905,7 @@ metrics.
 182
 
 
----
+***
 
 ## Page 183
 
@@ -6921,7 +6921,7 @@ such as email or Slack.
 183
 
 
----
+***
 
 ## Page 184
 
@@ -6959,7 +6959,7 @@ viewing, such as switching between different EC2 instances or time ranges.
 184
 
 
----
+***
 
 ## Page 185
 
@@ -6986,7 +6986,7 @@ NOTE
 185
 
 
----
+***
 
 ## Page 186
 
@@ -7023,7 +7023,7 @@ for Docker.
 186
 
 
----
+***
 
 ## Page 187
 
@@ -7055,7 +7055,7 @@ Containers with Grafana
 187
 
 
----
+***
 
 ## Page 188
 
@@ -7089,7 +7089,7 @@ panels available and think about what story you want each panel to tell.
 188
 
 
----
+***
 
 ## Page 189
 
@@ -7117,7 +7117,7 @@ NOTE
 189
 
 
----
+***
 
 ## Page 190
 
@@ -7154,7 +7154,7 @@ logging infrastructure.
 190
 
 
----
+***
 
 ## Page 191
 
@@ -7180,7 +7180,7 @@ DOCUMENT YOUR PROGRESS
 191
 
 
----
+***
 
 ## Page 192
 
@@ -7219,7 +7219,7 @@ alerting strategy. Keep an eye on unexpected spikes in your AWS billing
 dashboard. 
 
 
----
+***
 
 ## Page 193
 
@@ -7240,7 +7240,7 @@ metrics into Grafana.
 193
 
 
----
+***
 
 ## Page 194
 
@@ -7278,7 +7278,7 @@ exporters, Pushgateway, etc., and how they interact with each other.
 194
 
 
----
+***
 
 ## Page 195
 
@@ -7312,7 +7312,7 @@ more aggressively?
 195
 
 
----
+***
 
 ## Page 196
 
@@ -7325,7 +7325,7 @@ your understanding of Prometheus.
 196
 
 
----
+***
 
 ## Page 197
 
@@ -7335,7 +7335,7 @@ Starting the journey of
 projects...
 
 
----
+***
 
 ## Page 198
 
@@ -7375,7 +7375,7 @@ Automation testing frameworks (if applicable)
 198
 
 
----
+***
 
 ## Page 199
 
@@ -7407,7 +7407,7 @@ configurations you chose.
 199
 
 
----
+***
 
 ## Page 200
 
@@ -7429,7 +7429,7 @@ Jenkinsfile.
 200
 
 
----
+***
 
 ## Page 201
 
@@ -7466,7 +7466,7 @@ Deployment strategies
 201
 
 
----
+***
 
 ## Page 202
 
@@ -7501,7 +7501,7 @@ tests passing.
 202
 
 
----
+***
 
 ## Page 203
 
@@ -7524,7 +7524,7 @@ and acceptance test stages, culminating in a production deployment.
 203
 
 
----
+***
 
 ## Page 204
 
@@ -7559,7 +7559,7 @@ Static Website Deployment
 204
 
 
----
+***
 
 ## Page 205
 
@@ -7590,7 +7590,7 @@ distribution.
 205
 
 
----
+***
 
 ## Page 206
 
@@ -7614,7 +7614,7 @@ and acceptance test stages, culminating in a production deployment.
 206
 
 
----
+***
 
 ## Page 207
 
@@ -7651,7 +7651,7 @@ Load Balancing and Networking
 207
 
 
----
+***
 
 ## Page 208
 
@@ -7684,7 +7684,7 @@ instances to observe automatic recovery.
 208
 
 
----
+***
 
 ## Page 209
 
@@ -7709,7 +7709,7 @@ container instances.
 209
 
 
----
+***
 
 ## Page 210
 
@@ -7745,7 +7745,7 @@ Application Monitoring
 210
 
 
----
+***
 
 ## Page 211
 
@@ -7779,7 +7779,7 @@ architecture and status.
 211
 
 
----
+***
 
 ## Page 212
 
@@ -7815,7 +7815,7 @@ Infrastructure as Code (IaC) Practices
 212
 
 
----
+***
 
 ## Page 213
 
@@ -7854,7 +7854,7 @@ application is deployed successfully.
 213
 
 
----
+***
 
 ## Page 214
 
@@ -7888,7 +7888,7 @@ AWS CLI for S3 synchronization
 214
 
 
----
+***
 
 ## Page 215
 
@@ -7919,7 +7919,7 @@ Public URL of the S3 bucket where the portfolio app is hosted.
 215
 
 
----
+***
 
 ## Page 216
 
@@ -7952,7 +7952,7 @@ YAML scripting for GitHub Actions workflow.
 216
 
 
----
+***
 
 ## Page 217
 
@@ -7989,7 +7989,7 @@ EC2
 217
 
 
----
+***
 
 ## Page 218
 
@@ -8023,7 +8023,7 @@ Understanding of Kubernetes Deployment and Service objects.
 218
 
 
----
+***
 
 ## Page 219
 
@@ -8054,7 +8054,7 @@ Beanstalk
 219
 
 
----
+***
 
 ## Page 220
 
@@ -8085,7 +8085,7 @@ Command-line proficiency with AWS CLI.
 220
 
 
----
+***
 
 ## Page 221
 
@@ -8119,7 +8119,7 @@ SHARE YOUR INSIGHTS
 221
 
 
----
+***
 
 ## Page 222
 
@@ -8158,7 +8158,7 @@ Gates.
 222
 
 
----
+***
 
 ## Page 223
 
@@ -8197,7 +8197,7 @@ The final application is deployed and accessible.
 223
 
 
----
+***
 
 ## Page 224
 
@@ -8228,7 +8228,7 @@ NOTE
 224
 
 
----
+***
 
 ## Page 225
 
@@ -8258,7 +8258,7 @@ tuning.
 225
 
 
----
+***
 
 ## Page 226
 
@@ -8277,7 +8277,7 @@ application performance.
 226
 
 
----
+***
 
 ## Page 227
 
@@ -8302,7 +8302,7 @@ scaling setup in AWS).
 227
 
 
----
+***
 
 ## Page 228
 
@@ -8335,7 +8335,7 @@ NOTE
 228
 
 
----
+***
 
 ## Page 229
 
@@ -8371,7 +8371,7 @@ take these learnings as a guide, not just in technical tasks but as
 principles for professional growth and personal achievement.
 
 
----
+***
 
 ## Page 230
 
@@ -8387,7 +8387,7 @@ successes and a fulfilling journey in
 the world of technology.
 
 
----
+***
 
 ## Page 231
 
@@ -8408,7 +8408,7 @@ Editor & Designer - Md Shoaib
 Content Researcher - Prajwal Deshpande
 
 
----
+***
 
 # Career and Community
 

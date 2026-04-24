@@ -58,7 +58,7 @@ On cache hit, the step restores the cached directory; on cache miss, the job run
 
 A paved road is a standardized, opinionated CI/CD path that builds in mandatory security, testing, and compliance steps, while letting developers focus on their application. With reusable workflows, the platform team owns a central workflow that includes non-negotiable steps (SAST, SBOM generation, image signing). Teams include the workflow with a single `uses:` line and provide application-specific parameters. The platform team can update all pipelines centrally by updating the shared workflow.
 
----
+***
 
 
 **13. How do you implement a dynamic matrix build where the matrix values are generated at runtime?**

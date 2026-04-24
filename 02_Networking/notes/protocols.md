@@ -101,7 +101,7 @@ nslookup example.com
 dig +trace example.com  # Shows full resolution path
 ```
 
----
+***
 
 ## DHCP (Dynamic Host Configuration Protocol)
 
@@ -197,7 +197,7 @@ ipconfig /all  # Windows
 ifconfig       # Linux/macOS
 ```
 
----
+***
 
 ## SSH (Secure Shell)
 
@@ -311,7 +311,7 @@ Host staging
     ForwardAgent yes
 ```
 
----
+***
 
 ## SCP (Secure Copy Protocol)
 
@@ -405,7 +405,7 @@ put file.txt /remote/path/
 EOF
 ```
 
----
+***
 
 ## cURL (Client URL)
 
@@ -545,7 +545,7 @@ curl --limit-rate 100k https://example.com/largefile.zip
 curl -C - -O https://example.com/largefile.zip
 ```
 
----
+***
 
 ## FTP (File Transfer Protocol)
 
@@ -589,7 +589,7 @@ curl --ssl ftps://ftp.example.com/file.txt
 
 **FTP transmits data (including passwords) in plaintext.** Use SFTP or FTPS for secure file transfer.
 
----
+***
 
 ## Protocol Port Reference
 
@@ -618,7 +618,7 @@ curl --ssl ftps://ftp.example.com/file.txt
 | Kubernetes API | 6443 | TCP | 7 | Kubernetes control plane |
 | etcd | 2379-2380 | TCP | 7 | etcd cluster |
 
----
+***
 
 ## Summary: Key Protocol Takeaways
 

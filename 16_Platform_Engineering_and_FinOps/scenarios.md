@@ -12,7 +12,7 @@
 **Problem:** The Finance team wants to know which team spent $50k on EKS last month.
 **Fix:** Implement a strict **Tagging Policy**. Use **KubeCost** to break down EKS costs by Namespace, Label, or Service, and export it to a BI tool like Tableau.
 
----
+***
 
 ## Scenario 1: The "Unattached EBS" Cost Leak
 **Symptom:** Your AWS bill shows $5,000 for EBS volumes, but you only have 10 instances.
@@ -24,7 +24,7 @@
 **Diagnosis:** The process is manual and tickets-based.
 **Fix:** Build a "Self-Service" portal using Backstage or a Terraform-based internal module that allows developers to provision standard resources via a simple YAML config.
 
----
+***
 
 ## Scenario 3: Backstage Catalog Showing Stale / Missing Services
 **Symptom:** Backstage software catalog shows 150 services, but engineering knows there are 230. Some entries show outdated owners and broken links. Developers have stopped using Backstage because "it's not accurate."
@@ -96,7 +96,7 @@ catalog:
 
 **Prevention:** Add a weekly job that reports orphaned repos (no `catalog-info.yaml`) and broken references. Track Backstage adoption as a DORA-adjacent metric: % of services with up-to-date catalog entries.
 
----
+***
 
 ## Scenario 4: Crossplane Composition Drift — Managed Resources Out of Sync
 **Symptom:** An RDS instance provisioned via a Crossplane `PostgreSQLInstance` claim has been manually modified in the AWS Console (instance class changed). Crossplane is continuously reconciling — updating logs show drift corrections every 5 minutes, causing brief RDS parameter group reloads.
@@ -143,7 +143,7 @@ kubectl annotate managed rdsinstance.database.aws.crossplane.io my-db-xyz \
 
 **Prevention:** Block console access to Crossplane-managed resources using AWS SCP that denies modifications to resources tagged `crossplane-managed: true`. Enforce this tag via the Composition.
 
----
+***
 
 ## Scenario 5: FinOps Anomaly — Unexpected $80k Spike in One Week
 **Symptom:** The weekly cost report shows an $80k spike vs the $22k baseline. AWS Cost Explorer shows the increase is in `EC2-Other` under the `us-east-1` region for the `data-platform` cost allocation tag.
@@ -189,7 +189,7 @@ aws dlm get-lifecycle-policies       # review DLM policies
 
 **Prevention:** Set AWS Budget alerts at 10% week-over-week increase. Use Cost Anomaly Detection with `DAILY` granularity and `ABSOLUTE` threshold of $5k. Route anomaly alerts to `#finops-alerts` Slack channel with AWS Cost Explorer deep-link.
 
----
+***
 
 ## Scenario 6: Reserved Instance Coverage Gap After Team Restructuring
 **Symptom:** RI utilization drops from 94% to 67% after a team migrates their workloads from `m5.xlarge` to Graviton `m6g.xlarge`. You're paying for unused reserved capacity.
@@ -236,7 +236,7 @@ aws ec2 modify-reserved-instances \
 
 **Prevention:** Set a CloudWatch alarm when RI utilization drops below 80% for any instance family. Prefer Compute Savings Plans over instance-type-specific RIs for workloads that may migrate. Review RI portfolio quarterly with the FinOps team.
 
----
+***
 
 ## Scenario 7: IDP Golden Path Broken — New Team Can't Onboard
 **Symptom:** A new team follows the IDP self-service workflow (Backstage → GitHub template → Terraform → ArgoCD), but the pipeline fails at step 3 with "namespace already exists" and step 4 with "AppProject not found."
@@ -296,7 +296,7 @@ jobs:
 
 **Prevention:** Write integration tests for the golden path that run nightly in a sandbox environment. Treat the IDP golden path like production code — changes require a PR, review, and the integration test must pass.
 
----
+***
 
 ## Scenario 8: DORA Metrics Showing Deployment Frequency Regression
 **Symptom:** DORA dashboard shows deployment frequency dropped from 12/week to 3/week over 6 weeks. Lead time for change increased from 2 days to 8 days. No obvious incidents or process changes were announced.

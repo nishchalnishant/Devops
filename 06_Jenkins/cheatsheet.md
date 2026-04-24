@@ -176,7 +176,7 @@ environment {
 }
 ```
 
----
+***
 
 ## Credentials Usage
 
@@ -228,7 +228,7 @@ withVault(
 }
 ```
 
----
+***
 
 ## Parallel Stages
 
@@ -275,7 +275,7 @@ def parallelBranches = [:]
 parallel parallelBranches
 ```
 
----
+***
 
 ## Shared Library Import
 
@@ -296,7 +296,7 @@ library identifier: 'local-lib@main',
                                credentialsId: 'github-token'])
 ```
 
----
+***
 
 ## Useful Groovy Snippets
 
@@ -353,7 +353,7 @@ script {
 }
 ```
 
----
+***
 
 ## Jenkinsfile Templates
 
@@ -531,7 +531,7 @@ pipeline {
 }
 ```
 
----
+***
 
 ## Quick Reference Table
 
@@ -616,7 +616,7 @@ Shubham
 TrainWith
 
 
----
+***
 
 ## Page 2
 
@@ -659,7 +659,7 @@ jenkins --version
 Displays Jenkins version.
 
 
----
+***
 
 ## Page 3
 
@@ -700,7 +700,7 @@ sh "command"
 Executes shell commands in the pipeline.
 
 
----
+***
 
 ## Page 4
 
@@ -751,7 +751,7 @@ Shubham
 TrainWith
 
 
----
+***
 
 ## Page 5
 
@@ -791,5 +791,5 @@ Ensure Jenkins has access to required
 directories and files.
 
 
----
+***
 

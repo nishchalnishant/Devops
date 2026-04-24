@@ -8,7 +8,7 @@
 - [MLOps Hard Questions](mlops-interview-questions-hard.md)
 - [MLOps Scenario Drills](mlops-scenario-based-interview-drills.md)
 
----
+***
 
 ## Part 1: Feature Stores
 
@@ -48,7 +48,7 @@ A Feature Store solves this by being the **single source of truth** for feature 
 > [!TIP]
 > The **click moment** for interviewers: A Feature Store's value is not storage. It is **guarantee of feature parity** between training and serving. If you explain it as "a database for features" you will be downgraded. Explain it as "the system that makes training-serving skew architecturally impossible."
 
----
+***
 
 ### Feature Store Architecture: Offline vs. Online
 
@@ -78,7 +78,7 @@ Offline Store (cold, historical) ──► Materialization Job ──► Online 
 > [!CAUTION]
 > The materialization lag is a production risk. If your online store is 2 hours stale and your model was trained on fresh data, you have implicit training-serving skew even though you're using a Feature Store. Always monitor feature freshness as a first-class SLI.
 
----
+***
 
 ### Feature Store Tools: Comparison
 
@@ -91,7 +91,7 @@ Offline Store (cold, historical) ──► Materialization Job ──► Online 
 | **SageMaker Feature Store** | AWS managed | DynamoDB | S3 | Kinesis | AWS-native stacks |
 | **Azure ML Feature Store** | Azure managed | CosmosDB | ADLS Gen2 | EventHub | Azure-native stacks |
 
----
+***
 
 ### Feast: Architecture Deep-Dive
 
@@ -184,7 +184,7 @@ feature_vector = store.get_online_features(
 > [!TIP]
 > The critical difference: `get_historical_features` is **point-in-time correct** — it retrieves the value of a feature as it existed at a past timestamp. This is what prevents label leakage in training. `get_online_features` always returns the latest value.
 
----
+***
 
 ## Part 2: ML Pipeline Orchestration
 
@@ -214,7 +214,7 @@ Do not conflate these. Interviewers at the senior level will test whether you kn
 └─────────────────┴──────────────────────────────────────────────┘
 ```
 
----
+***
 
 ### Continuous Training (CT) Pipeline Design
 
@@ -286,7 +286,7 @@ Raw Data
    (Shadow → Canary → Production)
 ```
 
----
+***
 
 ### Kubeflow Pipelines: Architecture & Code
 
@@ -386,7 +386,7 @@ def ct_pipeline(
         train_task.set_memory_limit("16G")
 ```
 
----
+***
 
 ### Airflow for ML Pipelines: When to Use vs. Kubeflow
 
@@ -400,7 +400,7 @@ def ct_pipeline(
 | **Best for** | Pure ML training pipelines | Complex multi-system data workflows |
 | **When to use both** | Use Airflow to orchestrate data pipelines that feed Kubeflow training pipelines |
 
----
+***
 
 ## Part 3: Data Drift & Data Lineage
 
@@ -488,7 +488,7 @@ with DAG("training_pipeline", ...) as dag:
     )
 ```
 
----
+***
 
 ## Interview Q&A Bank
 
@@ -506,7 +506,7 @@ The offline store holds historical feature values optimized for large batch read
 
 When retrieving historical features for training, you must retrieve the value of a feature **as it existed at the training example's timestamp**, not today's value. If you use today's feature values to train on yesterday's labels, you introduce label leakage — the model learns from information it would not have had at prediction time, producing artificially high training accuracy and poor production performance.
 
----
+***
 
 ### Medium — Production Depth
 
@@ -536,7 +536,7 @@ Mitigations:
 3. **Feature-tier differentiation** — classify features by required freshness. Slow-changing features (demographics) use batch. Fast-changing features (session behavior) use streaming.
 4. **On-demand features** — compute certain features at inference time from raw data, bypassing the materialization lag entirely. Accept the higher inference latency as a trade-off.
 
----
+***
 
 ### Hard — Architecture & Trade-offs
 
@@ -604,7 +604,7 @@ print('Online value:', online)
 - Alert on materialization job failures with < 5 minute lag
 - Implement a canary check: before serving real traffic, sample 10 requests against expected feature distributions
 
----
+***
 
 ## Key Terms Cheat Sheet
 

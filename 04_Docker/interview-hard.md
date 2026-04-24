@@ -31,7 +31,7 @@ This prevents running unsigned or tampered images even if someone pushes directl
 
 This guide distills the core technical requirements and high-stakes scenario drills for Docker, optimized for Senior DevOps (4+ YOE) candidates. It moves beyond basic commands into architectural trade-offs and runtime security.
 
----
+***
 
 ## 🏗️ Core Architecture & Fundamentals
 
@@ -51,7 +51,7 @@ Docker uses a **client-server architecture**.
 > [!IMPORTANT]
 > **Click Moment:** Always mention that containers are *isolated processes* in user space, sharing the host OS kernel. This is the fundamental difference from Virtual Machines.
 
----
+***
 
 ## 🛠️ Practical Operations & Lifecycle
 
@@ -71,7 +71,7 @@ docker exec -it <container_id> bash
 > [!NOTE]
 > The `-it` flag stands for **interactive** and **TTY**, allowing you to interact with the shell.
 
----
+***
 
 ## 🚀 Advanced Scenarios & Troubleshooting
 
@@ -89,7 +89,7 @@ Docker achieves isolation using **Linux Namespaces**:
 > [!CAUTION]
 > If an interviewer asks about security, mention that namespaces provide *isolation*, while **Cgroups** provide *resource limitation* (CPU/Memory). Both are required for a secure environment.
 
----
+***
 
 ## 📦 Docker Compose & Orchestration
 
@@ -100,7 +100,7 @@ A tool for defining and running multi-container Docker applications using a `YAM
 - **Docker Swarm:** Native clustering, easy to set up, suitable for smaller workloads.
 - **Kubernetes:** More complex, highly extensible, the industry standard for enterprise-scale orchestration.
 
----
+***
 
 ## 🎯 Quick Fire Interview Tips
 - **Image Optimization:** Always mention multi-stage builds to reduce image size.
@@ -109,11 +109,11 @@ A tool for defining and running multi-container Docker applications using a `YAM
 of load balancing across containers and hosts? How does it work?
 
 
----
+***
 
 # Docker — Easy Interview Questions
 
----
+***
 
 **1. What is a container and how does it differ from a virtual machine?**
 
@@ -129,7 +129,7 @@ A VM includes a full guest OS and runs on a hypervisor. Key differences:
 | Isolation | Namespace-based (softer) | Hypervisor-based (harder) |
 | Overhead | Near zero | Fixed guest OS memory |
 
----
+***
 
 **2. What is a Docker image vs. a container?**
 
@@ -146,7 +146,7 @@ Container writable layer (ephemeral — lost on docker rm)
 
 Multiple containers from the same image share the same underlying layers — no duplication on disk.
 
----
+***
 
 **3. What is a Dockerfile and what are its most commonly used instructions?**
 
@@ -168,7 +168,7 @@ A Dockerfile is a text file containing instructions that Docker executes sequent
 | `HEALTHCHECK` | Define a health probe command |
 | `LABEL` | Attach metadata key-value pairs |
 
----
+***
 
 **4. What is the difference between `CMD` and `ENTRYPOINT`?**
 
@@ -188,7 +188,7 @@ docker run --entrypoint sh myimg  # → sh (ENTRYPOINT replaced)
 > [!TIP]
 > Always use the exec form (`["executable", "arg"]`) for both CMD and ENTRYPOINT so signals are delivered directly to your process, not to a shell wrapper that might swallow them.
 
----
+***
 
 **5. What does `COPY` do vs `ADD` in a Dockerfile?**
 
@@ -200,7 +200,7 @@ docker run --entrypoint sh myimg  # → sh (ENTRYPOINT replaced)
 
 Best practice: use `COPY` for all file copying. Use `ADD` only when you specifically need tar extraction. Using `ADD` with a URL is discouraged — use `RUN curl` instead so the download is explicit in the layer cache.
 
----
+***
 
 **6. What is a Docker volume and why is it used?**
 
@@ -220,7 +220,7 @@ docker run -v /data myapp   # Docker auto-generates a volume name
 
 Volumes are not affected by `docker commit` — image snapshots do not include volume data.
 
----
+***
 
 **7. What are named vs anonymous volumes?**
 
@@ -231,7 +231,7 @@ Volumes are not affected by `docker commit` — image snapshots do not include v
 
 Named volumes are always preferred in production because they can be referenced by name for backup, inspection, and sharing across containers.
 
----
+***
 
 **8. How do you run a container in the background and check its status?**
 
@@ -250,7 +250,7 @@ docker logs web
 docker logs -f web   # follow
 ```
 
----
+***
 
 **9. What does `-p 8080:80` mean in a docker run command?**
 
@@ -265,7 +265,7 @@ You can also:
 - `-P` — publish all `EXPOSE`d ports to random host ports
 - `-p 127.0.0.1:8080:80` — bind only on localhost (not all interfaces)
 
----
+***
 
 **10. How do you pass environment variables into a container?**
 
@@ -295,7 +295,7 @@ services:
 > [!CAUTION]
 > Environment variables set via `-e` are visible in `docker inspect`. Never pass secrets (passwords, API keys) as environment variables in production — use secret management tools (Vault, AWS Secrets Manager) or Docker/Kubernetes secrets.
 
----
+***
 
 **11. What is `.dockerignore` and why is it important?**
 
@@ -320,7 +320,7 @@ Dockerfile*
 docker-compose*
 ```
 
----
+***
 
 **12. What is Docker Compose and what problem does it solve?**
 
@@ -354,7 +354,7 @@ docker compose down       # stop and remove containers + networks
 docker compose logs -f    # follow logs
 ```
 
----
+***
 
 **13. What is the difference between `docker stop` and `docker kill`?**
 
@@ -368,7 +368,7 @@ docker kill mycontainer          # immediate termination
 docker kill -s SIGUSR1 mycontainer  # send custom signal
 ```
 
----
+***
 
 **14. What are restart policies and when would you use each one?**
 
@@ -385,7 +385,7 @@ docker run --restart unless-stopped nginx   # production services
 docker run --restart on-failure:3 worker    # batch jobs that should retry
 ```
 
----
+***
 
 **15. What is a base image and what makes a good one for production?**
 
@@ -403,7 +403,7 @@ A base image is the starting point (`FROM <image>`) for your Docker image. For p
 > [!IMPORTANT]
 > Smaller base images have fewer packages, which means fewer potential CVEs. Always prefer `distroless` or `scratch` for production containers when possible.
 
----
+***
 
 **16. What does `docker exec` do and how is it different from `docker attach`?**
 
@@ -416,7 +416,7 @@ docker exec -it mycontainer bash    # new process — safe for debugging
 docker attach mycontainer           # attaches to PID 1 — be careful with Ctrl+C
 ```
 
----
+***
 
 **17. How do you share data between two containers?**
 
@@ -440,7 +440,7 @@ docker run -v /host/shared:/data:ro consumer
 ```
 # Docker — Medium Interview Questions
 
----
+***
 
 **1. How do Docker layers work and why does layer ordering matter for build performance?**
 
@@ -467,7 +467,7 @@ COPY . /app                                # changes here don't affect pip layer
 
 **Rule:** Put instructions that change rarely near the top; frequently-changing content near the bottom.
 
----
+***
 
 **2. Explain multi-stage builds and how you would use one to reduce a Go image from 800 MB to under 10 MB.**
 
@@ -492,7 +492,7 @@ ENTRYPOINT ["/app"]
 
 The Go toolchain, source code, and module cache never appear in the final image. `-ldflags="-s -w"` strips debug symbols, further reducing binary size.
 
----
+***
 
 **3. How does Docker's build cache work with BuildKit and how would you configure registry-based caching for CI?**
 
@@ -518,7 +518,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 This cache persists between builds on the same builder instance, independently of the layer cache.
 
----
+***
 
 **4. What are the Docker networking modes and when would you use each one?**
 
@@ -546,7 +546,7 @@ docker run --network host nginx   # nginx binds port 80 directly on host
 docker run --network none python script.py
 ```
 
----
+***
 
 **5. What is a HEALTHCHECK and how does it interact with Docker Compose `depends_on`?**
 
@@ -588,7 +588,7 @@ services:
 > [!IMPORTANT]
 > Without `condition: service_healthy`, `depends_on` only waits for the container to start (not for the application inside to be ready). This is a common source of race conditions.
 
----
+***
 
 **6. How do you enforce resource limits on containers and what happens when a container exceeds its memory limit?**
 
@@ -615,7 +615,7 @@ docker inspect mycontainer | jq '.[0].State | {OOMKilled, ExitCode}'
 
 The container does not restart unless a restart policy is configured. In Kubernetes, this surfaces as `OOMKilled` reason in `kubectl describe pod`.
 
----
+***
 
 **7. What is the difference between `EXPOSE` and publishing a port (`-p`)?**
 
@@ -633,7 +633,7 @@ If -p (with or without EXPOSE):  accessible from host and external traffic
 
 The practical rule: `EXPOSE` is for documentation and Docker tooling (e.g., `-P`). Port publishing (`-p`) is what actually opens traffic.
 
----
+***
 
 **8. How do you handle secrets in Docker images and builds?**
 
@@ -665,7 +665,7 @@ docker service create \
 
 **Best practice in production:** Use a secrets manager (HashiCorp Vault, AWS Secrets Manager, Azure Key Vault) with a sidecar or init container that fetches secrets at startup and injects them as files into a tmpfs mount.
 
----
+***
 
 **9. What is containerd and how does it relate to Docker?**
 
@@ -693,7 +693,7 @@ crictl images
 crictl inspect <container-id>
 ```
 
----
+***
 
 **10. How do Docker Compose override files work?**
 
@@ -733,7 +733,7 @@ docker compose config
 
 This pattern is standard: base file for production, `override.yml` for development, explicit `-f` flags for staging/CI.
 
----
+***
 
 **11. How does bridge networking use iptables under the hood?**
 
@@ -763,7 +763,7 @@ iptables -L DOCKER-USER -n -v
 > [!TIP]
 > The `DOCKER-USER` chain is where you can add custom iptables rules that Docker will not overwrite on daemon restart.
 
----
+***
 
 **12. What is image scanning and how would you integrate it into a CI pipeline?**
 
@@ -808,7 +808,7 @@ docker scout recommendations myrepo/myapp:latest
     sarif_file: trivy-results.sarif
 ```
 
----
+***
 
 **13. What is the difference between `docker cp`, bind mounts, and volumes for development workflows?**
 
@@ -836,7 +836,7 @@ docker run -d \
   postgres:16
 ```
 
----
+***
 
 **14. How do Docker Compose `profiles` work?**
 
@@ -865,7 +865,7 @@ docker compose --profile monitoring up   # starts web, db, prometheus
 docker compose up                        # starts web, db only
 ```
 
----
+***
 
 **15. How would you reduce a Docker image from 800 MB to 50 MB for a Node.js application?**
 

@@ -177,7 +177,7 @@ metadata:
 spec:
   podSelector: {}  # selects all pods
   policyTypes: [Ingress]
----
+***
 # 2. Allow only what's needed
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

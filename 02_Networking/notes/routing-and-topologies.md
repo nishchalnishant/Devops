@@ -14,7 +14,7 @@ A **subnet** (subnetwork) is a smaller network inside a larger network. Subnetti
 
 **Example:** A Class A network has 2^24 = 16,777,214 hosts. Maintaining such a large network is challenging. Subnetting divides it into manageable sections.
 
----
+***
 
 ### CIDR Notation
 
@@ -46,7 +46,7 @@ A **subnet** (subnetwork) is a smaller network inside a larger network. Subnetti
 | /31 | 255.255.255.254 | 2 | 2 | P2P (RFC 3021, no broadcast) |
 | /32 | 255.255.255.255 | 1 | 1 | Single host route |
 
----
+***
 
 ### How CIDR Makes Subnetting Easier
 
@@ -64,7 +64,7 @@ A **subnet** (subnetwork) is a smaller network inside a larger network. Subnetti
 - More network bits = more subnets, fewer hosts per subnet
 - More host bits = fewer subnets, more hosts per subnet
 
----
+***
 
 ### Subnetting Math
 
@@ -78,7 +78,7 @@ Hosts per subnet = 2^(remaining host bits) - 2
 - Network address (all host bits = 0)
 - Broadcast address (all host bits = 1)
 
----
+***
 
 ### Worked Example: Divide 10.0.0.0/24 into 4 Subnets
 
@@ -99,7 +99,7 @@ Hosts per subnet = 2^(remaining host bits) - 2
 | 3 | 10.0.0.128/26 | 10.0.0.129 – 10.0.0.190 | 10.0.0.191 |
 | 4 | 10.0.0.192/26 | 10.0.0.193 – 10.0.0.254 | 10.0.0.255 |
 
----
+***
 
 ### VPC CIDR Design Considerations
 
@@ -116,7 +116,7 @@ Hosts per subnet = 2^(remaining host bits) - 2
 
 **Common Mistake:** Using /16 for everything leads to overlapping IP ranges when peering VPCs (e.g., merging companies or connecting to vendors).
 
----
+***
 
 ## Routing Fundamentals
 
@@ -130,7 +130,7 @@ Hosts per subnet = 2^(remaining host bits) - 2
 
 **TCP/IP Layer:** Internet Layer
 
----
+***
 
 ### How Routing Works
 
@@ -161,7 +161,7 @@ Routing algorithms use **metrics** to determine the best path:
 | **Reliability** | Error rate of the link |
 | **Cost** | Administrative value assigned to link |
 
----
+***
 
 ## Types of Routing
 
@@ -199,7 +199,7 @@ route add -net 10.0.0.0/24 gw 192.168.1.1
 ip route del 10.0.0.0/24 via 192.168.1.1
 ```
 
----
+***
 
 ### Default Routing
 
@@ -222,7 +222,7 @@ ip route show | grep default
 
 **Priority:** Specific routes take precedence over the default route.
 
----
+***
 
 ### Dynamic Routing (Adaptive)
 
@@ -251,7 +251,7 @@ ip route show | grep default
 | **EIGRP** | Hybrid | Cisco environments |
 | **BGP** | Path Vector | Internet routing, multi-cloud |
 
----
+***
 
 ## Routing Algorithms
 
@@ -279,7 +279,7 @@ Where:
 - `c(x,v)` = cost from x to neighbor v
 - `D_v(y)` = cost from v to y (as reported by v)
 
----
+***
 
 ### Link State Routing
 
@@ -311,7 +311,7 @@ Where:
 5. Repeat until all nodes visited
 ```
 
----
+***
 
 ### Comparison: Distance Vector vs Link State
 
@@ -325,7 +325,7 @@ Where:
 | **Routing Loops** | Possible | Rare |
 | **Example** | RIP | OSPF |
 
----
+***
 
 ## Routing Protocols in Detail
 
@@ -360,7 +360,7 @@ Where:
 | 4 | LSU | Link State Update |
 | 5 | LSAck | Link State Acknowledgment |
 
----
+***
 
 ### BGP (Border Gateway Protocol)
 
@@ -396,7 +396,7 @@ Where:
 - **GCP Cloud Interconnect:** On-prem to GCP via BGP
 - **Kubernetes (Calico/Cilium):** Advertise pod CIDR via BGP
 
----
+***
 
 ## Network Topologies
 
@@ -407,7 +407,7 @@ Where:
 | **Physical Topology** | Actual physical arrangement of cables, devices, and network components |
 | **Logical Topology** | How data actually flows through the network (signal path) |
 
----
+***
 
 ### Bus Topology
 
@@ -428,7 +428,7 @@ Where:
 | Easy to extend | Difficult to troubleshoot |
 | Minimal cabling | Performance degrades with load |
 
----
+***
 
 ### Ring Topology
 
@@ -452,7 +452,7 @@ Where:
 | Predictable performance | Difficult to add/remove devices |
 | Equal access | Troubleshooting is difficult |
 
----
+***
 
 ### Star Topology
 
@@ -473,7 +473,7 @@ Where:
 | Easy troubleshooting | Hub/switch cost |
 | Cheap | |
 
----
+***
 
 ### Tree Topology
 
@@ -496,7 +496,7 @@ Where:
 | Easy fault isolation | Dependent on root |
 | Point-to-point wiring | Requires more cabling |
 
----
+***
 
 ### Mesh Topology
 
@@ -521,7 +521,7 @@ Where:
 | No single point of failure | Difficult to manage |
 | High reliability | |
 
----
+***
 
 ### Hybrid Topology
 
@@ -541,7 +541,7 @@ Where:
 | Scalable | Expensive |
 | Reliable | Requires intelligent hardware |
 
----
+***
 
 ## Practical Subnetting Examples
 
@@ -560,7 +560,7 @@ Where:
 | Branch2 | 50 | /26 | 255.255.255.192 | 192.168.2.128 – 192.168.2.191 |
 | IT Lab | 20 | /27 | 255.255.255.224 | 192.168.2.192 – 192.168.2.223 |
 
----
+***
 
 ### Example 2: VPC Subnet Design for AWS
 
@@ -579,7 +579,7 @@ Where:
 
 **Remaining:** 10.0.6.0/24 – 10.0.255.0/24 for future expansion
 
----
+***
 
 ## Summary: Key Takeaways
 

@@ -38,5 +38,5 @@ Artifacts are files or directories produced by a job and stored by GitLab so sub
 
 `cache` stores files between pipeline runs on the same runner to speed up jobs (e.g., `node_modules`, `.m2/repository`). Artifacts pass files between jobs within the same pipeline. Cache is a best-effort optimization; artifacts are reliable handoffs.
 
----
+***
 

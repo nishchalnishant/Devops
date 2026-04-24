@@ -36,5 +36,5 @@ Running as root means a container escape gives the attacker full root on the hos
 
 When Docker starts, it creates a `docker0` virtual bridge interface on the host. Each container gets a `veth` pair: one end (`eth0`) in the container's network namespace, the other end attached to `docker0`. Containers on the same bridge can communicate via IP. Docker manages iptables NAT rules to allow containers to reach the internet (MASQUERADE). Port publishing (`-p 8080:80`) adds a DNAT iptables rule to redirect host port 8080 to the container's port 80.
 
----
+***
 

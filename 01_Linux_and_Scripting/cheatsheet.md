@@ -2,7 +2,7 @@
 
 All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engineers.
 
----
+***
 
 ## File and Directory Operations
 
@@ -41,7 +41,7 @@ All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engin
 | `du -ah /path` | Size of each file and directory |
 | `du -sh * \| sort -rh \| head` | Largest items in current dir |
 
----
+***
 
 ## Find and Locate
 
@@ -66,7 +66,7 @@ All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engin
 | `whereis command` | Binary, source, and manual locations |
 | `type command` | Shell built-in, alias, or file |
 
----
+***
 
 ## Text Processing
 
@@ -105,7 +105,7 @@ All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engin
 | `strings binary` | Extract printable strings from binary |
 | `xxd file` | Hex dump |
 
----
+***
 
 ## grep, sed, awk
 
@@ -168,7 +168,7 @@ All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engin
 | `ps aux \| awk '$3 > 10 {print $0}'` | Processes using >10% CPU |
 | `df -h \| awk 'NR>1 {print $5, $6}'` | Disk usage percentages |
 
----
+***
 
 ## Process Management
 
@@ -205,7 +205,7 @@ All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engin
 | `bg %1` | Resume job 1 in background |
 | `wait` | Wait for all background jobs |
 
----
+***
 
 ## System Monitoring
 
@@ -253,7 +253,7 @@ All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engin
 | `q` | Quit |
 | `H` | Toggle thread display |
 
----
+***
 
 ## Memory
 
@@ -270,7 +270,7 @@ All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engin
 | `cat /proc/PID/smaps` | Detailed per-region memory map |
 | `valgrind --leak-check=full cmd` | Memory leak detection |
 
----
+***
 
 ## Disk and Filesystem
 
@@ -325,7 +325,7 @@ All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engin
 | `zcat file.gz` | View gzipped file without extracting |
 | `zgrep pattern file.gz` | Grep inside gzipped file |
 
----
+***
 
 ## Network Commands
 
@@ -413,7 +413,7 @@ All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engin
 | `rsync -avz --exclude='*.log' src/ dst/` | Exclude pattern |
 | `sftp user@host` | Interactive file transfer |
 
----
+***
 
 ## User and Permission Management
 
@@ -492,7 +492,7 @@ All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engin
 | `setfacl -d -m g:devops:rx dir` | Default ACL (inherited by new files) |
 | `setfacl -R -m u:bob:rx dir/` | Recursive ACL |
 
----
+***
 
 ## systemd
 
@@ -529,7 +529,7 @@ All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engin
 | `journalctl --disk-usage` | Journal storage size |
 | `journalctl --vacuum-time=7d` | Delete old entries |
 
----
+***
 
 ## Package Management
 
@@ -551,7 +551,7 @@ All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engin
 | History | `apt history` | `dnf history` | n/a |
 | Clean cache | `apt clean` | `dnf clean all` | `pacman -Sc` |
 
----
+***
 
 ## Bash Scripting Quick Reference
 
@@ -695,7 +695,7 @@ echo "Exit: $?   Result: $result"
 | `cmd <<EOF ... EOF` | Here document |
 | `cmd <<< "string"` | Here string |
 
----
+***
 
 ## Kernel and Performance Tuning
 
@@ -747,7 +747,7 @@ taskset -c 0,1 -p PID              # bind running process
 chrt -f 50 cmd                     # real-time FIFO scheduling
 ```
 
----
+***
 
 ## Cron Scheduling
 
@@ -769,7 +769,7 @@ crontab -r           # remove crontab
 crontab -u alice -e  # edit alice's crontab (root)
 ```
 
----
+***
 
 ## Useful One-Liners
 
@@ -798,7 +798,7 @@ dpkg -S $(which nginx)
 # Recursively find and replace string in files
 grep -rl "old_string" /path/ | xargs sed -i 's/old_string/new_string/g'
 
----
+***
 
 ## 🏗️ LVM Management (Logical Volume Manager)
 
@@ -814,7 +814,7 @@ grep -rl "old_string" /path/ | xargs sed -i 's/old_string/new_string/g'
 | `resize2fs /dev/my_vg/my_lv` | Resize filesystem after LV extend |
 | `lvcreate -s -L 1G -n my_snap /dev/my_vg/my_lv` | Create a snapshot |
 
----
+***
 
 ## ⚡ Performance Profiling (eBPF & Trace)
 
@@ -827,7 +827,7 @@ grep -rl "old_string" /path/ | xargs sed -i 's/old_string/new_string/g'
 | `strace -c -p PID` | Summary of syscalls (count, time, errors) |
 | `strace -e trace=network -p PID` | Trace only network-related syscalls |
 
----
+***
 
 ## 🚦 Linux Signals Reference
 
@@ -841,7 +841,7 @@ grep -rl "old_string" /path/ | xargs sed -i 's/old_string/new_string/g'
 | 17/19 | SIGSTOP | Stop | Pause process execution |
 | 18/25 | SIGCONT | Continue | Resume paused process |
 
----
+***
 
 # Show memory usage per process sorted by RSS
 ps -eo pid,comm,rss --sort=-rss | head -20 | awk '{printf "%s\t%s\t%.1fMB\n", $1,$2,$3/1024}'

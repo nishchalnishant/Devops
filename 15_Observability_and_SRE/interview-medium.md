@@ -50,5 +50,5 @@ Both together give complete visibility: white-box detects problems first; black-
 5. **Remediate:** Apply the root fix.
 6. **Post-mortem:** Blameless review within 24-48 hours, action items with owners and due dates.
 
----
+***
 

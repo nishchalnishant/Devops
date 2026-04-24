@@ -39,7 +39,7 @@ pipelining = True
 | `docker` | docker exec | Docker containers without SSH |
 | `kubectl` | kubectl exec | Kubernetes pods |
 
----
+***
 
 ## Inventory Deep Dive
 
@@ -105,7 +105,7 @@ ansible-inventory -i inventory/aws_ec2.yml --graph
 9. `set_fact`
 10. `--extra-vars` / `-e` (highest)
 
----
+***
 
 ## Role Structure
 
@@ -133,7 +133,7 @@ roles/
 
 **`defaults/` vs `vars/`:** defaults are designed to be overridden by inventory/playbook vars. `vars/` in a role have higher precedence than playbook `vars:` blocks — don't put overridable config there.
 
----
+***
 
 ## Task Execution Model
 
@@ -194,7 +194,7 @@ roles/
   tags: [setup]              # need both: one for the include itself, one for children
 ```
 
----
+***
 
 ## Vault — Encryption Internals
 
@@ -223,7 +223,7 @@ ansible-playbook site.yml --vault-id prod@.vault_pass_prod --vault-id dev@.vault
 vault_identity_list = prod@/run/secrets/vault_pass_prod, dev@.vault_pass_dev
 ```
 
----
+***
 
 ## Performance Tuning
 
@@ -246,7 +246,7 @@ ssh_args = -o ControlMaster=auto -o ControlPersist=60s -o ServerAliveInterval=30
 
 **ControlMaster** multiplexes multiple SSH sessions over one TCP connection. A 50-task playbook on 100 hosts goes from 5000 SSH handshakes to 100 with ControlMaster.
 
----
+***
 
 ## Callback Plugins
 
@@ -277,7 +277,7 @@ stdout_callback = json
 ansible-playbook site.yml | tee ansible-output.json
 ```
 
----
+***
 
 ## Parallelism and Concurrency Patterns
 
@@ -309,7 +309,7 @@ ansible-playbook site.yml | tee ansible-output.json
   delegate_to: localhost   # run from control node, targeting this URL
 ```
 
----
+***
 
 ## Jinja2 Templating — Advanced Patterns
 
@@ -355,7 +355,7 @@ ansible-playbook site.yml | tee ansible-output.json
     db_pass: "{{ lookup('amazon.aws.aws_ssm', '/prod/db/password', region='us-east-1') }}"
 ```
 
----
+***
 
 ## AWX / Automation Controller (Tower)
 
@@ -407,7 +407,7 @@ ansible-builder build -t myorg/my-ee:1.0 --container-runtime docker
 | Schedule | Cron-based job template execution |
 | RBAC | Organizations → Teams → Users with granular permissions |
 
----
+***
 
 ## Molecule — Testing Roles
 
@@ -447,7 +447,7 @@ molecule test
         status_code: 200
 ```
 
----
+***
 
 ## Key Gotchas
 

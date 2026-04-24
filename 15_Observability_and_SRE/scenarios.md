@@ -4,7 +4,7 @@
 
 1
 
----
+***
 
 ## Page 2
 
@@ -27,7 +27,7 @@ DevOps.
 Welcome to the journey of mastering DevOps troubleshooting—let’s get
 started!
 
----
+***
 
 ## Page 3
 
@@ -65,7 +65,7 @@ Table of Contents
    3.3 "No space left on device"
    3.4 "ImagePullBackOff" in Kubernetes
 
----
+***
 
 ## Page 4
 
@@ -106,7 +106,7 @@ Table of Contents
    6.1 "Provider plugin not found"
    6.2 "State file lock error"
 
----
+***
 
 ## Page 5
 
@@ -145,7 +145,7 @@ Table of Contents
    8.9 Kibana: "Dashboard is empty"
    8.10 Logstash: "Filebeat logs not received"
 
----
+***
 
 ## Page 6
 
@@ -185,7 +185,7 @@ Table of Contents
     11.7 "Docker image not found in the pipeline"
     11.8 "Failed to upload artifacts"
 
----
+***
 
 ## Page 7
 
@@ -206,7 +206,7 @@ Table of Contents
     12.9 "Too many false-positive alerts"
     12.10 "Dashboard panels showing no data"
 
----
+***
 
 ## Page 8
 
@@ -239,7 +239,7 @@ Table of Contents
 1. After resolution, commit: git add <file> && git commit.
    1.5 "Detached HEAD state"
 
----
+***
 
 ## Page 9
 
@@ -274,7 +274,7 @@ Table of Contents
    • Solution:
 7. Stash changes: git stash.
 
----
+***
 
 ## Page 10
 
@@ -282,7 +282,7 @@ Table of Contents
 
 2. Switch branches: git checkout <branch>.
 
----
+***
 
 ## Page 11
 
@@ -315,7 +315,7 @@ Table of Contents
 1. Define variables in "Build Environment" or as parameters.
 1. Use env.VARIABLE_NAME in the pipeline script.
 
----
+***
 
 ## Page 12
 
@@ -346,7 +346,7 @@ Table of Contents
    • Solution:
 8. Verify agent logs and network connectivity.
 
----
+***
 
 ## Page 13
 
@@ -377,7 +377,7 @@ Table of Contents
    • Solution:
 1. Update directory permissions: chmod 777 <directory>.
 
----
+***
 
 ## Page 14
 
@@ -411,7 +411,7 @@ Table of Contents
    • Solution:
 1. Check node capacity: kubectl describe pod <pod-name>.
 
----
+***
 
 ## Page 15
 
@@ -442,7 +442,7 @@ Table of Contents
 1. Check logs and events of failed pods.
 1. Roll back using kubectl rollout undo.
 
----
+***
 
 ## Page 16
 
@@ -475,7 +475,7 @@ Table of Contents
    • Solution:
 1. Ensure Ansible and its dependencies are up-to-date.
 
----
+***
 
 ## Page 17
 
@@ -500,7 +500,7 @@ Table of Contents
    • Solution:
 1. Debug the script manually or use --list to validate.
 
----
+***
 
 ## Page 18
 
@@ -533,7 +533,7 @@ Table of Contents
 1. Validate variable types and indices.
    6.7 "Module not found"
 
----
+***
 
 ## Page 19
 
@@ -556,7 +556,7 @@ Table of Contents
    • Solution:
 1. Check and fix the backend block in the Terraform configuration.
 
----
+***
 
 ## Page 20
 
@@ -590,7 +590,7 @@ Table of Contents
    • Cause: Large datasets or inefficient queries.
    • Solution:
 
----
+***
 
 ## Page 21
 
@@ -624,7 +624,7 @@ Table of Contents
     • Cause: Syntax errors in prometheus.yml.
     • Solution:
 
----
+***
 
 ## Page 22
 
@@ -633,7 +633,7 @@ Table of Contents
 1. Validate the configuration file with promtool.
 2. Fix any syntax issues before reloading.
 
----
+***
 
 ## Page 23
 
@@ -666,7 +666,7 @@ Table of Contents
 1. Restart Kibana after Elasticsearch is ready.
    8.6 "Index pattern not found in Kibana"
 
----
+***
 
 ## Page 24
 
@@ -697,7 +697,7 @@ Table of Contents
 8. Check Filebeat output.logstash configuration.
 9. Ensure the correct port and protocol.
 
----
+***
 
 ## Page 25
 
@@ -730,7 +730,7 @@ Table of Contents
 1. Review the stack events for specific errors.
 1. Validate the template: aws cloudformation validate-template.
 
----
+***
 
 ## Page 26
 
@@ -762,7 +762,7 @@ Table of Contents
 1. Ensure the CloudWatch agent is running.
 1. Verify configuration files.
 
----
+***
 
 ## Page 27
 
@@ -795,7 +795,7 @@ Table of Contents
    • Cause: Missing build artifacts in the pipeline.
    • Solution:
 
----
+***
 
 ## Page 28
 
@@ -819,7 +819,7 @@ Table of Contents
    • Solution:
 1. Verify the test result files in the pipeline logs.
 
----
+***
 
 ## Page 29
 
@@ -853,7 +853,7 @@ Table of Contents
    • Solution:
 1. Optimize pipeline stages for efficiency.
 
----
+***
 
 ## Page 30
 
@@ -887,7 +887,7 @@ Table of Contents
 1. Verify the webhook URL and payload.
 1. Check firewall or network restrictions blocking the webhook.
 
----
+***
 
 ## Page 31
 
@@ -921,7 +921,7 @@ Table of Contents
    • Cause: Incorrect alert rules or expression issues.
    • Solution:
 
----
+***
 
 ## Page 32
 
@@ -957,7 +957,7 @@ Table of Contents
 11. Verify the query syntax and metrics used in the panels.
 12. Ensure the selected time range matches the data availability.
 
----
+***
 
 ## Page 33
 
@@ -991,7 +991,7 @@ Keep experimenting, keep learning, and most importantly, keep building. The
 road to DevOps mastery is paved with errors, but each error brings you one
 step closer to excellence.
 
----
+***
 
 # Content from devops_real_time_troubleshooting.pdf
 
@@ -1047,7 +1047,7 @@ DevOps Real Time Troubleshooting’s
    overloaded with jobs, consider distributing the workload by using Jenkins agents.
    Scale your Jenkins infrastructure horizontally if needed.
 
----
+***
 
 ## Page 2
 
@@ -1124,7 +1124,7 @@ Roles and Responsibilities for Kubernetes Cluster Management:
     o
     Implements corrective actions for any compliance violations.
 
----
+***
 
 ## Page 3
 
@@ -1176,7 +1176,7 @@ Real-Time Troubleshooting for Kubernetes Cluster
     problems, or network partitioning. Use tools like kubectl get events and logs to
     identify root causes. Implement disaster recovery procedures if needed.
 
----
+***
 
 ## Page 4
 
@@ -1243,7 +1243,7 @@ AWS Real Time Troubleshooting’s
    o
    Symptoms: Slow queries or high database latency.
 
----
+***
 
 ## Page 5
 
@@ -1271,13 +1271,13 @@ Resolution: Check CloudFormation events and logs for error messages. Validate th
 template syntax. Review IAM roles and permissions. Identify and resolve resource
 dependencies. Use AWS CloudFormation StackSets for multiple accounts/regions.
 
----
+***
 
 # Incident Response Runbook (7 YOE)
 
 A senior DevOps or SRE engineer is expected to **lead** an incident, not just debug it. This means structured communication, fast mitigation, and systematic review — even under pressure.
 
----
+***
 
 ## The Incident Lifecycle
 
@@ -1285,7 +1285,7 @@ A senior DevOps or SRE engineer is expected to **lead** an incident, not just de
 Detect → Triage → Declare → Mitigate → Resolve → Review
 ```
 
----
+***
 
 ## Phase 1: Detect
 
@@ -1308,7 +1308,7 @@ An incident starts when an alert fires, a customer reports it, or a team member 
 | Log errors          | Log Analytics → KQL                   | Kibana / Loki                             |
 | Synthetic health    | Azure Monitor availability tests      | Blackbox Exporter                         |
 
----
+***
 
 ## Phase 2: Declare
 
@@ -1336,7 +1336,7 @@ Status Page: [link] — Updated to "Investigating"
 Zoom Bridge: [link]
 ```
 
----
+***
 
 ## Phase 3: Triage and Mitigate
 
@@ -1363,7 +1363,7 @@ Current impact: Same as initial report.
 Next update: 15:00 UTC
 ```
 
----
+***
 
 ## Phase 4: Resolve
 
@@ -1385,7 +1385,7 @@ Status Page: Updated to "Resolved"
 Post-Mortem: Scheduled for 2026-04-22 10:00 UTC
 ```
 
----
+***
 
 ## Phase 5: Post-Mortem (Blameless)
 
@@ -1444,7 +1444,7 @@ One sentence: what broke, why it broke, and what the impact was.
 | Add a synthetic canary test that validates a full auth token round-trip post-deploy       | @charlie | 2026-05-05 | P1       |
 ```
 
----
+***
 
 ## SLO Burn Rate Alerting
 
@@ -1487,7 +1487,7 @@ requests
 | where error_rate > (burn_rate * slo_threshold)
 ```
 
----
+***
 
 ## Communication Best Practices
 
@@ -1500,7 +1500,7 @@ requests
 | "Bob shouldn't have done that."  | "The system allowed the config to be deployed without validation. We'll add a check."                   |
 | "I don't know what's happening." | "I've ruled out the database and network. I'm now investigating the application layer."                 |
 
----
+***
 
 ## On-Call Rotation and Escalation Policy
 
@@ -1521,7 +1521,7 @@ An alert is worth paging an engineer at 3 AM **only if** it meets all three crit
 
 If an alert does not meet all three, it belongs in a Slack channel or a Jira ticket, not a phone call.
 
----
+***
 
 ## Scenario 1: Prometheus "Cardinality Explosion"
 **Symptom:** Prometheus is OOMing and slow. Memory usage spiked suddenly.

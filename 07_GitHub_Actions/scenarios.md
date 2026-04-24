@@ -12,7 +12,7 @@
 **Problem:** You are testing on 10 versions of Node, but if version 1 fails, you want to stop all others immediately to save money.
 **Fix:** Set `fail-fast: true` in your matrix strategy.
 
----
+***
 
 ## Scenario 4: Workflow Triggered Too Often — Slowing CI and Burning Minutes
 
@@ -34,7 +34,7 @@ concurrency:
 
 Additionally, split the pipeline: run cheap steps (lint, unit tests) on every push; run expensive steps (integration tests, security scan) only on PR to main.
 
----
+***
 
 ## Scenario 5: Secret Exposed in Workflow Logs
 
@@ -51,7 +51,7 @@ Additionally, split the pipeline: run cheap steps (lint, unit tests) on every pu
 - Add a branch protection rule requiring PR review so debug commits can't land directly on main
 - Use `::add-mask::$VALUE` to mask a dynamically computed value
 
----
+***
 
 ## Scenario 6: Self-Hosted Runner Compromised via Malicious PR
 
@@ -74,7 +74,7 @@ jobs:
     environment: external-pr   # requires manual approval
 ```
 
----
+***
 
 ## Scenario 7: Workflow Fails Due to Expired OIDC Token
 
@@ -93,7 +93,7 @@ jobs:
 
 Alternatively, split the job: authenticate and push in a separate, short job that runs after the build job.
 
----
+***
 
 ## Scenario 8: Dependabot PRs Failing Because They Can't Access Secrets
 
@@ -122,7 +122,7 @@ jobs:
 > [!CAUTION]
 > This is safe only because you're restricting it to `dependabot[bot]` (verified GitHub actor) and using `actions/checkout` of a known commit SHA. Never do this for arbitrary external PRs.
 
----
+***
 
 ## Scenario 1: Self-Hosted Runner Disk Exhaustion
 **Symptom:** Workflows fail with `No space left on device`.
@@ -144,7 +144,7 @@ jobs:
 **Diagnosis:** Depending on tags like `@v3` is unstable as they can be moved.
 **Fix:** Always pin actions to a specific **commit SHA**: `uses: actions/setup-node@64ed1c7eab4cce33da29d98e940a440156fefd19`.
 
----
+***
 
 ### Scenario 4: Self-Hosted Runner Picks Up Jobs from Wrong Repositories
 
@@ -176,7 +176,7 @@ jobs:
     echo "API_KEY=$SECRET" >> $GITHUB_ENV
 ```
 
----
+***
 
 ### Scenario 5: Workflow Runs But Skips All Steps — `if` Condition Evaluation Failure
 
@@ -211,7 +211,7 @@ jobs:
     echo "base_ref: ${{ github.base_ref }}"
 ```
 
----
+***
 
 ### Scenario 6: Concurrency Limit Causes Deployments to Queue Indefinitely
 
@@ -249,7 +249,7 @@ jobs:
     needs: deploy-staging
 ```
 
----
+***
 
 ### Scenario 7: Secrets Accidentally Printed in Workflow Logs
 
@@ -297,7 +297,7 @@ run: curl -H "Authorization: $API_KEY" https://api.example.com
 
 3. **Use secret scanning:** Enable GitHub Advanced Security → Secret Scanning to detect accidentally committed secrets.
 
----
+***
 
 ### Scenario 8: Reusable Workflow Can't Access Caller's Secrets
 
@@ -345,7 +345,7 @@ jobs:
 
 Use `secrets: inherit` for internal workflows where secret names are consistent. Use explicit passing when the reusable workflow is shared across orgs or when secret names differ.
 
----
+***
 
 ### Scenario 9: GitHub Actions Cache Key Collision Between PRs
 

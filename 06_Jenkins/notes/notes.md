@@ -14,7 +14,7 @@
 10. [High Availability Patterns](#high-availability-patterns)
 11. [Backup and Recovery](#backup-and-recovery)
 
----
+***
 
 ## Architecture
 
@@ -76,7 +76,7 @@ agent { label '!windows' }                       // NOT — exclude label
 
 Label-based routing enables specialized agents: GPU agents for ML builds, large-memory agents for integration tests, Docker-enabled agents for container builds.
 
----
+***
 
 ## Pipeline Types
 
@@ -265,7 +265,7 @@ Scans a repository and automatically creates one pipeline job per branch or pull
 
 **PR pipelines:** With the GitHub Branch Source plugin, pull requests get their own pipeline automatically. Merges trigger the target branch pipeline after merge.
 
----
+***
 
 ## Jenkinsfile Structure
 
@@ -282,7 +282,7 @@ All top-level Declarative pipeline directives:
 | `tools` | No | Auto-install tool versions (JDK, Maven, Node) |
 | `post` | No | Cleanup and notification based on build result |
 
----
+***
 
 ## Shared Libraries
 
@@ -377,7 +377,7 @@ pipeline {
 
 Use semantic versioning for library releases. Test library changes in a feature branch, reference them via `@Library('company-lib@feature-branch')` in a test Jenkinsfile, then tag a new version and update references in dependent pipelines in a controlled rollout.
 
----
+***
 
 ## Plugin Ecosystem
 
@@ -439,7 +439,7 @@ Use semantic versioning for library releases. Test library changes in a feature 
 }
 ```
 
----
+***
 
 ## Distributed Builds
 
@@ -479,7 +479,7 @@ options {
 
 Configure the category max concurrent count in **Manage Jenkins → Throttle Concurrent Builds** to cap how many deploy jobs run simultaneously across the controller.
 
----
+***
 
 ## Security Model
 
@@ -535,7 +535,7 @@ CRUMB=$(curl -s -u admin:$TOKEN 'http://jenkins/crumbIssuer/api/json' | jq -r '.
 curl -X POST -u admin:$TOKEN -H "Jenkins-Crumb: $CRUMB" 'http://jenkins/job/my-job/build'
 ```
 
----
+***
 
 ## Jenkins Configuration as Code (JCasC)
 
@@ -666,7 +666,7 @@ curl -X POST -u admin:$TOKEN \
 3. All configuration changes go through pull request review — no manual UI clicks
 4. If the controller is lost, GitOps pipeline recreates it from the YAML
 
----
+***
 
 ## Ephemeral Agents
 
@@ -771,7 +771,7 @@ pipeline {
 > [!TIP]
 > For Docker-in-Docker builds, mount the host Docker socket (`/var/run/docker.sock`) into the container. Add the container user to the `docker` group using the socket's GID to avoid permission denied errors. Alternatively, use Kaniko for daemonless image builds inside Kubernetes — no socket mount required.
 
----
+***
 
 ## High Availability Patterns
 
@@ -851,7 +851,7 @@ rsync -av \
 3. Credentials backed up separately (encrypted) to a secret manager
 4. Plugins list in `plugins.txt` → reproduced by `jenkins-plugin-cli`
 
----
+***
 
 ## Backup and Recovery
 

@@ -33,5 +33,5 @@ Distributed tracing tracks a single request as it flows through all the services
 
 A liveness probe is a check the Kubelet performs periodically to determine if a container is still running. If the probe fails (HTTP 5xx, TCP timeout, exit code non-zero), the Kubelet kills and restarts the container. Readiness probes control whether traffic is sent to the pod; startup probes handle slow-starting containers.
 
----
+***
 

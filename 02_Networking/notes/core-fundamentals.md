@@ -27,7 +27,7 @@
 - Troubleshoot network-related problems
 - Understanding networking protocols and tools is essential for timely issue resolution
 
----
+***
 
 ## The OSI Model
 
@@ -47,7 +47,7 @@ The OSI (Open Systems Interconnection) model is a conceptual framework for under
 
 **Mnemonic (Bottom → Top):** **P**lease **D**o **N**ot **T**hrow **S**ausage **P**izza **A**way
 
----
+***
 
 ### Layer Functions in Detail
 
@@ -123,7 +123,7 @@ Provides network services directly to applications:
 - Remote access (SSH, Telnet)
 - Web services (HTTP, HTTPS)
 
----
+***
 
 ## TCP/IP Reference Model
 
@@ -154,7 +154,7 @@ OSI Model                    TCP/IP Model
 └─────────────────┘         └─────────────────┘
 ```
 
----
+***
 
 ## The IP Protocol
 
@@ -189,7 +189,7 @@ An IP datagram is a variable-length packet (up to 65,535 bytes) consisting of tw
 └─────────────────────────────────────────────────────────┘
 ```
 
----
+***
 
 ## IPv4 Header Fields
 
@@ -231,7 +231,7 @@ An IP datagram is a variable-length packet (up to 65,535 bytes) consisting of tw
 | 51 | AH (IPsec) |
 | 89 | OSPF |
 
----
+***
 
 ## IP Addressing
 
@@ -266,7 +266,7 @@ An IPv4 address is a **32-bit** number, typically written in dotted-decimal nota
 | 172.16.0.0 – 172.31.255.255 | 172.16.0.0/12 | Docker default, mid-size networks |
 | 192.168.0.0 – 192.168.255.255 | 192.168.0.0/16 | Home networks, small offices |
 
----
+***
 
 ## MAC Address Fundamentals
 
@@ -307,7 +307,7 @@ A **Media Access Control (MAC)** address is a 48-bit hardware identifier burned 
 - Used for ARP requests, DHCP discovery
 - Format: `FF-FF-FF-FF-FF-FF`
 
----
+***
 
 ## Address Resolution Protocol (ARP)
 
@@ -382,7 +382,7 @@ arp -a -d
 - Traffic is redirected through attacker
 - Defense: Dynamic ARP Inspection (DAI) on enterprise switches
 
----
+***
 
 ## Reverse ARP (RARP)
 
@@ -406,7 +406,7 @@ RARP allows a host to discover its IP address when it knows only its MAC address
 
 **Note:** RARP is obsolete, replaced by **BOOTP** and **DHCP**.
 
----
+***
 
 ## Internet Control Message Protocol (ICMP)
 
@@ -445,7 +445,7 @@ tracepath google.com
 mtr google.com
 ```
 
----
+***
 
 ## Network Topologies
 
@@ -498,7 +498,7 @@ mtr google.com
 - **Pros:** Flexible, scalable
 - **Cons:** Complex design and management
 
----
+***
 
 ## Summary: Key Takeaways
 

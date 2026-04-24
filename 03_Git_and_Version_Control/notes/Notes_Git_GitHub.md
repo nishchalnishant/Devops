@@ -13,7 +13,7 @@ With
 With
 
 
----
+***
 
 ## Page 2
 
@@ -40,7 +40,7 @@ failed, you will lose the entire data
 [ 1 ]
 
 
----
+***
 
 ## Page 3
 
@@ -70,7 +70,7 @@ client computer, the production environment, or both.
 [ 2 ]
 
 
----
+***
 
 ## Page 4
 
@@ -96,7 +96,7 @@ At a time, you can work on a particular branch.
 [ 3 ]
 
 
----
+***
 
 ## Page 5
 
@@ -131,7 +131,7 @@ changes permanently in the git repository.
 [ 4 ]
 
 
----
+***
 
 ## Page 6
 
@@ -166,7 +166,7 @@ Commands for Branch
 [ 5 ]
 
 
----
+***
 
 ## Page 7
 
@@ -191,7 +191,7 @@ source: simplilearn
 [ 6 ]
 
 
----
+***
 
 ## Page 8
 
@@ -223,7 +223,7 @@ state's repositories or files
 [ 7 ]
 
 
----
+***
 
 ## Page 9
 
@@ -253,7 +253,7 @@ Initialise an empty Git Repository
 [ 8 ]
 
 
----
+***
 
 ## Page 10
 
@@ -280,7 +280,7 @@ Show the branches of your git repository
 [ 9 ]
 
 
----
+***
 
 ## Page 11
 
@@ -307,7 +307,7 @@ Fetch all the remote branches
 [ 1 0 ]
 
 
----
+***
 
 ## Page 12
 
@@ -334,7 +334,7 @@ correct branch and cherry-pick the commit to where it should belong.
 [ 1 1 ]
 
 
----
+***
 
 ## Page 13
 
@@ -365,7 +365,7 @@ To clear the stash items
 [ 1 2 ]
 
 
----
+***
 
 ## Page 14
 
@@ -395,7 +395,7 @@ Git Stash Drop (Unstash)
 [ 1 3 ]
 
 
----
+***
 
 ## Page 15
 
@@ -428,7 +428,7 @@ confirm the commit. We can edit the commit message on this screen.
 [ 1 4 ]
 
 
----
+***
 
 ## Page 16
 

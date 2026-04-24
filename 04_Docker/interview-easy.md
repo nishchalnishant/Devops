@@ -44,5 +44,5 @@ It specifies files and directories to exclude from the build context sent to the
 
 A base image is the starting point for your Docker image (`FROM ubuntu:22.04`). For production: prefer small images (`alpine`, `distroless`, `debian-slim`) to reduce attack surface, minimize image size, and speed up pulls.
 
----
+***
 

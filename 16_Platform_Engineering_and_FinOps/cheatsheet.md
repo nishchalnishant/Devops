@@ -231,7 +231,7 @@ When answering these questions, always use the phrase "The Blast Radius."
 
 * _Example:_ "We moved from a Monolith to Microservices not just for speed, but to reduce the blast radius. If the Payment service fails, it shouldn't take down the Login service."
 
----
+***
 
 ## 🔷 Staff/Principal SRE Dictionary (7 YOE)
 
@@ -252,7 +252,7 @@ The following terms are the vocabulary of Senior and Staff engineers. In an inte
 | **SPIFFE/SPIRE** | Standards and implementations for cryptographic workload identity in a Zero-Trust environment. Eliminates static secrets between services. | "We replaced shared API keys between services with SPIFFE SVIDs. Services prove their identity cryptographically, not with a password." |
 | **GameDay** | A structured chaos engineering exercise where failures are intentionally injected to validate resilience before customers encounter them. | "We run monthly GameDays. Killing a random AZ in staging revealed our auto-failover DNS TTL was 5 minutes, not 30 seconds as designed." |
 
----
+***
 
 ## Related Resources
 

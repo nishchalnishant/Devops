@@ -12,7 +12,7 @@
 **Problem:** You have 10 VPCs connected via TGW, but VPC-A can't talk to VPC-J.
 **Diagnosis:** Check the **TGW Route Tables**. TGW is not transitive by default; you must explicitly associate and propagate routes between attachments.
 
----
+***
 
 ## Scenario 1: S3 Bucket Policy "Lockout"
 **Symptom:** Even the Admin user cannot access an S3 bucket.
@@ -35,7 +35,7 @@
 **Diagnosis:** JVM initialization and class loading overhead.
 **Fix:** Use **Provisioned Concurrency** or switch to a lighter runtime like Go or Python.
 
----
+***
 
 ## Scenario 5: EKS IRSA Token Not Working
 **Symptom:** Pod logs show `AccessDenied` when calling S3, even though the IAM role has `s3:GetObject`. The pod has a service account annotation pointing to the role ARN.
@@ -96,7 +96,7 @@ eksctl utils associate-iam-oidc-provider \
 
 **Prevention:** Use `eksctl create iamserviceaccount` which handles the OIDC provider, IAM role trust policy, and SA annotation atomically.
 
----
+***
 
 ## Scenario 6: VPC Endpoint Routing — S3 Traffic Still Leaving via NAT
 **Symptom:** After adding an S3 Gateway Endpoint, NAT Gateway data-processing charges haven't dropped. CloudTrail shows S3 calls still originating from the NAT Gateway IP.
@@ -131,7 +131,7 @@ aws ec2 modify-vpc-endpoint \
 
 **Prevention:** After creating any VPC endpoint, run a 30-minute after-check on NAT Gateway `BytesProcessed` metric to validate traffic shifted.
 
----
+***
 
 ## Scenario 7: Multi-Account SCP Silently Blocking Deployments
 **Symptom:** A CI pipeline in a child account runs `terraform apply` successfully (exit 0), but the resources are never created. CloudTrail shows the API calls were made but no `CreateBucket` event exists.
@@ -180,7 +180,7 @@ Fix: Add `eu-west-1` to the approved regions list in the SCP, or deploy to an ap
 
 **Prevention:** Add SCP simulation to the CI plan stage using `aws iam simulate-principal-policy` as a pre-flight check. Maintain an SCP test harness in the management account.
 
----
+***
 
 ## Scenario 8: ECS Task Role Credentials Expiring Mid-Request
 **Symptom:** Long-running ECS tasks (batch jobs) fail with `ExpiredTokenException` after 1-6 hours. The task IAM role is correct and works at startup.
@@ -215,7 +215,7 @@ s3_client = boto3.client('s3')  # create per-operation or use the session direct
 
 **Prevention:** Test with a task that immediately calls `aws sts get-caller-identity` on a cron every 5 minutes for 8 hours in a staging environment. Alert on `ExpiredTokenException` in CloudWatch Logs Insights.
 
----
+***
 
 ## Scenario 9: RDS IAM Authentication Failing in Production
 **Symptom:** Application can connect to RDS with a static password but fails when switched to IAM authentication. Error: `PAM authentication failed for user "app_user"`.
@@ -268,7 +268,7 @@ aws rds describe-db-instances --db-instance-identifier my-db \
 
 **Prevention:** Add `psql ... -c "SELECT 1"` with token generation to the ECS task health check. Set a CloudWatch alarm on RDS `FailedConnections` metric.
 
----
+***
 
 ## Scenario 10: EKS Node Group Upgrade Leaves Nodes NotReady
 **Symptom:** After upgrading the EKS managed node group from 1.28 to 1.29, several nodes enter `NotReady` state. Running pods are evicted, and some are stuck in `Terminating`.
@@ -321,7 +321,7 @@ kubectl patch pdb my-pdb -n my-ns --type=json \
 
 **Prevention:** Stage node group upgrades: upgrade one AZ at a time (`max_unavailable=1`). Run `kubectl get nodes` watch during the upgrade and set a CloudWatch alarm on `node_status_condition` metric for `NotReady`.
 
----
+***
 
 ## Scenario 11: Lambda Concurrency Limit Causing API Gateway 502s
 **Symptom:** During a traffic spike, API Gateway returns 502 errors. Lambda logs show `TooManyRequestsException`. The function has a 1000ms timeout and p99 is 200ms — so it's not timing out.

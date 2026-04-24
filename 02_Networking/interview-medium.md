@@ -2,7 +2,7 @@
 
 Intermediate concepts for mid-level DevOps engineering roles.
 
----
+***
 
 ## 1. Explain the TCP three-way handshake.
 
@@ -32,7 +32,7 @@ Client                          Server
 - Typical RTT: 1-100ms depending on network
 - HTTPS adds TLS handshake (~1-2 more RTTs with TLS 1.2, ~1 RTT with TLS 1.3)
 
----
+***
 
 ## 2. What is the difference between a VLAN and a VPC?
 
@@ -60,7 +60,7 @@ Client                          Server
 
 **Analogy:** VLAN is like dividing a building into floors; VPC is like having your own private building in a shared complex.
 
----
+***
 
 ## 3. How does BGP work and where is it used in DevOps?
 
@@ -100,7 +100,7 @@ Client                          Server
 - Physical network routes directly to pods
 - Better performance for bare-metal deployments
 
----
+***
 
 ## 4. What happens when you type `curl https://example.com`?
 
@@ -150,7 +150,7 @@ This is a classic "full-stack" networking question. Here's the complete flow:
 - TLS 1.3: 1 RTT
 - HTTP request/response: 1+ RTT
 
----
+***
 
 ## 5. Explain network namespaces in Linux and how Kubernetes uses them.
 
@@ -198,7 +198,7 @@ This is a classic "full-stack" networking question. Here's the complete flow:
 
 **Key Point:** All containers in a Pod share the same network namespace — they communicate via `localhost`.
 
----
+***
 
 ## 6. What is MTU and what is MTU mismatch?
 
@@ -245,7 +245,7 @@ ping -M do -s 1473 destination.com  # May fail if MTU < 1500
 - Enable TCP MSS clamping on routers/firewalls
 - Fix underlay MTU in overlay networks (VXLAN, VPNs)
 
----
+***
 
 ## 7. How does iptables work and how is it used in Kubernetes?
 
@@ -304,7 +304,7 @@ iptables -t nat -A KUBE-SEP-2 \
 
 **Solution:** CNI plugins like Cilium replace iptables with eBPF (O(1) hash map lookup).
 
----
+***
 
 ## 8. What is service discovery and how does Kubernetes implement it?
 
@@ -381,7 +381,7 @@ spec:
 
 DNS returns all Pod IPs (A records with multiple values).
 
----
+***
 
 ## 9. What is a NetworkPolicy in Kubernetes?
 
@@ -438,7 +438,7 @@ spec:
 
 **Important:** NetworkPolicy is only enforced if CNI supports it (Calico, Cilium, Weave).
 
----
+***
 
 ## 10. What is a service mesh and why is it used?
 
@@ -496,7 +496,7 @@ Deploy a **sidecar proxy** (Envoy, linkerd-proxy) alongside each service.
 - Resource-constrained clusters
 - Simple applications
 
----
+***
 
 ## Quick Reference: TCP States
 
@@ -516,7 +516,7 @@ Deploy a **sidecar proxy** (Envoy, linkerd-proxy) alongside each service.
 - **CLOSE_WAIT pileup:** Application not calling `close()` — bug
 - **TIME_WAIT exhaustion:** High-traffic servers — tune `tcp_tw_reuse`
 
----
+***
 
 ## Troubleshooting Commands
 

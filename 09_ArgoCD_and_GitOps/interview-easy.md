@@ -24,5 +24,5 @@ ArgoCD natively supports: raw Kubernetes YAML/JSON, Helm charts, Kustomize overl
 
 Drift occurs when the live cluster state diverges from the state declared in Git — usually caused by manual `kubectl` edits. ArgoCD continuously compares live and desired state; when they differ, the Application shows as `OutOfSync`. ArgoCD can be configured to alert or auto-sync to correct drift.
 
----
+***
 

@@ -16,7 +16,7 @@
 **Problem:** You have 50 AWS accounts and 1 Terraform repo. State is a mess.
 **Fix:** Use **Terraform Workspaces** or **Terragrunt**. Map each environment to a separate state path in S3 (e.g., `s3://my-state/prod/terraform.tfstate`).
 
----
+***
 
 ## Scenario 5: State Lock Stuck After Pipeline Crash
 
@@ -49,7 +49,7 @@ terraform plan
 - In GitHub Actions, use `cancel-in-progress: true` with concurrency groups and ensure Terraform runs in a `try/finally`-equivalent (not directly possible in shell, but add a `terraform force-unlock` step with `if: always()`)
 - For Atlantis: it handles lock release automatically on job completion/cancellation
 
----
+***
 
 ## Scenario 6: Accidental `terraform destroy` in Production
 
@@ -85,7 +85,7 @@ aws s3 cp s3://my-tf-state/prod/terraform.tfstate \
 - Require `-target` flag confirmation for destroys in prod (enforce via Atlantis policy or CI gate)
 - OPA/Sentinel policy: block `destroy` in prod workspaces except via approved change window
 
----
+***
 
 ## Scenario 7: Module Update Breaks All Environments
 
@@ -122,7 +122,7 @@ module "vpc" {
 ```
 Run `terraform plan` after bumping — the rename of a resource vs a variable is surfaced as a diff.
 
----
+***
 
 ## Scenario 8: Multi-Account State Management at Scale
 
@@ -185,7 +185,7 @@ Apply an entire environment in dependency order:
 terragrunt run-all apply --terragrunt-working-dir live/prod/us-east-1
 ```
 
----
+***
 
 ## Scenario 9: Terraform Plan Shows Unexpected Destroy on every Run
 
@@ -216,7 +216,7 @@ terraform plan -refresh-only   # see what changed
 terraform apply -refresh-only  # accept the drift into state (without changing infra)
 ```
 
----
+***
 
 ## Scenario 10: Sensitive Data Exposed in Terraform State
 
@@ -249,7 +249,7 @@ terraform state pull | jq 'recurse | strings | select(length > 20)' | sort -u
 Look for patterns matching passwords, keys, tokens.
 
 
----
+***
 
 ## Scenario 1: State Lock Contention
 **Symptom:** `terraform plan` fails with `Error: Error acquiring the state lock`.
@@ -279,7 +279,7 @@ Look for patterns matching passwords, keys, tokens.
 **Diagnosis:** The state file is monolithic and contains thousands of resources. Terraform has to refresh every single one.
 **Fix:** Split the infrastructure into smaller "State Buckets" using **Terragrunt** or multiple workspaces.
 
----
+***
 
 ## Scenario 6: for_each Resource Destroyed on Map Key Rename
 **Symptom:** Renaming a key in a `for_each` map causes Terraform to plan a destroy of the old resource and create of the new one — a full replacement. For an RDS instance, this means data loss.
@@ -318,7 +318,7 @@ terraform plan
 
 **Prevention:** Treat `for_each` map keys as permanent identifiers — change them only with an accompanying `moved` block. Enforce this in code review: any PR that modifies a `for_each` map key must include a `moved` block or explicit justification for the replacement.
 
----
+***
 
 ## Scenario 7: Terraform Apply Succeeds but Resource Is Non-Functional
 **Symptom:** `terraform apply` exits 0 and all resources show as created. But the application can't connect to the RDS instance — the security group rule is missing.
@@ -368,7 +368,7 @@ terraform plan -refresh-only   # should show: No changes. Your infrastructure ma
 
 **Prevention:** Add a smoke test after `terraform apply` that validates functional connectivity (e.g., `nc -zv rds-endpoint 5432`), not just that the Terraform exit code was 0.
 
----
+***
 
 ## Scenario 8: Workspace Variable Leakage Between Environments
 **Symptom:** A `terraform apply` in the `staging` workspace accidentally uses production database credentials. The `TF_VAR_db_password` environment variable was set from a previous terminal session targeting prod.
@@ -418,7 +418,7 @@ jobs:
 
 **Prevention:** Never set `TF_VAR_*` in global shell profiles (`.bashrc`, `.zshrc`). Treat them like loaded weapons — set them per-command or per-session with `direnv`.
 
----
+***
 
 ## Scenario 9: terraform init Fails After Module Source Change
 **Symptom:** After updating a module `source` from a public registry to a private Git URL, `terraform init` fails with `Failed to install module; could not download module from source`.
@@ -466,7 +466,7 @@ terraform init
 
 **Prevention:** Test `terraform init` in CI on every PR that changes `source` or `version` in any module block. Cache `.terraform/` between runs using a cache key based on the hash of all `.tf` files.
 
----
+***
 
 ## Scenario 10: Partial Apply Leaves Infrastructure in Inconsistent State
 **Symptom:** A `terraform apply` was interrupted mid-run (CI timeout, network drop). Some resources were created, others weren't. The next `terraform plan` shows unexpected changes and some resources have dependency errors.

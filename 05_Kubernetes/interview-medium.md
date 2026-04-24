@@ -57,7 +57,7 @@ VPA automatically adjusts CPU and memory requests/limits based on observed usage
 
 When a Pod needs a new PV, the scheduler delays binding until the CSI driver provisions the volume. The CSI driver reports which availability zones the volume is accessible from; the scheduler places the Pod only on nodes in those zones. This prevents the classic problem of a Pod scheduled to Zone A while its EBS volume is in Zone B.
 
----
+***
 
 **Q: Explain how Horizontal Pod Autoscaler calculates the desired replica count.**
 

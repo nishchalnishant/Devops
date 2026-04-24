@@ -2,7 +2,7 @@
 
 Fundamental concepts for entry-level DevOps networking interviews.
 
----
+***
 
 ## 1. What is the OSI model?
 
@@ -23,7 +23,7 @@ The OSI (Open Systems Interconnection) model is a 7-layer conceptual framework f
 
 **Why it matters:** Helps pinpoint where failures occur (e.g., physical cable issue at Layer 1 vs. application error at Layer 7).
 
----
+***
 
 ## 2. What is the difference between TCP and UDP?
 
@@ -43,7 +43,7 @@ The OSI (Open Systems Interconnection) model is a 7-layer conceptual framework f
 - **TCP:** Web browsing, email, file transfer, databases (need reliability)
 - **UDP:** Video streaming, online gaming, DNS lookups (speed over perfect delivery)
 
----
+***
 
 ## 3. What is a subnet mask?
 
@@ -58,7 +58,7 @@ A subnet mask defines which portion of an IP address is the **network** and whic
 - Determines if a destination IP is on the same local network or requires routing
 - Used by devices to decide whether to send directly or via gateway
 
----
+***
 
 ## 4. What is a CIDR block?
 
@@ -77,7 +77,7 @@ CIDR (Classless Inter-Domain Routing) notation compresses an IP address and its 
 
 **Why it matters:** Efficient IP allocation and routing table aggregation.
 
----
+***
 
 ## 5. What is NAT?
 
@@ -101,7 +101,7 @@ NAT (Network Address Translation) maps private IP addresses to a public IP addre
 - Cloud NAT Gateways (private subnets access internet)
 - IPv4 address conservation
 
----
+***
 
 ## 6. What is DNS and how does resolution work?
 
@@ -129,7 +129,7 @@ DNS (Domain Name System) translates human-readable domain names to machine-reada
 | TXT | Text records (SPF, DKIM) |
 | NS | Nameserver |
 
----
+***
 
 ## 7. What is the difference between HTTP and HTTPS?
 
@@ -149,7 +149,7 @@ DNS (Domain Name System) translates human-readable domain names to machine-reada
 - **Integrity:** Data cannot be modified without detection
 - **Authentication:** Server identity verified via certificate
 
----
+***
 
 ## 8. What is a load balancer and what are the types?
 
@@ -173,7 +173,7 @@ A load balancer distributes incoming traffic across multiple backend servers.
 - IP Hash (sticky sessions)
 - Weighted (based on server capacity)
 
----
+***
 
 ## 9. What is a firewall and what does it filter on?
 
@@ -197,7 +197,7 @@ A firewall controls which network traffic is allowed or denied based on rules.
 
 **Examples:** iptables, security groups (AWS), NSGs (Azure)
 
----
+***
 
 ## 10. What is the purpose of the `traceroute` command?
 
@@ -226,7 +226,7 @@ $ traceroute google.com
 
 **Alternatives:** `tracepath` (no root needed), `mtr` (real-time traceroute + ping)
 
----
+***
 
 ## 11. What is a VPN?
 
@@ -256,7 +256,7 @@ A VPN (Virtual Private Network) encrypts traffic between two endpoints over a pu
 - Connecting on-premises to cloud (hybrid cloud)
 - Bypassing geographic restrictions
 
----
+***
 
 ## 12. What is a CDN?
 
@@ -278,7 +278,7 @@ A CDN (Content Delivery Network) caches content at geographically distributed ed
 
 **Examples:** CloudFront, Akamai, Fastly, Cloudflare
 
----
+***
 
 ## 13. What is a proxy vs reverse proxy?
 
@@ -312,7 +312,7 @@ Internet → Reverse Proxy → Backend Servers
 
 **Examples:** Nginx, HAProxy, Envoy
 
----
+***
 
 ## Quick Reference: Default Ports
 
@@ -327,7 +327,7 @@ Internet → Reverse Proxy → Backend Servers
 | Redis | 6379 | TCP |
 | MongoDB | 27017 | TCP |
 
----
+***
 
 ## Common Interview Follow-ups
 

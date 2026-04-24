@@ -14,7 +14,7 @@
 10. [Autoscaling](#autoscaling)
 11. [Multi-Tenancy Patterns](#multi-tenancy-patterns)
 
----
+***
 
 ## Control Plane Components
 
@@ -102,7 +102,7 @@ Offloads cloud-provider-specific logic from the core controller-manager. Runs:
 - **Route controller** — configures cloud VPC routes for pod CIDRs
 - **Service controller** — provisions cloud load balancers for `LoadBalancer` service type
 
----
+***
 
 ## Data Plane Components
 
@@ -148,7 +148,7 @@ Container runtime internals (containerd → runc):
 
 **Secure runtimes:** `gVisor` (runs processes in a user-space kernel) and `Kata Containers` (lightweight VM per pod) provide additional isolation for multi-tenant or untrusted workloads. Configured via `RuntimeClass`.
 
----
+***
 
 ## Pod Lifecycle
 
@@ -242,7 +242,7 @@ lifecycle:
 > [!IMPORTANT]
 > Production workloads should target `Guaranteed` QoS. `BestEffort` pods are the first victims of node memory pressure. Set `requests == limits` for latency-sensitive services.
 
----
+***
 
 ## Scheduling
 
@@ -320,7 +320,7 @@ affinity:
       topologyKey: kubernetes.io/hostname  # Unique per node
 ```
 
----
+***
 
 ## Networking
 
@@ -446,7 +446,7 @@ spec:
       port: 8080
 ```
 
----
+***
 
 ## Storage
 
@@ -522,7 +522,7 @@ spec:
       storage: 100Gi
 ```
 
----
+***
 
 ## RBAC
 
@@ -548,7 +548,7 @@ rules:
 - apiGroups: [""]
   resources: ["pods", "pods/log"]
   verbs: ["get", "list", "watch"]
----
+***
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -578,7 +578,7 @@ kubectl auth can-i --list --as system:serviceaccount:default:my-sa
 kubectl get clusterrolebindings -o json | jq '.items[] | select(.subjects[]?.name=="cluster-admin")'
 ```
 
----
+***
 
 ## Admission Controllers
 
@@ -677,7 +677,7 @@ kubectl label namespace production \
 
 Levels: `privileged` (no restrictions) → `baseline` (blocks known privilege escalations) → `restricted` (hardened).
 
----
+***
 
 ## CRDs and Operators
 
@@ -735,7 +735,7 @@ An Operator is a custom controller implementing domain-specific operational know
 
 **Key frameworks:** `controller-runtime` (Go), `Operator SDK`, `Kopf` (Python), `JOSDK` (Java).
 
----
+***
 
 ## Autoscaling
 
@@ -875,7 +875,7 @@ spec:
     consolidateAfter: 30s
 ```
 
----
+***
 
 ## Multi-Tenancy Patterns
 
@@ -937,7 +937,7 @@ A Management Cluster provisions and upgrades Workload Clusters. One YAML file = 
 
 Mid-level engineers configure Ingress resources to expose web apps. Senior engineers replace the entire internal networking stack of Kubernetes to enforce zero-trust, kernel-level fast paths, and global policy controls.
 
----
+***
 
 ## 1. The eBPF Networking Revolution (Cilium)
 
@@ -952,7 +952,7 @@ Cilium is the modern CNI (Container Network Interface) standard replacing `kube-
 
 **Security Benefit:** Standard NetworkPolicies only filter at Layer 3/4 (IP/Port). Cilium Network Policies understand Layer 7 (HTTP/gRPC/Kafka). You can create a policy: *“Pod A can only make HTTP GET requests to Pod B on path `/api/data`, and all POST requests are dropped.”*
 
----
+***
 
 ## 2. Ingress vs. Gateway API
 
@@ -966,7 +966,7 @@ It divorces the management of the infrastructure from the developer routes:
 2. **Cluster Operator:** Creates the `GatewayClass` (selecting the implementation like Istio/Nginx) and `Gateway` (binding the IP/port).
 3. **Application Developer:** Creates an `HTTPRoute` detailing the path matching, traffic splitting (canary weights), and header manipulations. They attach these routes to the central `Gateway`.
 
----
+***
 
 ## 3. The Evolution of the Service Mesh
 
@@ -982,7 +982,7 @@ Modern multi-tenant architectures are shifting to **Sidecarless** Service Meshes
 - Traffic leaving a pod is intercepted at the kernel level (via eBPF/ztunnel) and redirected securely to the node-level proxy for L7 telemetry and L4 mTLS encryption.
 - **Benefit:** Reduces resource consumption by 70+%. You do not have to restart application pods to inject/upgrade sidecars.
 
----
+***
 
 ## 4. Policy as Code: Admission Controllers
 
@@ -999,7 +999,7 @@ Before a resource (like a Pod) is saved to `etcd`, the API Server sends a reques
 2. **Mutation:** Automatically inject a sidecar container or specific tolerations into a pod manifest based on its namespace.
 3. **Generation:** Whenever a new developer namespace is created, automatically generate standard `NetworkPolicies`, `RoleBindings`, and `ResourceQuotas` explicitly for that namespace.
 
----
+***
 
 ## API Server Mechanics: Watch, List, and Server-Side Apply
 
@@ -1034,7 +1034,7 @@ managedFields:
 
 If two managers try to own the same field, SSA returns a conflict error (409). This prevents kubectl and an operator from fighting over the same field. Operators should use SSA with `force: true` for fields they own exclusively.
 
----
+***
 
 ## etcd Internals: Raft Consensus
 
@@ -1050,7 +1050,7 @@ etcd uses the Raft consensus algorithm. Key properties:
 
 **DB size management**: etcd compacts old key revisions to prevent unbounded growth. `--auto-compaction-mode=periodic` with `--auto-compaction-retention=8h` is a safe default. After compaction, run `etcdctl defrag` to reclaim space on disk.
 
----
+***
 
 ## kube-proxy Modes: iptables vs IPVS
 
@@ -1072,7 +1072,7 @@ etcd uses the Raft consensus algorithm. Key properties:
 - eBPF maps for O(1) service lookup at the TC hook level
 - Enable: deploy Cilium with `kubeProxyReplacement=true`
 
----
+***
 
 ## Secrets Encryption at Rest
 
@@ -1104,7 +1104,7 @@ kubectl get secrets -A -o json | kubectl replace -f -
 
 **Best practice**: Don't store real secrets in Kubernetes Secrets at all. Use External Secrets Operator + HashiCorp Vault or cloud secret managers.
 
----
+***
 
 ## Cluster Autoscaling: Karpenter vs Cluster Autoscaler
 
@@ -1126,7 +1126,7 @@ Karpenter watches for `pods.kubernetes.io/scheduling-failure` events. For each u
 
 **Consolidation loop**: Karpenter periodically asks "can I fit all workloads onto fewer nodes?" — simulates removing each node and checks if pods can be rescheduled. If yes, it cordons, drains, and terminates the node.
 
----
+***
 
 ## Observability Stack on Kubernetes
 
@@ -1174,7 +1174,7 @@ The OTel Operator manages `OpenTelemetryCollector` CRDs. Sidecar injection mode:
 
 Collector pipeline: OTLP receive → filter/batch processors → export to Jaeger/Tempo (traces), Prometheus (metrics), Loki (logs).
 
----
+***
 
 ## Advanced Scheduling: Preemption and Gang Scheduling
 
@@ -1203,7 +1203,7 @@ Kubernetes doesn't support this natively. Solutions:
 - **Yunikorn** (Apache): queue-based scheduling with gang scheduling
 - **Scheduler Framework Permit phase**: custom plugins can implement gang scheduling by holding all pods in the permit phase until the full group is ready
 
----
+***
 
 ## Operator Pattern: Controller-Runtime Deep Dive
 

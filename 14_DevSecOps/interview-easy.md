@@ -29,5 +29,5 @@ A Kubernetes Secret stores sensitive data as base64-encoded values in etcd. Base
 
 Image signing cryptographically attests that a container image was produced by a trusted source and has not been tampered with since. Tools like Cosign (Sigstore) sign images and attach the signature to an OCI registry. Admission controllers (Kyverno, Gatekeeper) can reject unsigned or unverified images, preventing supply chain attacks where a rogue image is substituted.
 
----
+***
 

@@ -33,5 +33,5 @@ Use OIDC federation: configure the CI provider (GitHub Actions, GitLab CI) as an
 
 Session Manager provides shell access to EC2 instances through the AWS console or CLI without opening port 22, without managing SSH keys, and without a bastion host. All sessions are logged to CloudWatch and S3 for audit. IAM controls who can start sessions and on which instances. It's the preferred access method for production instances where direct SSH access creates audit and credential management overhead.
 
----
+***
 

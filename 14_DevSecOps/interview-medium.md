@@ -24,5 +24,5 @@ The software supply chain is the path from source code through build, dependency
 
 Every pod runs with a ServiceAccount that determines what the pod can do via RBAC. By default, pods use the `default` service account, which may have accumulated permissions over time. The service account token is auto-mounted inside the pod at `/var/run/secrets/kubernetes.io/serviceaccount/token`. An attacker with shell access to the pod can use this token to call the Kubernetes API. Mitigation: set `automountServiceAccountToken: false` on pods that don't need API access, create dedicated service accounts with minimal RBAC, and use projected token volumes with short TTLs.
 
----
+***
 

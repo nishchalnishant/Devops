@@ -21,7 +21,7 @@ Your team uses Azure App Service. Every release, they deploy the new code to a `
 - Ensure VNet Integration is properly mapped to both slots if accessing private resources.
 - Utilize the `Application Initialization` module to ensure the app is fully warmed up and capable of DB connectivity *before* the swap completes (Azure's "auto swap with warm-up" feature).
 
----
+***
 
 ## Scenario 2: Pipeline Timing Out on Microsoft-Hosted Agents
 
@@ -43,7 +43,7 @@ You have a multi-stage YAML pipeline in Azure DevOps. The "Build" stage uses a `
 - Move to a Self-Hosted Agent or a VMSS Agent Pool if the build requires more RAM, heavy caching, or dedicated network paths.
 - Use Azure Artifacts as a proxy/cache upstream for public packages to avoid external registry rate limits.
 
----
+***
 
 ## Scenario 3: Terraform Plan Destruction Loop
 
@@ -65,7 +65,7 @@ Your IaC pipeline uses Terraform (`azurerm` provider) to manage an AKS cluster a
 3. **Zero Downtime Updates:** If a node pool *must* be recreated, use a blue/green node pool strategy: Create a new node pool via code, taint/cordon the old one, let the pods migrate, then delete the old node pool.
 4. **Guardrails:** Implement `prevent_destroy = true` on critical stateful resources and strictly control the CI/CD pipeline's ability to run destructive actions against production clusters.
 
----
+***
 
 ## Scenario 4: "Access Denied" Inside an AKS Cluster
 
@@ -89,7 +89,7 @@ A Pod inside your AKS cluster (which has Azure AD Pod Identity or Workload Ident
 
 Azure introduces a unique set of failure modes tied closely to its identity model (Entra ID), private networking (Private Endpoints, VNet Integration), and its managed services. This guide covers the most common Azure-specific troubleshooting scenarios a senior engineer will face.
 
----
+***
 
 ## Golden Rule: Azure Identity and Networking First
 
@@ -100,7 +100,7 @@ Azure introduces a unique set of failure modes tied closely to its identity mode
 
 Always check these two dimensions before digging into application logs.
 
----
+***
 
 ## Scenario 1: Azure DevOps Pipeline — OIDC / Service Connection Failure
 
@@ -146,7 +146,7 @@ az ad app federated-credential list --id <app-registration-id> -o table
 
 **Long-Term Recommendation:** Always use Workload Identity Federation (OIDC). It eliminates secret expiry entirely and is currently the Microsoft-recommended approach.
 
----
+***
 
 ## Scenario 2: AKS Pod Cannot Reach Azure SQL / Key Vault / Storage Behind Private Endpoint
 
@@ -209,7 +209,7 @@ az network nsg rule list \
 # Ensure inbound traffic from AKS subnet CIDR to Private Endpoint subnet on port 1433 (SQL) or 443 (Key Vault/Storage) is ALLOWED
 ```
 
----
+***
 
 ## Scenario 3: Azure Container Registry (ACR) Pull Failures in AKS
 
@@ -264,7 +264,7 @@ az acr network-rule add \
 
 **Long-Term Fix:** Use ACR with a **Private Endpoint** inside the AKS VNet. This eliminates public IP dependency entirely.
 
----
+***
 
 ## Scenario 4: App Service VNet Integration — Service Unreachable
 
@@ -308,7 +308,7 @@ az webapp config appsettings set \
 
 The same root cause as AKS (Scenario 2B). The Private DNS Zone for the target service must be linked to the VNet that the App Service uses for integration.
 
----
+***
 
 ## Scenario 5: Azure Firewall Blocking AKS Egress
 
@@ -358,7 +358,7 @@ az network firewall policy rule-collection-group collection add-filter-collectio
   --fqdn-tags AzureKubernetesService
 ```
 
----
+***
 
 ## Scenario 6: Azure Pipelines — Agent Queue Delays / Self-Hosted Agent Not Picking Up Jobs
 
@@ -423,7 +423,7 @@ Microsoft's cloud is heavily identity-driven.
 ### 4. Advanced Bicep / Terraform on Azure State Management
 You must understand the nuances of the `azurerm` provider, how to manage state in Azure Blob Storage with locks, and the transition/differences between ARM templates and Bicep.
 
----
+***
 
 ## A Strong Answer Framework
 
@@ -434,7 +434,7 @@ For architectural scenarios, standard SRE debugging applies, but you must map it
 3. **Verify Networking:** Is it behind a Private Endpoint? Did the NSG or Azure Firewall block the traffic? Check Network Watcher to verify next hops and packet captures.
 4. **Mitigate & Automate:** Rollback the ADO release, swap the staging slot on the App Service, or revert the Terraform plan. Long-term fix uses Azure Policy to prevent the misconfiguration.
 
----
+***
 
 ## What You Should Know By Topic
 
@@ -468,7 +468,7 @@ For architectural scenarios, standard SRE debugging applies, but you must map it
 - **Managed Identities:** System-assigned (lives with the resource lifecycle) vs. User-assigned (shared across resources).
 - **Azure Policy:** `DeployIfNotExists` vs. `Audit` modes.
 
----
+***
 
 ## Must-Know CLI and KQL Commands
 
@@ -499,7 +499,7 @@ dependencies
 | project timestamp, target, data, duration
 ```
 
----
+***
 
 ## Design Trade-Offs You Should Be Ready To Explain
 
@@ -508,7 +508,7 @@ dependencies
 - **Azure CNI vs. Kubenet in AKS:** Azure CNI gives every Pod an IP from the VNet (can exhaust IPs fast, requires careful planning, highest performance). Kubenet gives nodes IPs, Pods get overlay IPs, uses NAT (saves VNet IPs, slightly slower).
 - **App Service Environment (ASE) vs. Multitenant App Service with VNet Integration:** ASE is fully isolated, single-tenant, highly secure but very expensive and slow to provision. Multitenant with VNet integration is cheaper, faster, but shares infrastructure at the control plane layer.
 
----
+***
 
 ## Strong Signals In Senior Azure Answers
 

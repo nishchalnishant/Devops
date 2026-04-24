@@ -421,7 +421,7 @@ Mention:
 - I can troubleshoot wrong predictions even when infrastructure is healthy.
 - I can discuss GPU scheduling, latency, and cost trade-offs at a senior level.
 
----
+***
 
 **57. Design a platform for fine-tuning and serving open-source LLMs at scale.**
 

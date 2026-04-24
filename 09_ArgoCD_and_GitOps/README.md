@@ -27,7 +27,7 @@ Attack surface: CI server               Attack surface: cluster operator
 > [!IMPORTANT]
 > The GitOps security model is fundamentally different from push-based CI/CD. In GitOps, the cluster reaches out to Git — not the other way around. This means a compromised CI pipeline cannot push arbitrary workloads to production clusters.
 
----
+***
 
 ## 2. ArgoCD Architecture
 
@@ -76,7 +76,7 @@ ArgoCD is deployed inside the Kubernetes cluster and consists of five core compo
 - Generates ArgoCD `Application` CRs from template + generator combinations
 - Enables fleet management: one ApplicationSet → N Applications across N clusters/environments
 
----
+***
 
 ## 3. Application CRD — Key Fields
 
@@ -142,7 +142,7 @@ spec:
   revisionHistoryLimit: 10
 ```
 
----
+***
 
 ## 4. Sync Waves and Hooks
 
@@ -209,7 +209,7 @@ spec:
       restartPolicy: OnFailure
 ```
 
----
+***
 
 ## 5. App of Apps Pattern
 
@@ -259,7 +259,7 @@ metadata:
     - resources-finalizer.argocd.argoproj.io  # Cascade delete: removes K8s resources before deleting the Application CR
 ```
 
----
+***
 
 ## 6. ApplicationSet Controller
 
@@ -355,7 +355,7 @@ generators:
 > [!CAUTION]
 > The pull request generator creates real Kubernetes namespaces and resources for each PR. Implement resource quotas on the preview namespace and set TTL/prune policies to prevent namespace sprawl when PRs are merged or closed.
 
----
+***
 
 ## 7. Project RBAC (AppProject)
 
@@ -439,7 +439,7 @@ data:
     g, admin@example.com, role:admin
 ```
 
----
+***
 
 ## 8. ArgoCD Notifications
 
@@ -481,7 +481,7 @@ data:
         }]
 ```
 
----
+***
 
 ## 9. ArgoCD Image Updater
 
@@ -503,7 +503,7 @@ metadata:
 - `git` — commits updated image tag back to the Git repository (full GitOps)
 - `argocd` — patches the Application CR directly (state not in Git)
 
----
+***
 
 ## 10. Argo Rollouts — Progressive Delivery
 
@@ -589,7 +589,7 @@ strategy:
     abortScaleDownDelaySeconds: 30
 ```
 
----
+***
 
 ## 11. Multi-Cluster Management
 
@@ -636,7 +636,7 @@ When managing 100+ clusters, a single application-controller replica becomes a b
 
 ArgoCD v2.8+ introduces dynamic sharding — clusters are automatically redistributed when a controller replica fails.
 
----
+***
 
 ## 12. Disaster Recovery
 
@@ -672,7 +672,7 @@ argocd admin import < argocd-backup.yaml
 > [!TIP]
 > The real disaster recovery asset is not ArgoCD's internal state — it's the Git repository. Ensure your GitOps repository has branch protections, multiple contributors with push access, and offsite backups if using self-hosted Git.
 
----
+***
 
 ## 13. Secret Management Patterns
 
@@ -695,7 +695,7 @@ spec:
           serviceAccountRef:
             name: external-secrets-sa   # IRSA for AWS auth
 
----
+***
 # ExternalSecret — declares which secrets to fetch (safe to commit)
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
@@ -745,7 +745,7 @@ kubectl create secret generic db-creds \
 # sealed-db-creds.yaml is safe to commit to Git
 ```
 
----
+***
 
 ## 14. High Availability ArgoCD Setup
 
@@ -786,7 +786,7 @@ applicationSet:
 > [!IMPORTANT]
 > For production ArgoCD, always run with at least 2 replicas of the API server and repo server. The application-controller is stateful and requires sharding rather than simple replication for scaling.
 
----
+***
 
 ## 15. Resource Tracking: Annotation vs. Label
 
@@ -809,7 +809,7 @@ Use `annotation` tracking in environments where label selectors are sensitive (e
 > [!IMPORTANT]
 > This file covers two Staff-level domains that are tested together in principal-level interviews: **GitOps fleet management** (ArgoCD ApplicationSets, Flux multi-tenancy, progressive delivery) and **FinOps Engineering** (Kubecost, Infracost, chargeback automation, FOCUS spec). Neither topic is tested at surface level — interviewers probe the failure modes, not just the happy path.
 
----
+***
 
 ## Part 1: GitOps at Scale
 
@@ -873,7 +873,7 @@ argocd cluster list
 # prod-us    https://prod-us.k8s.example.com 1.28     Synced
 ```
 
----
+***
 
 ### ApplicationSets: The Fleet Management Primitive
 
@@ -1009,7 +1009,7 @@ spec:
           - CreateNamespace=true
 ```
 
----
+***
 
 ### Flux Multi-Tenancy: The Alternative Fleet Model
 
@@ -1053,7 +1053,7 @@ spec:
     name: fleet-repo
   serviceAccountName: team-a-reconciler    # Limits what Flux can do
   targetNamespace: team-a                   # Forces all resources into this NS
----
+***
 # The ServiceAccount has only namespace-scoped permissions
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -1085,7 +1085,7 @@ spec:
   policy:
     semver:
       range: ">=1.0.0 <2.0.0"
----
+***
 # Automatically commit the new tag back to Git
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImageUpdateAutomation
@@ -1113,7 +1113,7 @@ spec:
     strategy: Setters
 ```
 
----
+***
 
 ### Progressive Delivery at Fleet Scale
 
@@ -1159,7 +1159,7 @@ spec:
           cmd: "hey -z 1m -q 10 -c 2 http://payment-service-canary/"
 ```
 
----
+***
 
 ### Drift Detection and Remediation at Scale
 
@@ -1185,7 +1185,7 @@ argocd app list --selector app.kubernetes.io/name=nginx-ingress \
   --output wide
 ```
 
----
+***
 
 ## Part 2: FinOps Engineering
 
@@ -1244,7 +1244,7 @@ spec:
       - key: environment
 ```
 
----
+***
 
 ### Kubecost: Kubernetes Cost Intelligence
 
@@ -1310,7 +1310,7 @@ kubectl get pvc --all-namespaces --no-headers | \
   done
 ```
 
----
+***
 
 ### Infracost: Shift-Left Cost in CI/CD
 
@@ -1396,7 +1396,7 @@ Total change: +$209.00/mo  (+$2,508/yr)
     fi
 ```
 
----
+***
 
 ### Chargeback vs. Showback
 
@@ -1456,7 +1456,7 @@ if __name__ == "__main__":
     print(report.to_string())
 ```
 
----
+***
 
 ### Spot / Preemptible Instance Strategy
 
@@ -1517,7 +1517,7 @@ spec:
       restartPolicy: OnFailure
 ```
 
----
+***
 
 ### FOCUS Spec — Cloud Cost Data Standardization
 
@@ -1553,7 +1553,7 @@ LIMIT 100
 """
 ```
 
----
+***
 
 ### Cost Anomaly Detection
 
@@ -1597,7 +1597,7 @@ groups:
             Consider rightsizing or reducing resource requests.
 ```
 
----
+***
 
 ### Reserved Instance / Committed Use Coverage
 
@@ -1625,7 +1625,7 @@ az consumption reservation detail list \
   --output table
 ```
 
----
+***
 
 ### The GitOps × FinOps Integration
 
@@ -1682,7 +1682,7 @@ deny[msg] {
 }
 ```
 
----
+***
 
 ## Three-Pillar Interview Question Bank
 
@@ -1713,7 +1713,7 @@ Kubecost solves this by:
 
 The output is: "Team A's payment service cost $2,340 last month. It was 38% efficient — $1,450 was idle resource reservation waste."
 
----
+***
 
 ### Medium — Senior-Level (3-6 YOE)
 
@@ -1766,7 +1766,7 @@ Failure modes to anticipate:
 - Teams game labels to move cost to shared pools → audit label changes in Git history
 - Shared services get blamed for consumer team costs → track ingress and egress separately
 
----
+***
 
 ### Hard — Staff/Architect-Level (7+ YOE)
 
@@ -1856,7 +1856,7 @@ argocd app list --output name | xargs -P10 -I{} \
 
 4. **Separate the fleet control plane from the workload clusters** — ArgoCD hub cluster runs K8s N-2 (conservative), spoke clusters can run N. Hub cluster Kubernetes upgrade is the highest-risk operation in the fleet.
 
----
+***
 
 ## Key Concepts Summary
 
@@ -1873,6 +1873,6 @@ argocd app list --output name | xargs -P10 -I{} \
 | Ring-based rollout | Staged cluster upgrade: canary → small% → full fleet | Know the ring structure and gate criteria |
 | Drift detection | ArgoCD/Flux alerting when live state ≠ Git state | Know the difference between drift and intended manual changes |
 
----
+***
 
 *See also: [Interview Hub](README.md) | [DevOps Hard Questions](interview-questions-hard.md) | [Platform Engineering & FinOps](../06_Advanced_DevOps_and_Architecture/Platform_Engineering_and_FinOps.md) | [eBPF & Service Mesh](advanced-ebpf-and-service-mesh.md)*

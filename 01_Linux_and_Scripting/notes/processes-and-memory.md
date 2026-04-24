@@ -75,7 +75,7 @@ chrt -f 50 cmd              # Set real-time FIFO policy, priority 50
 - `SCHED_RR` — Round-robin variant
 - `SCHED_DEADLINE` — Periodic task guarantees
 
----
+***
 
 ## Memory Management
 
@@ -156,7 +156,7 @@ Standard pages are 4 KB. **Huge pages** (2 MB on x86-64) reduce TLB pressure for
 > echo never > /sys/kernel/mm/transparent_hugepage/enabled
 > ```
 
----
+***
 
 ## The Linux Boot Process
 
@@ -197,7 +197,7 @@ grub2-mkconfig -o /boot/grub2/grub.cfg  # RHEL
 
 **Single-user / rescue mode:** Add `single` or `rd.break` to kernel command line in GRUB.
 
----
+***
 
 ## Inodes
 
@@ -215,7 +215,7 @@ ls -i file              # Show inode number
 df -i /                 # Inode usage on filesystem
 ```
 
----
+***
 
 ## Summary: Key Takeaways
 

@@ -241,5 +241,5 @@ When asked "What happens when you type `google.com` in your browser?", don't jus
 
 * The SRE Answer: Start with the Local Cache, move to DNS resolution, mention the TCP Handshake, the TLS Handshake (SSL certificate exchange), the HTTP GET request, and finally how the Load Balancer routes the request to a healthy backend pod. This shows "full-stack" networking knowledge.
 
----
+***
 

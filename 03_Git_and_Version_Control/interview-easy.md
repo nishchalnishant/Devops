@@ -40,5 +40,5 @@ A tag is a named pointer to a specific commit, typically used to mark release ve
 
 `HEAD` is a pointer to the currently checked-out commit or branch tip. It represents "where you are" in the repository history.
 
----
+***
 

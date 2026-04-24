@@ -46,5 +46,5 @@ db1.example.com
 - **Push model:** A central server initiates and pushes changes to managed nodes. Ansible uses this — you run `ansible-playbook` and it SSHes to each target.
 - **Pull model:** Managed nodes periodically pull configuration from a central server. Puppet and Chef use this model.
 
----
+***
 

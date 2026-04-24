@@ -2,7 +2,7 @@
 
 Advanced concepts for senior/staff DevOps and SRE roles.
 
----
+***
 
 ## 1. Explain the data plane vs. control plane architecture of Istio.
 
@@ -93,7 +93,7 @@ istioctl analyze
 istioctl accesslog <pod>
 ```
 
----
+***
 
 ## 2. How does Cilium replace kube-proxy and what performance benefit does it provide?
 
@@ -179,7 +179,7 @@ hubble observe --protocol http
 - Require per-flow observability
 - Bare-metal performance requirements
 
----
+***
 
 ## 3. How do you design a multi-cluster service mesh for active-active failover?
 
@@ -341,7 +341,7 @@ istioctl proxy-config endpoints <pod> | grep api
 dig +short api.global @8.8.8.8
 ```
 
----
+***
 
 ## 4. What is a split-brain scenario in multi-cluster networking and how is it prevented?
 
@@ -469,7 +469,7 @@ psql -c "SELECT pg_last_wal_receive_lag();"
 4. Resync data from authoritative source
 5. Gradually restore traffic
 
----
+***
 
 ## 5. How does VXLAN work and what overhead does it add?
 
@@ -602,7 +602,7 @@ ping -M do -s 1450 <pod-ip>  # May fail if physical MTU is 1500
 | WireGuard | 60 bytes | Yes (built-in) | Modern VPN |
 | IPsec Tunnel | 50-70 bytes | Yes | Site-to-site VPN |
 
----
+***
 
 ## 6. Design a zero-trust network architecture for a microservices platform.
 
@@ -676,7 +676,7 @@ metadata:
 spec:
   mtls:
     mode: STRICT  # Reject non-mTLS traffic
----
+***
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -783,7 +783,7 @@ vault audit enable file file_path=/var/log/vault/audit.log
 | Policy violations | 0 | >0 |
 | Secret rotation | Automated | Manual intervention |
 
----
+***
 
 ## Quick Reference: Advanced Troubleshooting
 
@@ -811,7 +811,7 @@ kubectl exec <pod> -- time nslookup <service>
 openssl s_client -connect <host>:443 -tls1_3 -msg
 ```
 
----
+***
 
 ## 7. Explain HTTP/2 HPACK and how it solves the overhead of HTTP/1.1 headers.
 
@@ -833,7 +833,7 @@ HTTP/2 uses **HPACK**, a specialized compression algorithm for headers.
 - A 500-byte header block can be reduced to ~20 bytes.
 - Crucial for mobile networks and high-concurrency gRPC streams.
 
----
+***
 
 ## 8. What is TCP BBR and why is it superior to CUBIC for high-bandwidth, long-haul links?
 
@@ -854,7 +854,7 @@ BBR (Bottleneck Bandwidth and Round-trip time) was developed by Google. It ignor
 - Streaming video delivery.
 - Large file transfers (CI/CD artifact uploads).
 
----
+***
 
 ## 9. Explain the "Thundering Herd" problem in networking and how to mitigate it.
 
@@ -872,4 +872,4 @@ The service is immediately overwhelmed and crashes again. This is a **Thundering
 3. **Circuit Breaking:** Use a service mesh (Istio) to "open" the circuit and return an error immediately when a service is failing, giving it room to recover.
 4. **Queue Leveling:** Place a message queue (Kafka/SQS) in front of the service to buffer the spike.
 
----
+***

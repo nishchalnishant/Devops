@@ -90,7 +90,7 @@ Azure DDoS Protection…..…..........103
 1
 
 
----
+***
 
 ## Page 2
 
@@ -127,7 +127,7 @@ You will get a new Panel.
 create a resource group called demystify.
 
 
----
+***
 
 ## Page 3
 
@@ -149,7 +149,7 @@ At this point, you can click CREATE, and the resource will be created.
 3
 
 
----
+***
 
 ## Page 4
 
@@ -189,7 +189,7 @@ Access Cloudshell (On top right)
 4
 
 
----
+***
 
 ## Page 5
 
@@ -257,7 +257,7 @@ Create a Storage account
 5
 
 
----
+***
 
 ## Page 6
 
@@ -277,7 +277,7 @@ storageRG
 6
 
 
----
+***
 
 ## Page 7
 
@@ -323,7 +323,7 @@ back to your Powershell screen and continue working with Powershell commands.
 7
 
 
----
+***
 
 ## Page 8
 
@@ -342,7 +342,7 @@ New-AzVm
 8
 
 
----
+***
 
 ## Page 9
 
@@ -381,7 +381,7 @@ where there is one management group at the root level. This is called Nesting.
 9
 
 
----
+***
 
 ## Page 10
 
@@ -399,7 +399,7 @@ examples of resources.
 10
 
 
----
+***
 
 ## Page 11
 
@@ -446,7 +446,7 @@ do a price match.
 11
 
 
----
+***
 
 ## Page 12
 
@@ -497,7 +497,7 @@ and do not require any additional installations.
 12
 
 
----
+***
 
 ## Page 13
 
@@ -539,7 +539,7 @@ produce any discounts/credits if the security score is kept 100%.
 13
 
 
----
+***
 
 ## Page 14
 
@@ -561,7 +561,7 @@ and it can be used to extract below additional details.
 14
 
 
----
+***
 
 ## Page 15
 
@@ -589,7 +589,7 @@ recommendations are.
 15
 
 
----
+***
 
 ## Page 16
 
@@ -623,7 +623,7 @@ percentage basis if we are following best practices.
 16
 
 
----
+***
 
 ## Page 17
 
@@ -675,7 +675,7 @@ identities in addition to providing on prem access
 17
 
 
----
+***
 
 ## Page 18
 
@@ -713,7 +713,7 @@ create a custom domain (for example demystify.com) and then we can create a user
 smith@demystify.com
 
 
----
+***
 
 ## Page 19
 
@@ -732,7 +732,7 @@ azure portal and a link will take out to the GUI. Sample screen looks like this.
 19
 
 
----
+***
 
 ## Page 20
 
@@ -778,7 +778,7 @@ roles like the VM operator where the access is limited to VM operations only.
 20
 
 
----
+***
 
 ## Page 21
 
@@ -812,7 +812,7 @@ Likewise, a policy scoped at the RG level will be inherited by all resources und
 21
 
 
----
+***
 
 ## Page 22
 
@@ -831,7 +831,7 @@ RBAC feature is free and included with our Azure subscription.
 22
 
 
----
+***
 
 ## Page 23
 
@@ -883,7 +883,7 @@ as we could assign multiple policies.
 23
 
 
----
+***
 
 ## Page 24
 
@@ -919,7 +919,7 @@ Once set up, we can see the non-compliant policies, and we will be able to remed
 24
 
 
----
+***
 
 ## Page 25
 
@@ -945,7 +945,7 @@ allowed, then we cannot create the same.
 25
 
 
----
+***
 
 ## Page 26
 
@@ -987,7 +987,7 @@ updates/RCA.
 26
 
 
----
+***
 
 ## Page 27
 
@@ -1008,7 +1008,7 @@ To view Service Health events, users must have the reader role on a subscripti
 27
 
 
----
+***
 
 ## Page 28
 
@@ -1039,7 +1039,7 @@ Since Service Health is a free service, it does not have an SLA.
 28
 
 
----
+***
 
 ## Page 29
 
@@ -1085,7 +1085,7 @@ We can create as enabled or not if we don’t have immediate use etc.
 29
 
 
----
+***
 
 ## Page 30
 
@@ -1111,7 +1111,7 @@ able to point to the older version and decrypt the data.
 30
 
 
----
+***
 
 ## Page 31
 
@@ -1148,7 +1148,7 @@ content
 31
 
 
----
+***
 
 ## Page 32
 
@@ -1179,7 +1179,7 @@ g. Key Vault Secrets Officer
 32
 
 
----
+***
 
 ## Page 33
 
@@ -1241,7 +1241,7 @@ access data.
 33
 
 
----
+***
 
 ## Page 34
 
@@ -1299,7 +1299,7 @@ the secondary region in case of a regional failure or if we manually failover)
 34
 
 
----
+***
 
 ## Page 35
 
@@ -1401,7 +1401,7 @@ A Storage account key gives complete access to your data.
 35
 
 
----
+***
 
 ## Page 36
 
@@ -1438,7 +1438,7 @@ recovered? Answer – The snapshots and file can be restored.
 36
 
 
----
+***
 
 ## Page 37
 
@@ -1510,7 +1510,7 @@ Databases and HPC. Is this possible?
 37
 
 
----
+***
 
 ## Page 38
 
@@ -1540,7 +1540,7 @@ and modify Windows ACLs.
 38
 
 
----
+***
 
 ## Page 39
 
@@ -1597,7 +1597,7 @@ servers.
 39
 
 
----
+***
 
 ## Page 40
 
@@ -1665,7 +1665,7 @@ Yes, we can enable disk sharing.
 40
 
 
----
+***
 
 ## Page 41
 
@@ -1723,7 +1723,7 @@ every 5-10 minutes and process the orders. Here we use the Azure queue storage.
 41
 
 
----
+***
 
 ## Page 42
 
@@ -1777,7 +1777,7 @@ Max number of queues – no limit
 42
 
 
----
+***
 
 ## Page 43
 
@@ -1831,7 +1831,7 @@ ms latency, scalability, global distribution, etc.
 43
 
 
----
+***
 
 ## Page 44
 
@@ -1903,7 +1903,7 @@ Read Operation – High Priority – 3304$/10000
 44
 
 
----
+***
 
 ## Page 45
 
@@ -1959,7 +1959,7 @@ Standard HDD
 45
 
 
----
+***
 
 ## Page 46
 
@@ -2047,7 +2047,7 @@ There are two other ways we can save on costs.–
 46
 
 
----
+***
 
 ## Page 47
 
@@ -2085,7 +2085,7 @@ to create a log analytics workspace.
 47
 
 
----
+***
 
 ## Page 48
 
@@ -2179,7 +2179,7 @@ You can increase the size of your VM if you need more resources
 48
 
 
----
+***
 
 ## Page 49
 
@@ -2233,7 +2233,7 @@ Serverless
 49
 
 
----
+***
 
 ## Page 50
 
@@ -2313,7 +2313,7 @@ Web App and App Service plans must exist in the same region.
 50
 
 
----
+***
 
 ## Page 51
 
@@ -2371,7 +2371,7 @@ This is not possible when choosing the other app service plans.
 51
 
 
----
+***
 
 ## Page 52
 
@@ -2386,7 +2386,7 @@ the pricing tiers I1 and I2, and I3.
 52
 
 
----
+***
 
 ## Page 53
 
@@ -2399,7 +2399,7 @@ service plan.
 53
 
 
----
+***
 
 ## Page 54
 
@@ -2453,7 +2453,7 @@ Yes
 54
 
 
----
+***
 
 ## Page 55
 
@@ -2588,7 +2588,7 @@ X
 55
 
 
----
+***
 
 ## Page 56
 
@@ -2605,7 +2605,7 @@ Policies -> Content Trust -> Enabled and then save.
 56
 
 
----
+***
 
 ## Page 57
 
@@ -2670,7 +2670,7 @@ Network bytes transmitted per second
 57
 
 
----
+***
 
 ## Page 58
 
@@ -2690,7 +2690,7 @@ service to retrieve data.
 58
 
 
----
+***
 
 ## Page 59
 
@@ -2749,7 +2749,7 @@ Kubernetes-based platform or infrastructure as a PaaS or IaaS offering. Google h
 59
 
 
----
+***
 
 ## Page 60
 
@@ -2784,7 +2784,7 @@ at the node pool level.
 60
 
 
----
+***
 
 ## Page 61
 
@@ -2814,7 +2814,7 @@ manages that.
 61
 
 
----
+***
 
 ## Page 62
 
@@ -2863,7 +2863,7 @@ spec:
 62
 
 
----
+***
 
 ## Page 63
 
@@ -2907,7 +2907,7 @@ is to conserve Public Ips
 63
 
 
----
+***
 
 ## Page 64
 
@@ -2951,7 +2951,7 @@ Globally (Global Vnet Peering)
 64
 
 
----
+***
 
 ## Page 65
 
@@ -2968,7 +2968,7 @@ then add peering again.
 65
 
 
----
+***
 
 ## Page 66
 
@@ -3011,7 +3011,7 @@ domain name) will be web1.demystify.com.
 to connect to a server demystify.com, the DNS resolves this to the IP address by going
 
 
----
+***
 
 ## Page 67
 
@@ -3047,7 +3047,7 @@ is created.
 67
 
 
----
+***
 
 ## Page 68
 
@@ -3058,7 +3058,7 @@ registrar, we can start using our custom name.
 68
 
 
----
+***
 
 ## Page 69
 
@@ -3105,7 +3105,7 @@ else it will not function
 69
 
 
----
+***
 
 ## Page 70
 
@@ -3123,7 +3123,7 @@ specify if the rule is to allow or deny.
 70
 
 
----
+***
 
 ## Page 71
 
@@ -3150,7 +3150,7 @@ This is the Network Rule tab which lists the rules.
 71
 
 
----
+***
 
 ## Page 72
 
@@ -3161,7 +3161,7 @@ blade under the Topology tab.
 72
 
 
----
+***
 
 ## Page 73
 
@@ -3185,7 +3185,7 @@ Name for the load balancer
 73
 
 
----
+***
 
 ## Page 74
 
@@ -3210,7 +3210,7 @@ We could add multiple backend pools
 74
 
 
----
+***
 
 ## Page 75
 
@@ -3237,7 +3237,7 @@ We specify the Backend port and pool
 75
 
 
----
+***
 
 ## Page 76
 
@@ -3259,7 +3259,7 @@ Please see how the traffic is routed based on the 5 tuples.
 76
 
 
----
+***
 
 ## Page 77
 
@@ -3290,7 +3290,7 @@ port number for connection requests.
 example, https://demystify.com/videos. The query will be sent to a DNS server, and it will
 
 
----
+***
 
 ## Page 78
 
@@ -3324,7 +3324,7 @@ continues to flow. In Prevention mode, the traffic will be blocked.
 So when the users type the url https://demystify.com/videos, the gateway sees the videos in
 
 
----
+***
 
 ## Page 79
 
@@ -3332,7 +3332,7 @@ So when the users type the url https://demystify.com/videos, the gateway sees th
 79
 
 
----
+***
 
 ## Page 80
 
@@ -3371,7 +3371,7 @@ Here are the routing methods which we can configure:
 80
 
 
----
+***
 
 ## Page 81
 
@@ -3424,7 +3424,7 @@ You need to create an alias in your DNS zone and point to the Traffic Manager.
 2. So how do we use our website like demystify.com?
 
 
----
+***
 
 ## Page 82
 
@@ -3463,7 +3463,7 @@ by adding up to 16 Express route connections.
 82
 
 
----
+***
 
 ## Page 83
 
@@ -3500,7 +3500,7 @@ could also set up a Site-to-site VPN instead of a second circuit.
 83
 
 
----
+***
 
 ## Page 84
 
@@ -3541,7 +3541,7 @@ when the wlvnet1 was created as part of the Vnet gateway creation.
 84
 
 
----
+***
 
 ## Page 85
 
@@ -3559,7 +3559,7 @@ that we cannot change the type once it is created.
 85
 
 
----
+***
 
 ## Page 86
 
@@ -3583,7 +3583,7 @@ share this with the on-premises admin to configure from their side.
 86
 
 
----
+***
 
 ## Page 87
 
@@ -3599,7 +3599,7 @@ We can check for the topology from the network watcher – topology blade.
 87
 
 
----
+***
 
 ## Page 88
 
@@ -3629,7 +3629,7 @@ the Origin server.
 Let's say that a company demystify has a headquarters in NY, USA and branches in CA, USA
 
 
----
+***
 
 ## Page 89
 
@@ -3698,7 +3698,7 @@ MaxCDN
 89
 
 
----
+***
 
 ## Page 90
 
@@ -3736,7 +3736,7 @@ etc.,
 90
 
 
----
+***
 
 ## Page 91
 
@@ -3753,7 +3753,7 @@ APPLICATION MAP:
 91
 
 
----
+***
 
 ## Page 92
 
@@ -3782,7 +3782,7 @@ or down automatically.
 92
 
 
----
+***
 
 ## Page 93
 
@@ -3802,7 +3802,7 @@ on-premises and in multiple clouds.
 93
 
 
----
+***
 
 ## Page 94
 
@@ -3821,7 +3821,7 @@ We need to select the template and save it and we will be able to get the detail
 94
 
 
----
+***
 
 ## Page 95
 
@@ -3839,7 +3839,7 @@ malicious activity.
 95
 
 
----
+***
 
 ## Page 96
 
@@ -3856,7 +3856,7 @@ With Capacity Reservations, we can get as much as 60% less as compared to Pay-as
 96
 
 
----
+***
 
 ## Page 97
 
@@ -3897,7 +3897,7 @@ We can enable/disable different type of alerts under ATP
 97
 
 
----
+***
 
 ## Page 98
 
@@ -3910,7 +3910,7 @@ The MYSQL Database server can be configured under Security Option.
 98
 
 
----
+***
 
 ## Page 99
 
@@ -3918,7 +3918,7 @@ The MYSQL Database server can be configured under Security Option.
 99
 
 
----
+***
 
 ## Page 100
 
@@ -3956,7 +3956,7 @@ cannot access the same data going forward.
 100
 
 
----
+***
 
 ## Page 101
 
@@ -3974,7 +3974,7 @@ other enterprise licenses also like E5.
 101
 
 
----
+***
 
 ## Page 102
 
@@ -4010,7 +4010,7 @@ Install-AIPScanner -Sqlinstance “instance name”
 102
 
 
----
+***
 
 ## Page 103
 
@@ -4061,7 +4061,7 @@ excessive charges if the plan failed to protect us.
 103
 
 
----
+***
 
 ## Page 104
 
@@ -4096,7 +4096,7 @@ AzureDiagnostics
 104
 
 
----
+***
 
 # Azure - AWS similarities
 
@@ -4210,7 +4210,7 @@ Mid-level engineers deploy virtual machines to an existing VPC. Senior and Staff
 
 Whether using **AWS Control Tower** or the **Azure Cloud Adoption Framework (CAF)**, the underlying principles are identical.
 
----
+***
 
 ## 1. The Multi-Account / Multi-Subscription Strategy
 
@@ -4223,7 +4223,7 @@ Instead of segmenting by Resource Groups or VPCs, you segment by the highest lev
 - **Micro-Blast Radius:** A compromised credential in the Marketing Dev Account cannot view, edit, or delete resources in the HR Prod Account, regardless of how badly RBAC was misconfigured in Dev.
 - **Quota Management:** Many cloud quotas (e.g., maximum number of load balancers) are per-account. Spreading workloads across accounts prevents noisy-neighbor quota exhaustion.
 
----
+***
 
 ## 2. Organization Design & Vending Machines
 
@@ -4251,7 +4251,7 @@ An AVM is an automated Terraform/API pipeline that provisions a new ready-to-use
 4. provisions networking (e.g., creates VPC and attaches it to the Transit Gateway).
 5. Deploys mandatory guardrails (e.g., Sentinel/Checkov blocks internet gateways).
 
----
+***
 
 ## 3. Network Topologies for Scale
 
@@ -4266,7 +4266,7 @@ The most common enterprise architecture.
 - **AWS Transit Gateway (TGW):** A central router that interconnects thousands of VPCs and on-premises networks. Replaces complex VPC Peering meshes.
 - **Azure Virtual WAN (vWAN):** A networking service that brings networking, security, and routing functionalities together to provide a single operational interface.
 
----
+***
 
 ## 4. Centralized Security and Governance
 

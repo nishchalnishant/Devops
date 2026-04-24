@@ -86,7 +86,7 @@ kubectl apply -f manifest.yaml --dry-run=server -n production
 kubectl get events -n production | grep "FailedCreate\|Invalid"
 ```
 
----
+***
 
 ## Scenario 2: Sync Wave Ordering Failure
 
@@ -154,7 +154,7 @@ metadata:
     argocd.argoproj.io/hook-delete-policy: HookSucceeded
 ```
 
----
+***
 
 ## Scenario 3: Argo Image Updater Misconfiguration
 
@@ -222,7 +222,7 @@ kubectl label secret registry-creds \
   -n argocd
 ```
 
----
+***
 
 ## Scenario 4: Self-Managed ArgoCD Bootstrap
 
@@ -279,7 +279,7 @@ EOF
 - Use `ServerSideApply=true` — ArgoCD Helm chart uses server-side apply annotations
 - Store the Application manifest in a dedicated bootstrap repo separate from application code
 
----
+***
 
 ## Scenario 5: Multi-Cluster Deployment Failure
 
@@ -342,7 +342,7 @@ kubectl --context=prod-ap-context auth can-i \
   --as=system:serviceaccount:argocd:argocd-application-controller
 ```
 
----
+***
 
 ## Scenario 6: Progressive Delivery Rollback Trigger
 
@@ -406,7 +406,7 @@ kubectl argo rollouts abort payment-service -n production
 kubectl argo rollouts retry rollout payment-service -n production
 ```
 
----
+***
 
 ## Scenario 7: Webhook Not Firing — ArgoCD Not Detecting Git Changes
 
@@ -489,7 +489,7 @@ In GitHub: Settings → Webhooks → Add webhook
 - Secret: value from `argocd-secret.webhook.github.secret`
 - Events: `Push events`, `Pull request events` (for PR generator)
 
----
+***
 
 ## Scenario 1: Sync Wave Deadlock
 **Symptom:** ArgoCD stays in `Progressing` indefinitely. One resource is healthy, but the next one won't start.

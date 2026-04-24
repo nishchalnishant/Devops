@@ -1,64 +1,343 @@
-# Supply Chain Security & SLSA (7 YOE)
+# Supply Chain Security & SLSA
 
-A Senior Engineer's job isn't just to "scan for vulnerabilities." It is to ensure that the code running in Production is **cryptographically verified** and follows the **SLSA (Supply Chain Levels for Software Artifacts)** framework.
+## SLSA Framework — Technical Requirements
 
----
-
-## 1. The SLSA Framework (S-L-S-A)
-
-SLSA is the security standard for the software supply chain. In a 7 YOE interview, you are expected to know how to achieve **SLSA Level 3**.
-
-- **Level 1:** Documented build process (scripted build).
-- **Level 2:** Build runs on a hosted service (e.g., GitHub Actions, Jenkins) rather than a developer's machine. The build generates a signed **Provenance** attestation.
-- **Level 3:** The build environment is **Source-Verified** and **Hermetic** (it has no network access during the build, preventing a malicious package from reaching out to a C2 server).
-
----
-
-## 2. Software Bill of Materials (SBOM)
-
-You cannot secure what you cannot see. Every build must generate an SBOM—a machine-readable list of every library and dependency inside your Docker image.
-
-- **Tools:** Use `Trivy` or `Syft` to generate SBOMs in **CycloneDX** or **SPDX** format.
-- **Governance:** Use a tool like **Dependency-Track** to continuously monitor your SBOMs for newly discovered vulnerabilities (Day-0 vulnerabilities) even after the code has been deployed.
-
-```bash
-# Generating an SBOM with Syft
-syft image-name:v1.0 -o cyclonedx-json > sbom.json
+```
+SLSA Level 0: No guarantees
+SLSA Level 1: Scripted build (documented process, provenance generated but unsigned)
+SLSA Level 2: Build service (hosted CI/CD, signed provenance, version controlled)
+SLSA Level 3: Hardened build (ephemeral isolated build env, hermetic, no network)
+SLSA Level 4: Two-person review + hermetic reproducible build (rarely achieved)
 ```
 
----
+### Provenance — What it Contains
 
-## 3. Cryptographic Signing (Sigstore & Cosign)
+SLSA provenance is a signed DSSE (Dead Simple Signing Envelope) attestation:
 
-Simply pushing an image to a registry is insecure—what if an attacker compromises the registry and replaces your image with a malicious one?
+```json
+{
+  "_type": "https://in-toto.io/Statement/v0.1",
+  "subject": [{
+    "name": "myregistry.io/myapp",
+    "digest": {"sha256": "abc123..."}
+  }],
+  "predicateType": "https://slsa.dev/provenance/v0.2",
+  "predicate": {
+    "builder": {"id": "https://github.com/actions/runner"},
+    "buildType": "https://github.com/slsa-framework/slsa-github-generator/container@v1",
+    "invocation": {
+      "configSource": {
+        "uri": "git+https://github.com/myorg/myrepo@refs/heads/main",
+        "digest": {"sha1": "def456..."},
+        "entryPoint": ".github/workflows/build.yaml"
+      },
+      "parameters": {}
+    },
+    "materials": [{
+      "uri": "git+https://github.com/myorg/myrepo",
+      "digest": {"sha1": "def456..."}
+    }]
+  }
+}
+```
 
-### The Cosign Workflow
-1. CI builds the image.
-2. CI uses **Cosign** to sign the image digest using OIDC (OpenID Connect).
-3. The signature is pushed to the registry alongside the image.
-4. **The Gatekeeper:** A Kubernetes Admission Controller (like **Kyverno** or **Policy Reporter**) checks the signature before anyone can `kubectl run` the image. If the signature is missing or invalid, the deployment is blocked.
+### SLSA Level 3 in GitHub Actions
 
----
+```yaml
+# .github/workflows/build.yaml
+jobs:
+  build:
+    permissions:
+      id-token: write    # OIDC token for Sigstore
+      contents: read
+      packages: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/container_workflow.yml@v1.9.0
+    with:
+      image: ghcr.io/myorg/myapp
+      digest: ${{ needs.build-image.outputs.digest }}
+```
 
-## 4. Shift-Left Security Scanners
+***
 
-| Stage | Tool | Mission |
-|---|---|---|
-| **Secret Scanning** | Gitleaks / TruffleHog | Fail the build if a developer accidentally commits a private key or API token. |
-| **SAST** | SonarQube / Snyk Code | Analyze raw source code for logic errors (e.g., SQL Injection, unhandled exceptions). |
-| **SCA** | Trivy / Snyk OpenSource | Analyze the SBOM for known CVEs in third-party libraries. |
-| **IaC Scanning** | Checkov / tfsec | Fail the build if the Terraform code creates a public S3 bucket or unencrypted database. |
+## Sigstore / Cosign — Technical Deep Dive
 
----
+### Keyless signing (OIDC-based)
 
-## 5. Defensive Build Architectures
+```
+CI job                    Sigstore Fulcio (CA)        Rekor (transparency log)
+    │                           │                           │
+    ├── Request OIDC token       │                           │
+    │   from GitHub/GitLab       │                           │
+    │                           │                           │
+    ├── Generate ephemeral       │                           │
+    │   key pair                │                           │
+    │                           │                           │
+    ├── POST OIDC token ────────►│                           │
+    │   + public key            │                           │
+    │                   ├── Verify OIDC token              │
+    │                   ├── Issue short-lived cert         │
+    │                   │   (cert embeds OIDC claims       │
+    │                   │    in SAN: workflow URL)         │
+    │◄── Certificate ───┤                                  │
+    │                           │                           │
+    ├── Sign image digest with private key                  │
+    ├── POST signature + cert ─────────────────────────────►│
+    │                                              ├── Write to append-only log
+    │◄── Rekor log entry (transparency proof) ─────┤
+    │
+    └── Push signature to registry (OCI artifact)
+```
 
-### Hermetic Builds
-A hermetic build ensures that identical source inputs always produce identical binary outputs (reproducible builds). 
-- All dependencies are pre-fetched and stored in a local cache or private mirror (Artifactory/Nexus).
-- If the build attempts to talk to the public internet (NPM, PyPI, Maven), it is blocked. This prevents "Dependency Substitution" attacks.
+```bash
+# Sign in CI (keyless, using OIDC)
+cosign sign \
+  --yes \
+  --oidc-issuer https://token.actions.githubusercontent.com \
+  myregistry.io/myapp@sha256:abc123
 
-### Single-Purpose Runners
-Use ephemeral, hardened runners for sensitive builds. 
-- The runner that builds the frontend assets should not have the same IAM permissions as the runner that manages production infrastructure. 
-- Use **Runner Groups** to segregate high-trust vs. low-trust automation.
+# Verify (checks Rekor, validates cert chain)
+cosign verify \
+  --certificate-identity-regexp "https://github.com/myorg/myrepo" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  myregistry.io/myapp:latest
+
+# Verify and output signing metadata
+cosign verify \
+  --certificate-identity-regexp "https://github.com/myorg/myrepo" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  myregistry.io/myapp:latest | jq '.[0].optional'
+
+# Attach SBOM as an attestation
+cosign attest \
+  --yes \
+  --predicate sbom.spdx.json \
+  --type spdxjson \
+  myregistry.io/myapp@sha256:abc123
+
+# Verify attestation
+cosign verify-attestation \
+  --type spdxjson \
+  --certificate-identity-regexp "https://github.com/myorg/myrepo" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  myregistry.io/myapp:latest | jq '.payload | @base64d | fromjson'
+```
+
+***
+
+## SBOM — Generation and Governance
+
+### Syft vs Trivy SBOM generation
+
+```bash
+# Syft — more complete OS + language package detection
+syft myregistry.io/myapp:latest -o spdx-json > sbom.spdx.json
+syft myregistry.io/myapp:latest -o cyclonedx-json > sbom.cyclonedx.json
+syft myregistry.io/myapp:latest -o table   # human-readable
+
+# Trivy — integrated scanning + SBOM in one tool
+trivy image --format spdx-json \
+  --output sbom-trivy.spdx.json \
+  myregistry.io/myapp:latest
+
+# Generate SBOM from filesystem (for non-container artifacts)
+syft dir:. -o cyclonedx-json > sbom.json
+
+# Scan a SBOM for CVEs (decouple scanning from generation)
+grype sbom:./sbom.spdx.json --fail-on critical
+```
+
+### SBOM formats
+
+| Format | Standard Body | Machine Readable | Use Case |
+|--------|--------------|-----------------|----------|
+| SPDX | Linux Foundation | JSON, YAML, RDF | Government/compliance (CISA mandate) |
+| CycloneDX | OWASP | JSON, XML | Security tooling (Dependency Track) |
+| SWID | ISO/IEC 19770 | XML | Enterprise software asset management |
+
+### Dependency Track — continuous SBOM monitoring
+
+```bash
+# Upload SBOM to Dependency Track via API
+curl -X PUT \
+  -H "X-Api-Key: $DT_API_KEY" \
+  -H "Content-Type: multipart/form-data" \
+  -F "projectName=myapp" \
+  -F "projectVersion=v1.2.3" \
+  -F "autoCreate=true" \
+  -F "bom=@sbom.cyclonedx.json" \
+  https://dependencytrack.company.com/api/v1/bom
+
+# Dependency Track then:
+# - Correlates packages against NVD, OSV, GitHub Advisory DB
+# - Alerts on new CVEs matching packages in any submitted SBOM
+# - Generates policy violations for license conflicts
+```
+
+***
+
+## Shift-Left Security — Tool Chain Integration
+
+### Secret scanning
+
+```bash
+# Gitleaks — scan git history
+gitleaks detect --source . --log-level warn
+
+# Scan a specific commit range (CI: only new commits in PR)
+gitleaks detect --source . --log-opts "origin/main..HEAD"
+
+# .gitleaks.toml — custom rules and allowlists
+[allowlist]
+  description = "global allowlists"
+  commits = ["abc1234"]   # known false positive commit
+  regexes = ['''test-password''']
+  paths = ['''(.*)?_test\.go''']
+
+[[rules]]
+  id = "my-custom-secret"
+  description = "Detect internal API keys"
+  regex = '''MYCO-[A-Z0-9]{32}'''
+  tags = ["api-key", "internal"]
+```
+
+### IaC scanning
+
+```bash
+# Checkov — Terraform, Helm, K8s manifests, Dockerfiles
+checkov -d . --framework terraform --check CKV_AWS_18,CKV_AWS_19
+
+# Output SARIF for GitHub Security tab integration
+checkov -d . --output sarif --output-file checkov.sarif
+
+# tfsec — fast Terraform static analysis
+tfsec . --minimum-severity HIGH
+
+# Trivy also scans IaC
+trivy config ./terraform-dir --severity HIGH,CRITICAL
+trivy config kubernetes-manifests/ --severity HIGH
+```
+
+### SAST integration in GitHub Actions
+
+```yaml
+- name: Run Semgrep SAST
+  uses: returntocorp/semgrep-action@v1
+  with:
+    config: >-
+      p/ci
+      p/owasp-top-ten
+      p/python
+  env:
+    SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+- name: Upload SARIF results
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: semgrep.sarif
+  if: always()  # upload even if semgrep fails (shows findings in Security tab)
+```
+
+***
+
+## Hermetic Builds — Implementation
+
+```dockerfile
+# Stage 1: dependency fetch (can hit the internet)
+FROM python:3.12-slim AS deps
+WORKDIR /deps
+COPY requirements.txt .
+RUN pip download -r requirements.txt -d /deps/packages
+
+# Stage 2: hermetic build (no internet access)
+FROM python:3.12-slim AS build
+WORKDIR /app
+COPY --from=deps /deps/packages /deps/packages
+COPY . .
+# Install from pre-downloaded packages only
+RUN pip install --no-index --find-links=/deps/packages -r requirements.txt
+RUN python -m compileall .
+
+# Stage 3: minimal runtime image
+FROM gcr.io/distroless/python3:nonroot
+COPY --from=build /app /app
+COPY --from=build /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+USER nonroot
+ENTRYPOINT ["/app/main.py"]
+```
+
+```yaml
+# GitHub Actions: disable outbound network during build stage
+- name: Build (hermetic)
+  run: docker build --network=none -t myapp:${{ github.sha }} .
+  # --network=none: container has no network interface during build
+```
+
+***
+
+## Admission Control — Policy as Code
+
+```yaml
+# Kyverno ClusterPolicy — enforce signed images + trusted registry
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-integrity
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: verify-signature
+    match:
+      any:
+      - resources:
+          kinds: [Pod]
+          namespaces: ["production", "staging"]
+    verifyImages:
+    - image: "myregistry.io/*"
+      mutateDigest: true        # replace tag with digest for immutability
+      verifyDigest: true
+      required: true
+      attestors:
+      - entries:
+        - keyless:
+            subject: "https://github.com/myorg/*/workflows/build.yaml@refs/heads/main"
+            issuer: "https://token.actions.githubusercontent.com"
+            rekor:
+              url: https://rekor.sigstore.dev
+      attestations:
+      - predicateType: https://spdx.dev/Document   # require SBOM attestation
+        conditions:
+        - all:
+          - key: "{{element.spdxVersion}}"
+            operator: StartsWith
+            value: "SPDX-"
+
+  - name: restrict-registries
+    match:
+      any:
+      - resources:
+          kinds: [Pod]
+    validate:
+      message: "Images must come from myregistry.io"
+      pattern:
+        spec:
+          containers:
+          - image: "myregistry.io/*"
+          initContainers:
+          - image: "myregistry.io/*"
+```
+
+***
+
+## Key Gotchas
+
+| Gotcha | Detail |
+|--------|--------|
+| SLSA provenance is useless without verification | Generating provenance without a verification step at deploy time is security theater |
+| Cosign `--yes` required in non-interactive CI | Without `--yes`, cosign prompts for confirmation and hangs |
+| Fulcio certificate TTL is 10 minutes | The ephemeral cert used for keyless signing expires; verification uses Rekor log (permanent) not the cert |
+| Rekor is append-only | Once a signature is logged, it can't be deleted — don't accidentally sign test/dev images with prod identity |
+| `mutateDigest: true` in Kyverno | Without this, `image:latest` can be re-pointed to malicious content; digest pinning is essential |
+| SBOM from source ≠ SBOM from image | Source-level tools miss OS packages installed by Dockerfile; always generate from the built image |
+| Gitleaks pre-commit vs CI | Pre-commit can be bypassed with `--no-verify`; CI enforcement is mandatory |
+| CycloneDX vs SPDX tooling support | Not all tools support both; check Dependency Track and your SIEM before choosing format |

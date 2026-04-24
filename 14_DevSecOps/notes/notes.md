@@ -12,7 +12,7 @@ The shift-left model requires:
 > [!IMPORTANT]
 > Shift-left is not about removing security reviews — it is about making security continuous and automated so that reviews focus on architectural decisions, not routine checklist items.
 
----
+***
 
 ## SAST / DAST / IAST / RASP
 
@@ -79,7 +79,7 @@ RASP embeds security logic inside the application process itself. Instead of sit
 | IAST | During functional tests | No | QA / staging runtime |
 | RASP | Production | No | Production runtime |
 
----
+***
 
 ## SCA — Software Composition Analysis
 
@@ -109,7 +109,7 @@ Modern applications are 70-90% open-source code by volume. SCA is how you manage
 | Dependency-Track | Continuous SBOM monitoring, dashboard | Open source (OWASP) |
 | FOSSA | License compliance at enterprise scale | Commercial |
 
----
+***
 
 ## Container Image Scanning
 
@@ -177,7 +177,7 @@ build-and-scan:
     - docker push myapp:${{ github.sha }}
 ```
 
----
+***
 
 ## SBOM — Software Bill of Materials
 
@@ -215,7 +215,7 @@ cosign attach sbom --sbom sbom.cdx.json myapp:v1.2.0
 cosign download sbom myapp:v1.2.0
 ```
 
----
+***
 
 ## SLSA Framework (Supply-chain Levels for Software Artifacts)
 
@@ -259,7 +259,7 @@ slsa-verifier verify-artifact myapp-v1.2.0.tar.gz \
   --source-tag v1.2.0
 ```
 
----
+***
 
 ## Sigstore / Cosign for Image Signing
 
@@ -305,7 +305,7 @@ rekor-cli search --sha $(cosign triangulate myregistry.io/myapp:v1.2.0)
 rekor-cli get --uuid <entry-uuid> --format json
 ```
 
----
+***
 
 ## in-toto Attestations
 
@@ -330,7 +330,7 @@ in-toto is a framework for creating verifiable attestations about each step in a
 }
 ```
 
----
+***
 
 ## OPA (Open Policy Agent) and Gatekeeper
 
@@ -399,7 +399,7 @@ spec:
           count(missing) > 0
           msg := sprintf("Missing required labels: %v", [missing])
         }
----
+***
 # Instantiate the constraint
 apiVersion: constraints.gatekeeper.sh/v1beta1
 kind: K8sRequiredLabels
@@ -432,7 +432,7 @@ conftest test Dockerfile --policy policy/docker/
 conftest test deployment.yaml --policy policy/ --namespace kubernetes.admission
 ```
 
----
+***
 
 ## Falco Runtime Security
 
@@ -504,7 +504,7 @@ helm install falco falcosecurity/falco \
   --set falcosidekick.config.elasticsearch.hostport=http://es:9200
 ```
 
----
+***
 
 ## Secret Scanning
 
@@ -541,7 +541,7 @@ detect-secrets-hook --baseline .secrets.baseline
 detect-secrets audit .secrets.baseline
 ```
 
----
+***
 
 ## mTLS and Zero-Trust in Kubernetes
 
@@ -563,7 +563,7 @@ spec:
   mtls:
     mode: STRICT  # Reject all non-mTLS traffic
 
----
+***
 # Istio AuthorizationPolicy: service-to-service allow-list
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -585,7 +585,7 @@ spec:
             paths: ["/api/v1/charge"]
 ```
 
----
+***
 
 ## Kubernetes Security Controls
 
@@ -628,7 +628,7 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list"]
----
+***
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -671,7 +671,7 @@ rules:
         resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
 ```
 
----
+***
 
 ## Compliance Frameworks
 

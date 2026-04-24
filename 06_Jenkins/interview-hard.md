@@ -34,7 +34,7 @@ A big-bang migration is too risky. Phased approach:
 Alternatives: Packer for golden image baking, Ansible for post-provisioning configuration, or Cloud-Init user data for startup scripts. Keep Terraform declarative — provision infrastructure, not configuration.
 # Jenkins — Easy Interview Questions
 
----
+***
 
 **1. What is Jenkins and what problem does it solve?**
 
@@ -45,7 +45,7 @@ Key facts:
 - ~1,800 plugins making it integrable with almost any tool
 - Runs on JVM; requires Java 17 or 21
 
----
+***
 
 **2. What is a Jenkinsfile?**
 
@@ -66,7 +66,7 @@ pipeline {
 }
 ```
 
----
+***
 
 **3. What is the difference between a Declarative and a Scripted pipeline?**
 
@@ -94,7 +94,7 @@ node {
 }
 ```
 
----
+***
 
 **4. What are Jenkins agents and why are they used?**
 
@@ -108,7 +108,7 @@ Agents (also called nodes or workers) are machines that execute build steps on b
 
 Types: permanent agents (physical/VM), Docker agents, Kubernetes pod agents.
 
----
+***
 
 **5. What is a Jenkins Shared Library?**
 
@@ -122,7 +122,7 @@ A Shared Library is a collection of reusable Groovy code — steps, utilities, a
 buildAndPush(name: 'my-service', registry: 'registry.example.com')
 ```
 
----
+***
 
 **6. What is a `stage` in a Jenkins pipeline?**
 
@@ -136,7 +136,7 @@ stages {
 }
 ```
 
----
+***
 
 **7. What is the `post` block used for?**
 
@@ -153,7 +153,7 @@ post {
 
 It ensures cleanup and notifications happen regardless of the build outcome.
 
----
+***
 
 **8. How do you trigger a Jenkins pipeline automatically on a code push?**
 
@@ -165,7 +165,7 @@ Jenkins job configuration:
 
 Alternative: `pollSCM('H/5 * * * *')` polls the SCM every 5 minutes. Less efficient than webhooks but works without network access from SCM to Jenkins.
 
----
+***
 
 **9. What build triggers are available in Jenkins?**
 
@@ -179,7 +179,7 @@ Alternative: `pollSCM('H/5 * * * *')` polls the SCM every 5 minutes. Less effici
 | `workflow_dispatch` equivalent | `input` step for human gate |
 | Gerrit/GitHub PR event | Trigger on pull request open/update |
 
----
+***
 
 **10. How do you pass parameters to a Jenkins pipeline?**
 
@@ -202,7 +202,7 @@ curl -X POST 'https://jenkins.example.com/job/my-job/buildWithParameters' \
   --data 'TARGET_ENV=production&SKIP_TESTS=false'
 ```
 
----
+***
 
 **11. What are Jenkins artifacts and how do you archive them?**
 
@@ -219,7 +219,7 @@ post {
 
 `fingerprint: true` enables artifact tracking across jobs — you can see which jobs consumed a given artifact. For long-term storage, push artifacts to Nexus, Artifactory, or S3 — Jenkins artifact storage is not designed for large binaries.
 
----
+***
 
 **12. What is the Jenkins workspace?**
 
@@ -239,7 +239,7 @@ stage('Build') {
 
 `cleanWs()` in the `post` block deletes the workspace after the build — important for disk management on permanent agents.
 
----
+***
 
 **13. What important built-in environment variables does Jenkins provide?**
 
@@ -258,7 +258,7 @@ sh "docker build -t myapp:${env.GIT_COMMIT[0..7]} ."
 echo "Build URL: ${env.BUILD_URL}"
 ```
 
----
+***
 
 **14. How do you implement a manual approval gate in a Jenkins pipeline?**
 
@@ -282,7 +282,7 @@ stage('Deploy to Production') {
 
 The pipeline holds an executor slot while waiting. To avoid wasting executors on long-waiting approvals, use a `milestone` and an `input` step outside of agent blocks.
 
----
+***
 
 **15. What does `disableConcurrentBuilds()` do and when should you use it?**
 
@@ -300,7 +300,7 @@ options {
 
 Without `abortPrevious: true`, the new build queues behind the running one. With it, the running build is cancelled immediately — useful for PR pipelines where only the latest commit matters.
 
----
+***
 
 **16. What is `pollSCM` and how does it differ from a webhook?**
 
@@ -611,7 +611,7 @@ Use the STAR format, but keep it technical:
 - I can explain metrics, logs, traces, SLOs, and alert fatigue.
 - I can talk through at least two real troubleshooting stories from my own work.
 
----
+***
 
 ## Related Resources
 

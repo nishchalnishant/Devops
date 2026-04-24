@@ -30,7 +30,7 @@ if any pod was deleted from that 10 pods, then 11th pod will be created
 2. check the nodes : kubectl get no 
 
 
----
+***
 
 ## Page 2
 
@@ -63,7 +63,7 @@ ERROR CREATING LOADBALANCER: it error will occurs when k8s cant
 communicate with cloud provider. 
 
 
----
+***
 
 ## Page 3
 
@@ -82,7 +82,7 @@ container configurations on yaml file
 5. Ensure that there are no networking issues. 
 
 
----
+***
 
 ## Page 4
 
@@ -92,7 +92,7 @@ STRATEGY IN
 K8S 
 
 
----
+***
 
 ## Page 5
 
@@ -121,7 +121,7 @@ Rolling update
 Blue-Green Deployment 
 
 
----
+***
 
 ## Page 6
 
@@ -135,14 +135,14 @@ subset of your pods or a percentage of your traffic to test it before deploying 
 the entire application in production. 
 
 
----
+***
 
 ## Page 7
 
  
 
 
----
+***
 
 ## Page 8
 
@@ -155,7 +155,7 @@ version is deployed in its place. This approach is simple but may cause downtime
 update. 
 
 
----
+***
 
 ## Page 9
 
@@ -204,7 +204,7 @@ pod
 pod 
 
 
----
+***
 
 ## Page 10
 
@@ -226,7 +226,7 @@ Check the RS : kubectl get rs
  
 
 
----
+***
 
 ## Page 11
 
@@ -241,7 +241,7 @@ Now we can observe, old pods from RS-1 was completely deleted and RS-2 created n
 version-2 it contains some downtime, To avoid this we will use Rolling Updates 
 
 
----
+***
 
 ## Page 12
 
@@ -261,7 +261,7 @@ addition to the number of DESIRED
 deleted by the Deployment controller in a “rolling” 
 
 
----
+***
 
 ## Page 13
 
@@ -281,7 +281,7 @@ during the “rolling update” process, and at most only 4 Pods exist in the cl
 This strategy is a field of the Deployment object, named RollingUpdateStrategy 
 
 
----
+***
 
 ## Page 14
 
@@ -299,7 +299,7 @@ application. The “Blue” version is the currently running copy of the applica
 version is the new version. Once the green version is ready, traffic is rerouted to the new version 
 
 
----
+***
 
 ## Page 15
 
@@ -319,7 +319,7 @@ kubectl create -f blue.yml
 kubectl create -f green.yml 
 
 
----
+***
 
 ## Page 16
 
@@ -339,7 +339,7 @@ That means we can see the application running in the blue
 environment. 
 
 
----
+***
 
 ## Page 17
 
@@ -363,7 +363,7 @@ kubectl apply -f green.yml
  
 
 
----
+***
 
 ## Page 18
 
@@ -379,7 +379,7 @@ deployment.
 kubectl apply -f svc.yml 
 
 
----
+***
 
 ## Page 19
 
@@ -388,7 +388,7 @@ kubectl apply -f svc.yml
  
 
 
----
+***
 
 ## Page 20
 
@@ -397,7 +397,7 @@ kubectl apply -f svc.yml
 Finally, we need to verify that the deployment was successful 
 
 
----
+***
 
 # Content from cluster_health_checklist.pdf
 
@@ -410,7 +410,7 @@ Kubernetes Cluster
 Health Checklist
 
 
----
+***
 
 ## Page 2
 
@@ -438,7 +438,7 @@ Layers
 How to Use It
 
 
----
+***
 
 ## Page 3
 
@@ -491,7 +491,7 @@ c.template.spec.containers[*].reso
 urces.requests
 
 
----
+***
 
 ## Page 4
 
@@ -524,7 +524,7 @@ kubectl describe node | grep -i pid
 kubectl get pod -A -o wide
 
 
----
+***
 
 ## Page 5
 
@@ -563,7 +563,7 @@ ivenessProbe}{"\n"}{end}'
 probe configs vs startup time
 
 
----
+***
 
 ## Page 6
 
@@ -589,7 +589,7 @@ kubectl get vpa -A
 kubectl get pdb -A
 
 
----
+***
 
 ## Page 7
 
@@ -622,7 +622,7 @@ nginx
 kubectl get pvc -A
 
 
----
+***
 
 ## Page 8
 
@@ -655,13 +655,13 @@ kubectl get ns --show-labels
 Look for owner=
 
 
----
+***
 
 # Kubernetes Troubleshooting Runbook
 
 A senior engineer approaches every Kubernetes failure with a systematic **command → evidence → hypothesis → fix** loop. Never guess a root cause. Gather evidence first.
 
----
+***
 
 ## Golden Rule: The First 60 Seconds
 
@@ -679,7 +679,7 @@ kubectl top nodes
 kubectl top pods -A --sort-by=memory
 ```
 
----
+***
 
 ## Scenario 1: CrashLoopBackOff
 
@@ -747,7 +747,7 @@ kubectl describe pod <pod> | grep -A10 "Liveness\|Readiness"
 # If initialDelaySeconds is too short for a slow-starting app, add a startupProbe
 ```
 
----
+***
 
 ## Scenario 2: OOMKilled (deep dive)
 
@@ -780,7 +780,7 @@ JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
 2. Add a `VerticalPodAutoscaler` resource (VPA) to auto-right-size over time.
 3. Profile the application: confirm whether the OOM is a memory leak or genuinely undersized limits.
 
----
+***
 
 ## Scenario 3: Pod Stuck in Pending / FailedScheduling
 
@@ -829,7 +829,7 @@ kubectl describe quota -n <namespace>
 # Fix: Increase quota limits or reduce pod requests
 ```
 
----
+***
 
 ## Scenario 4: Node NotReady
 
@@ -879,7 +879,7 @@ curl -k https://<api-server-ip>:6443/healthz
 # If failing → check firewall rules, NSG, security groups between node and control plane
 ```
 
----
+***
 
 ## Scenario 5: DNS Failures
 
@@ -926,7 +926,7 @@ kubectl get networkpolicies -A
 # If a policy restricts egress from app namespace, UDP/TCP port 53 to kube-system must be explicitly allowed
 ```
 
----
+***
 
 ## Scenario 6: ImagePullBackOff
 
@@ -951,7 +951,7 @@ kubectl create secret docker-registry acr-secret \
   -n <namespace>
 ```
 
----
+***
 
 ## Scenario 7: HPA Not Scaling
 
@@ -983,7 +983,7 @@ kubectl describe hpa <name>
 # Fix: Ensure containers have resources.requests.cpu set — HPA uses this as the denominator
 ```
 
----
+***
 
 ## Scenario 8: Service Mesh 503 Errors (Istio)
 
@@ -1009,7 +1009,7 @@ kubectl describe destinationrule <name>
 # Check outlierDetection settings — if too aggressive, healthy pods get ejected
 ```
 
----
+***
 
 ## Scenario 9: etcd High Latency / Leader Elections
 
@@ -1076,7 +1076,7 @@ severity: critical
 kubectl get events --field-selector reason=OOMKilling 
 
 
----
+***
 
 ## Page 2
 
@@ -1127,7 +1127,7 @@ maxSurge: 1
 - Steps: 
 
 
----
+***
 
 ## Page 3
 
@@ -1183,7 +1183,7 @@ kubectl get events | grep Evicted
 - Disk pressure 
 
 
----
+***
 
 ## Page 4
 
@@ -1231,7 +1231,7 @@ curl http://<pod-ip>:<port>/metrics
 - Prometheus relabel config validation 
 
 
----
+***
 
 ## Page 5
 
@@ -1290,7 +1290,7 @@ container_cpu_cfs_throttled_seconds_total
 - Use guaranteed QoS class (request = limit) 
 
 
----
+***
 
 ## Page 6
 
@@ -1344,10 +1344,10 @@ apiserver_request_duration_seconds
 - Offload controller load 
 
 
----
+***
 
 
----
+***
 
 ## Level 4: Control Plane & Architecture (Architect Level)
 

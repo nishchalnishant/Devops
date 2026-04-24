@@ -49,7 +49,7 @@ ulimits:
 **Symptom:** Running Docker as root is a security risk.
 **Fix:** Install `docker-ce-rootless-extras`. This allows the Docker daemon to run under a standard user, preventing container escapes from gaining root on the host.
 
----
+***
 
 ## Level 3: Runtime Operations & SRE
 
@@ -118,7 +118,7 @@ ulimits:
 **Diagnosis:** You copied the secret into a file during the build process instead of just using it in the `RUN` command.
 **Fix:** Ensure the secret is only accessed via `/run/secrets/` and never written to a layer.
 
----
+***
 
 ## Level 2: Networking & Image Management
 
@@ -169,7 +169,7 @@ systemctl restart docker
 }
 ```
 
----
+***
 
 ### Scenario 5: Docker Image Build Cache Invalidated on Every CI Run
 
@@ -208,7 +208,7 @@ RUN npm run build
 
 **Key insight:** Docker cache is invalidated for a layer when the instruction itself changes, any `COPY`/`ADD` source file changes, or any preceding layer's cache is invalidated. Order matters: put the most stable layers first, most volatile (source code) last.
 
----
+***
 
 ### Scenario 6: Container OOM Killed — No Application Error Logs
 
@@ -253,7 +253,7 @@ ENV JAVA_OPTS="-Xms512m -Xmx1536m"
 docker run -m 2g --memory-swap 2g myapp  # --memory-swap = memory+swap; setting equal disables swap
 ```
 
----
+***
 
 ### Scenario 7: `docker build` Fails with "No Space Left on Device" but Disk is 60% Full
 
@@ -297,7 +297,7 @@ Fix: tune filesystem with larger inode ratio (`mkfs.ext4 -i 4096`) on next rebui
 
 3. **Build cache growing unbounded in CI:** Add `docker builder prune --keep-storage 10GB -f` as a CI step or cron job.
 
----
+***
 
 ### Scenario 8: Multi-Stage Build Produces Correct Image Locally but Wrong Binary on CI
 
@@ -341,7 +341,7 @@ docker buildx build \
   --push .
 ```
 
----
+***
 
 ## Level 3: Production Operations
 
@@ -391,7 +391,7 @@ docker inspect mycontainer | jq '.[0].Config.User'
 docker run --rm myimage ls -la /app/
 ```
 
----
+***
 
 ### Scenario 10: Docker Compose Services Start Out of Order — Race Condition
 

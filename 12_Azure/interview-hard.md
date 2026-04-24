@@ -1464,7 +1464,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - [Advanced Terraform Patterns](../04_Infrastructure_as_Code_and_Cloud/Terraform/advanced-terraform-patterns.md)
 - [Terraform Interview Questions PDF](./terraform%20interview%20questions.pdf)
 
----
+***
 
 ## Priority 2: Automation & Orchestration (Crucial)
 *Connecting infrastructure with development workflows.*
@@ -1495,7 +1495,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - [Kubernetes Runbook](../05_Observability_and_Troubleshooting/Troubleshooting/kubernetes-runbook.md)
 - PDFs: [Docker](./docker%20interview%20questions.pdf) | [Kubernetes](./kubernetes%20interview%20questions.pdf) | [K8s Scenarios](./kubernetes%20scenario%20based%20questions.pdf)
 
----
+***
 
 ## Priority 3: Networking, Security, & Monitoring (Essential Operations)
 *Ensuring the infrastructure is connected, secure, and observable.*
@@ -1531,7 +1531,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - [Supply Chain Security (SLSA)](../02_Version_Control_and_CI_CD/DevSecOps/supply-chain-security-and-slsa.md)
 - [IaC Policy & GitOps](../04_Infrastructure_as_Code_and_Cloud/Terraform/policy-and-gitops.md)
 
----
+***
 
 ## Priority 4: Scripting & Day-to-Day Operations (Supporting Skills)
 *Automating the "glue" and maintaining the systems.*
@@ -1557,7 +1557,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - [Advanced Linux Performance & Hardening](../01_Prerequisites_and_Fundamentals/Linux/advanced-linux-performance-and-hardening.md)
 - [Incident Response Protocol](../05_Observability_and_Troubleshooting/Troubleshooting/incident-response-runbook.md)
 
----
+***
 
 ## Preparation Strategy for the Interview
 
@@ -1572,7 +1572,7 @@ Based on the job description, this guide prioritizes the topics you need to mast
 - [General Interview Questions](./general-interview-questions.md)
 - [Interview Questions (Easy)](./interview-questions-easy.md) | [Medium](./interview-questions-medium.md) | [Hard](./interview-questions-hard.md)
 
----
+***
 
 ## Staff/Principal-Level Azure Hard Questions
 

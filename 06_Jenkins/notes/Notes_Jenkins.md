@@ -2,7 +2,7 @@
 
 This document is a comprehensive, production-grade manual for Jenkins at the Senior/Staff Engineer level. It bridges the gap between basic automation and complex Platform Engineering, focusing on scalability, security, and internal mechanics.
 
----
+***
 
 ## 1. Architectural Internals & Distributed Systems
 
@@ -25,7 +25,7 @@ Jenkins uses the **Jenkins Remoting** library (Java based) for communication.
 | **Ephemeral Pods** | Kubernetes Plugin | Fast (Seconds) | Microservices, Python/Node, Security-critical builds (fresh env). |
 | **Sidecar Containers** | Docker | Instant | Quick scripts, tool-specific isolation (e.g., specific Go version). |
 
----
+***
 
 ## 2. Advanced Pipeline Engineering (Groovy DSL)
 
@@ -59,7 +59,7 @@ stage('Promote to Prod') {
 }
 ```
 
----
+***
 
 ## 3. Jenkins Shared Libraries (JSL): Implementation Level
 
@@ -95,7 +95,7 @@ JSL is the only way to scale CI across a 1000-person engineering org.
 *   **Global:** Defined in Master settings. Available to everyone.
 *   **Folder-level:** Restricted to specific teams/projects (Multi-tenancy).
 
----
+***
 
 ## 4. Configuration as Code (JCasC) & GitOps
 
@@ -133,7 +133,7 @@ jenkins:
                 ttyEnabled: true
 ```
 
----
+***
 
 ## 5. Security Hardening & Secret Management
 
@@ -172,7 +172,7 @@ Jenkins can orchestrate complex deployment patterns via the `pipeline-model-defi
 *   **Azure:** Use the **Azure Credentials** plugin and `az` CLI wrappers for native authentication to Service Principals.
 *   **EC2 Fleet Plugin:** Dynamically scales a fleet of EC2 Spot instances based on the Jenkins build queue size.
 
----
+***
 
 ## 7. Performance Tuning & DORA Metrics
 
@@ -192,7 +192,7 @@ Track these using the **Prometheus Plugin**:
 2.  **Lead Time:** Time from `git push` to `Deployment Succeeded`.
 3.  **Change Failure Rate:** Failed builds vs Total builds.
 
----
+***
 
 ## 7. The "Senior Logic" Matrix: Troubleshooting at Scale
 
@@ -203,7 +203,7 @@ Track these using the **Prometheus Plugin**:
 | **Agent Offline** | SSH handshake failed or Clock Skew. | Verify Master-Agent time sync (NTP) and SSH key permissions. |
 | **"No executors available"** | Build queue is full; Master is scheduling too many jobs. | Check **Node Labels**. Ensure jobs aren't fighting for the same specialized agent. |
 
----
+***
 
 ## 8. Essential Power-User Tips
 
@@ -211,5 +211,5 @@ Track these using the **Prometheus Plugin**:
 *   **Atomic Log Parsing:** Use `warnings-ng` plugin to aggregate errors from Java, C++, and Python compilers into a single dashboard.
 *   **Pipeline Unit Testing:** Use `JenkinsPipelineUnit` (Spock framework) to test complex Groovy logic in your Shared Libraries.
 
----
+***
 *Reference: Synthesized for Senior Platform Engineering (7+ YOE) and SDE-3 Level CI/CD Design.*

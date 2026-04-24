@@ -48,7 +48,7 @@ git cat-file -p a1b2c3
 
 Objects start as **loose objects** — one file per object. After accumulation, `git gc` packs them into **pack files**.
 
----
+***
 
 ## 2. The DAG (Directed Acyclic Graph)
 
@@ -94,7 +94,7 @@ cat .git/refs/heads/main
 # 7f3a8d91...
 ```
 
----
+***
 
 ## 3. Pack Files and Delta Compression
 
@@ -131,7 +131,7 @@ git fsck --lost-found           # write dangling objects to .git/lost-found/
 
 Default reflog expiry: **90 days** for reachable commits, **30 days** for unreachable. Objects with no refs are eligible for GC only after reflog expiry.
 
----
+***
 
 ## 4. Staging Area (Index)
 
@@ -151,7 +151,7 @@ Working Tree  ──git add──▶  Index  ──git commit──▶  Object D
 
 The index also stores file metadata (mode, mtime, size, inode) used to quickly detect which files have changed without rehashing.
 
----
+***
 
 ## 5. Branching Strategies
 
@@ -213,7 +213,7 @@ Simplified: `main` is always deployable. Create a short-lived feature branch, op
 | CI complexity | Low | High | Low |
 | Best for | High-velocity SaaS | Versioned software | Small teams/SaaS |
 
----
+***
 
 ## 6. Merge vs Rebase vs Squash
 
@@ -302,7 +302,7 @@ git rebase -i HEAD~8          # squash 8 WIP commits
 | Shared public branch | Merge only |
 | Hotfix cherry-picked to release branch | Cherry-pick |
 
----
+***
 
 ## 7. Monorepo Patterns
 
@@ -350,7 +350,7 @@ for dir in $CHANGED; do
 done
 ```
 
----
+***
 
 ## 8. Signed Commits and Supply Chain Security
 
@@ -400,7 +400,7 @@ SSH signing is simpler to set up than GPG and integrates with existing SSH infra
 
 In GitHub, enable "Require signed commits" in branch protection rules. Commits without a verified signature are rejected on push.
 
----
+***
 
 ## 9. Git Hooks Architecture
 
@@ -465,7 +465,7 @@ done
 > [!TIP]
 > Use the `pre-commit` framework (https://pre-commit.com) for multi-language hook management. Define hooks in `.pre-commit-config.yaml` — it handles installation, versioning, and running hooks in isolated environments.
 
----
+***
 
 ## 10. Git Protocols: HTTPS vs SSH vs git://
 
@@ -509,7 +509,7 @@ git config --global credential.helper store   # plain text — use with caution
 git config --global credential.helper osxkeychain  # macOS
 ```
 
----
+***
 
 ## 11. Partial Clones and Shallow Clones
 
@@ -549,7 +549,7 @@ Partial clones maintain full history visibility — you can run `git log`, `git 
 | `git bisect` works | No | Yes | Yes |
 | Typical use | CI build speed | Monorepo dev | Monorepo dev |
 
----
+***
 
 ## 12. Git Bundle and git-archive
 
@@ -582,7 +582,7 @@ git archive --format=tar.gz --prefix=myapp-1.0/ v1.0.0 | gzip > myapp-1.0.tar.gz
 git archive HEAD -- src/ | tar -x -C /tmp/extract
 ```
 
----
+***
 
 ## 13. rerere — Reuse Recorded Resolution
 

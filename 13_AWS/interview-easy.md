@@ -35,5 +35,5 @@ Lambda is AWS's serverless compute service. Code runs in response to events (API
 
 Route 53 is AWS's highly available DNS service. It handles domain registration, DNS resolution, and health-based routing policies: Simple, Weighted (A/B traffic splits), Latency-based (route to lowest-latency region), Failover (active-passive), and Geolocation routing.
 
----
+***
 

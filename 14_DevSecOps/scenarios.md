@@ -12,7 +12,7 @@
 **Problem:** An attacker achieved a shell in your container. How do you know?
 **Fix:** Deploy **Falco**. It monitors system calls and sends an alert if a shell is spawned or if a sensitive file (like `/etc/shadow`) is touched.
 
----
+***
 
 ## Scenario 1: Secret Leaked in Git History
 **Symptom:** A developer accidentally pushed an AWS Access Key to a public repo.
@@ -30,7 +30,7 @@
 2. Use an automated PR tool (e.g., Dependabot, Renovate) to push the fix.
 3. If patching is impossible, use a WAF rule to block the exploit pattern.
 
----
+***
 
 ## Scenario 3: Compromised Base Image in Supply Chain
 **Symptom:** Security team gets an alert from Prisma Cloud that a container running in production is making outbound connections to an unknown IP on port 4444. The image was pulled from Docker Hub.
@@ -94,7 +94,7 @@ spec:
 
 **Prevention:** Mirror all upstream images to your private registry. Verify digests in your CI pipeline with `cosign verify --key cosign.pub`. Enable Falco rules for `outbound_conn` to unknown CIDRs.
 
----
+***
 
 ## Scenario 4: OPA Gatekeeper Policy Conflict Blocks All Deployments
 **Symptom:** After a Gatekeeper policy update, all deployments to production fail with `admission webhook ... denied the request`. Even rollbacks fail.
@@ -143,7 +143,7 @@ spec:
 
 **Prevention:** Gate Gatekeeper policy changes with a canary namespace where all `EnforcementAction: deny` rules are tested first. Use `gator verify` in CI to validate ConstraintTemplates against test cases before merging.
 
----
+***
 
 ## Scenario 5: SAST False Positives Blocking Pipeline at Scale
 **Symptom:** After enabling SAST with Semgrep in all pipelines, 40% of PRs are blocked by findings that developers identify as false positives. Merge velocity drops 60%.
@@ -198,7 +198,7 @@ paths:
 
 **Prevention:** Measure FP rate per rule quarterly. Any rule with >20% FP rate gets downgraded from `block` to `warn`. Run SAST findings through a JIRA backlog for team triage rather than blocking the PR gate.
 
----
+***
 
 ## Scenario 6: Trivy Blocking on Unfixable CVEs
 **Symptom:** CI pipeline fails on `trivy image --exit-code 1 --severity CRITICAL`. The blocking CVE is in OpenSSL embedded in a distroless base image. The CVE has no fix available upstream.
@@ -245,7 +245,7 @@ FROM cgr.dev/chainguard/python:latest
 
 **Prevention:** Separate the "build fails if there's a fixable critical CVE" gate from "report unfixable CVEs to security dashboard." Fixable = pipeline gate. Unfixable = Jira ticket for review.
 
----
+***
 
 ## Scenario 7: Cosign Verification Failure in Kubernetes Admission
 **Symptom:** After enabling Sigstore/Cosign verification via a Kyverno policy, a deployment from CI fails with `image signature verification failed`. The image was signed in the same CI pipeline 10 minutes ago.
@@ -299,7 +299,7 @@ cosign sign myregistry.azurecr.io/myapp@$DIGEST
 
 **Prevention:** Add `cosign verify` as a final step in the CI pipeline to validate the signature is verifiable before reporting success. This catches signing misconfigurations before they reach admission control.
 
----
+***
 
 ## Scenario 8: SBOM Gap — Critical Package Not in Inventory
 **Symptom:** A CVE for a transitive dependency (`libexpat`) is announced. Security team searches the SBOM inventory and finds no affected services. But manual inspection of one service's container reveals `libexpat` is present.

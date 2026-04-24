@@ -2,7 +2,7 @@
 
 Quick reference for network commands, troubleshooting, and common tasks.
 
----
+***
 
 ## Interface Configuration
 
@@ -43,7 +43,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `arp -s 192.168.1.100 aa:bb:cc:dd:ee:ff` | Add static ARP |
 | `iwconfig wlan0` | Show wireless interface info |
 
----
+***
 
 ## Connectivity Testing
 
@@ -59,7 +59,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `hping3 -S -p 80 google.com` | SYN scan port 80 |
 | `hping3 --flood google.com` | Stress test (use carefully!) |
 
----
+***
 
 ## DNS Troubleshooting
 
@@ -75,7 +75,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `dig -x 93.184.216.34` | Reverse DNS lookup |
 | `dig soa example.com` | Get SOA record (zone info) |
 
----
+***
 
 ## Network Monitoring
 
@@ -107,7 +107,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `nload eth0` | Real-time traffic graph |
 | `iptraf-ng` | Interactive IP traffic monitor |
 
----
+***
 
 ## Socket Analysis
 
@@ -126,7 +126,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `lsof -i TCP` | All TCP connections |
 | `lsof -i @192.168.1.1` | Connections to specific IP |
 
----
+***
 
 ## SSH & Remote Access
 
@@ -149,7 +149,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `rsync -avz --progress src/ user@remote:dest/` | Sync with progress |
 | `rsync -avz --delete src/ user@remote:dest/` | Mirror directories |
 
----
+***
 
 ## HTTP/API Testing
 
@@ -171,7 +171,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `wget -r https://example.com` | Recursive download |
 | `wget --limit-rate=100k https://example.com/file.zip` | Rate-limited download |
 
----
+***
 
 ## Firewall (iptables/nftables)
 
@@ -195,7 +195,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `ufw allow 22/tcp` | Allow SSH (UFW) |
 | `ufw enable` | Enable UFW |
 
----
+***
 
 ## Connection Tracking
 
@@ -209,7 +209,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `sysctl net.netfilter.nf_conntrack_max` | Max conntrack entries |
 | `echo 3 > /proc/sys/net/netfilter/nf_conntrack_count` | Reset conntrack (dangerous!) |
 
----
+***
 
 ## Network Performance
 
@@ -226,7 +226,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `mii-tool eth0` | Check link status (older NICs) |
 | `nicstat` | NIC utilization and errors |
 
----
+***
 
 ## Wireless Networks
 
@@ -240,7 +240,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `nmcli device wifi list` | List WiFi networks (NetworkManager) |
 | `nmcli device wifi connect SSID password PASS` | Connect to WiFi |
 
----
+***
 
 ## DHCP
 
@@ -254,7 +254,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `ipconfig /renew` | Renew DHCP (Windows) |
 | `ipconfig /all` | Show all config (Windows) |
 
----
+***
 
 ## SSL/TLS Diagnostics
 
@@ -270,7 +270,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `openssl x509 -in cert.pem -noout -enddate` | Show expiry date |
 | `nmap --script ssl-enum-ciphers -p 443 example.com` | Enumerate SSL ciphers |
 
----
+***
 
 ## Container Networking
 
@@ -287,7 +287,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `crictl pods` | List CRI-O/containerd pods |
 | `crictl inspectp <pod-id>` | Inspect pod sandbox |
 
----
+***
 
 ## Kubernetes Network Debugging
 
@@ -303,7 +303,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | `kubectl exec <pod> -- nslookup <service>` | Test DNS from pod |
 | `kubectl exec <pod> -- wget -qO- http://<service>` | Test HTTP from pod |
 
----
+***
 
 ## Quick Reference: Common Ports
 
@@ -323,7 +323,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
 | 4789 | VXLAN | UDP |
 | 6081 | Geneve | UDP |
 
----
+***
 
 ## Troubleshooting Checklist
 
@@ -359,7 +359,7 @@ Quick reference for network commands, troubleshooting, and common tasks.
     → Check connection tracking limits, NAT gateway limits
 ```
 
----
+***
 
 ## Environment Variables
 
@@ -383,7 +383,7 @@ hostname
 hostnamectl  # systemd systems
 ```
 
----
+***
 
 ## System Tuning
 
@@ -409,7 +409,7 @@ echo "net.ipv4.ip_local_port_range=1024 65535" >> /etc/sysctl.conf
 sysctl -p
 ```
 
----
+***
 
 ## Advanced observability (eBPF & Hubble)
 
@@ -424,7 +424,7 @@ sysctl -p
 | `cilium status` | Check Cilium CNI health |
 | `cilium monitor --type drop` | Monitor dropped packets via eBPF |
 
----
+***
 
 ## BGP & Anycast Diagnostics
 
@@ -436,7 +436,7 @@ sysctl -p
 | `birdc show protocols` | Check BGP status (BIRD) |
 | `dig +short whoami.akamai.net` | Check which Anycast edge you hit |
 
----
+***
 
 ## HTTP/3 & QUIC Inspection
 
@@ -446,4 +446,4 @@ sysctl -p
 | `tshark -V -Y quic` | Deep QUIC packet analysis |
 | `tcpdump -nn -i eth0 udp port 443` | Capture QUIC traffic |
 
----
+***

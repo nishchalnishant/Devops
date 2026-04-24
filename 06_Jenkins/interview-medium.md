@@ -56,7 +56,7 @@ stage('Deploy to Production') {
 
 The pipeline pauses until an authorized user clicks "Deploy" in the Jenkins UI.
 
----
+***
 
 
 **15. How do you implement dynamic agent provisioning using the Kubernetes plugin?**

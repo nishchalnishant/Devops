@@ -17,7 +17,7 @@
 13. [GPU Infrastructure](#13-gpu-infrastructure)
 14. [ML Metadata Lineage (MLMD)](#14-ml-metadata-lineage-mlmd)
 
----
+***
 
 ## 1. MLOps Lifecycle
 
@@ -74,7 +74,7 @@ Monitoring ──► Drift detection → retrain trigger → back to CT
 | Rollback | Redeploy old container | Promote previous model version from registry |
 | Unique risk | Logic bugs | Silent degradation with healthy infrastructure |
 
----
+***
 
 ## 2. Feature Stores
 
@@ -170,7 +170,7 @@ Offline Store ──► Materialization Job ──► Online Store
 | Session-level | Last 10 purchases, recent clicks | Minutes | Streaming materialization (Kafka → Flink) |
 | Real-time | Current cart value, live transaction | Seconds | On-demand computation at inference time |
 
----
+***
 
 ## 3. Continuous Training Pipelines
 
@@ -256,7 +256,7 @@ For many domains, ground truth labels arrive days to weeks after prediction (fra
 3. **Delayed evaluation pipeline**: Join predictions with labels as they arrive; continuously update AUC/precision-recall.
 4. **Cohort tracking**: Track performance by prediction cohort date. Compare day-30 metrics across cohorts to spot degradation trends.
 
----
+***
 
 ## 4. ML Platforms
 
@@ -358,7 +358,7 @@ Google Cloud MLOps platform.
 | Best for | Pure ML training pipelines | Complex multi-system data workflows |
 | Recommended pattern | Use Airflow for upstream data pipelines; trigger KFP training pipeline when data is ready |
 
----
+***
 
 ## 5. Model Serving
 
@@ -472,7 +472,7 @@ spec:
   canaryTrafficPercent: 10
 ```
 
----
+***
 
 ## 6. Model Registry
 
@@ -531,7 +531,7 @@ A model card is structured documentation attached to a model version:
 
 Required for regulatory compliance (SR 11-7 in financial services, EU AI Act, FDA for medical AI).
 
----
+***
 
 ## 7. Experiment Tracking
 
@@ -572,7 +572,7 @@ mlflow.pytorch.autolog()   # Captures per-epoch loss/accuracy, gradient norms
 mlflow.xgboost.autolog()   # Captures eval metrics, best iteration
 ```
 
----
+***
 
 ## 8. Data Versioning with DVC
 
@@ -637,7 +637,7 @@ stages:
       - metrics/train.json
 ```
 
----
+***
 
 ## 9. Model Drift and Monitoring
 
@@ -709,7 +709,7 @@ Long-term (weeks):
   - Cohort comparison across prediction dates
 ```
 
----
+***
 
 ## 10. A/B Testing for Models
 
@@ -772,7 +772,7 @@ if p_value < 0.05 and challenger_rate > champion_rate:
 | **A/B test** | Controlled split for business metric measurement | Controlled | Measuring business KPI impact statistically |
 | **Blue/Green** | Instant full swap | High | When canary is not feasible |
 
----
+***
 
 ## 11. LLMOps
 
@@ -897,7 +897,7 @@ When RAG and prompt engineering cannot solve the problem (domain-specific style,
 | Quantization | AWQ INT4 or GPTQ INT8 | 4x memory reduction, 2x throughput |
 | Batch API | Group async requests; providers offer 50% batch discount | 50% off |
 
----
+***
 
 ## 12. Responsible AI and Bias Detection
 
@@ -954,7 +954,7 @@ shap.summary_plot(shap_values[1], X_test)
 > [!CAUTION]
 > Fairness constraints typically trade off accuracy. Document the trade-off explicitly in the model card and get stakeholder sign-off before deployment.
 
----
+***
 
 ## 13. GPU Infrastructure
 
@@ -1046,7 +1046,7 @@ model.gradient_checkpointing_enable()
 | Cost | High (HCA + switch) | Lower |
 | Use for | Multi-node large model training | Inference clusters, smaller training |
 
----
+***
 
 ## 14. ML Metadata Lineage (MLMD)
 

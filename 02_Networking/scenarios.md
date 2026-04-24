@@ -2,7 +2,7 @@
 
 Real-world production scenarios and systematic debugging approaches.
 
----
+***
 
 ## Scenario 1: Intermittent 502 Bad Gateway from Load Balancer
 
@@ -91,7 +91,7 @@ aws cloudwatch get-metric-statistics \
 | Security group | Allow LB → backend on port |
 | NAT exhaustion | Add NAT Gateway, use VPC endpoints |
 
----
+***
 
 ## Scenario 2: Pod Cannot Reach Service by DNS Name
 
@@ -196,7 +196,7 @@ requests.get("http://service-b.default.svc.cluster.local.:8080")
 # Note the trailing dot - forces FQDN resolution
 ```
 
----
+***
 
 ## Scenario 3: Connection Refused vs Connection Timeout
 
@@ -286,7 +286,7 @@ Connection Error
            └─ iptables dropping? → Fix rules
 ```
 
----
+***
 
 ## Scenario 4: High Latency in Cross-Region Communication
 
@@ -387,7 +387,7 @@ sysctl -w net.ipv4.tcp_congestion_control=bbr
 # Better performance on lossy/congested links
 ```
 
----
+***
 
 ## Scenario 5: NAT Gateway Connection Exhaustion
 
@@ -495,7 +495,7 @@ sysctl -w net.ipv4.tcp_fin_timeout=30
 sysctl -w net.ipv4.ip_local_port_range="1024 65535"
 ```
 
----
+***
 
 ## Scenario 6: Kubernetes Service Not Reachable
 
@@ -583,7 +583,7 @@ curl <cluster-ip>:<port>
 | NetworkPolicy blocks | Connection times out | Allow service traffic |
 | CNI issue | No pod-to-pod routing | Restart CNI pods |
 
----
+***
 
 ## Scenario 7: TLS Certificate Expiry Causing Outage
 
@@ -675,7 +675,7 @@ for domain in $(cat domains.txt); do
 done
 ```
 
----
+***
 
 ## Scenario 8: Pod Cannot Access External API
 
@@ -766,7 +766,7 @@ aws ec2 create-vpc-endpoint \
   --vpc-endpoint-type Gateway
 ```
 
----
+***
 
 ## Troubleshooting Command Reference
 
@@ -836,11 +836,11 @@ kubectl logs <pod> --since=1h
 kubectl logs <pod> | grep -i error
 ```
 
----
+***
 
 # Document: Record root cause and resolution for future
 
----
+***
 
 ## Scenario 9: gRPC Load Balancing Issues (The "Sticky Connection" Problem)
 
@@ -869,7 +869,7 @@ done
 2. **L7 Proxy (Envoy/Istio):** Use a service mesh or an Ingress controller that understands gRPC. The proxy breaks the connection and re-balances *individual frames/requests* to different backends.
 3. **Max Connection Age:** Set a limit in the gRPC server (e.g., `MaxConnectionAge = 30s`) to force clients to reconnect and re-balance naturally.
 
----
+***
 
 ## Scenario 10: Asymmetric Routing in Hybrid Cloud (VPN/Direct Connect)
 
@@ -897,7 +897,7 @@ Compare the source/destination IPs and MAC addresses to see if they match the ex
 2. **Source NAT (SNAT):** Use SNAT at the gateway so the return traffic *must* go back to the NAT IP, forcing it through the same path.
 3. **VPC Ingress Routing:** (AWS specific) Use Ingress Routing tables to force traffic through a specific Appliance (Firewall) regardless of the route.
 
----
+***
 
 ## Summary: Systematic Approach
 
@@ -910,7 +910,7 @@ Compare the source/destination IPs and MAC addresses to see if they match the ex
 7. **Test:** Try fix, verify it resolves the issue
 8. **Document:** Record root cause and resolution for future
 
----
+***
 
 ## Scenario 9: The "Black Hole" MTU / PMTUD Failure
 **Symptom:** Small packets (ping) work, but large packets (HTTP/SSH) hang indefinitely.

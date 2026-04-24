@@ -113,7 +113,7 @@ If you want a project that signals strong senior potential, build a small paved 
 
 This project demonstrates platform thinking, standardization, and team enablement rather than isolated tooling knowledge.
 
----
+***
 
 ## Related Resources
 
@@ -123,6 +123,6 @@ This project demonstrates platform thinking, standardization, and team enablemen
 - [Enterprise Scale Architecture](../Enterprise_Scale_Architecture.md)
 - [Platform Engineering and FinOps](../Platform_Engineering_and_FinOps.md)
 
----
+***
 
 **Previous:** [Phase 4 - Senior Role Readiness](phase-4-senior-role-readiness.md) | **Back to:** [Learning Path Overview](README.md)

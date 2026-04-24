@@ -107,5 +107,5 @@ Hyperparameters are set before training (learning rate, depth, regularization) â
 
 Model explainability provides insight into why a model made a specific prediction. SHAP (SHapley Additive exPlanations) computes the contribution of each feature to a prediction using game theory. LIME approximates the model locally with an interpretable surrogate. Required for: regulatory compliance (GDPR right-to-explanation), debugging predictions, detecting bias, and building user trust.
 
----
+***
 

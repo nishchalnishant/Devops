@@ -32,7 +32,7 @@ An Azure DevOps Service Connection stores credentials (Service Principal client 
 
 Azure Policy evaluates resources against defined rules and effects. Effects include `Deny` (block non-compliant resource creation), `Audit` (log non-compliance without blocking), `DeployIfNotExists` (automatically remediate by deploying a resource), and `Modify` (add or update tags). Policies are assigned to scopes (management group, subscription, resource group) and evaluated at creation time and during compliance scans. Policy initiatives bundle multiple policies for standards like CIS benchmarks.
 
----
+***
 
 
 **17. Walk through the Azure Workload Identity flow for a pod accessing Key Vault.**

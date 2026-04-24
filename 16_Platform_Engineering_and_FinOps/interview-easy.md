@@ -20,5 +20,5 @@ DORA (DevOps Research and Assessment) identified four metrics that predict high 
 
 An IDP is a self-service layer that abstracts platform infrastructure behind a developer-facing interface. Developers declare what they need ("a Python service with PostgreSQL in staging") and the IDP provisions the full stack using pre-approved templates. Tools: Backstage (portal), Crossplane (infrastructure API), Port, Humanitec.
 
----
+***
 

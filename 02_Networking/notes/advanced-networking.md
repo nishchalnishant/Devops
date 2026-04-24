@@ -19,7 +19,7 @@ For high-traffic servers, default kernel settings are bottlenecks.
 - **Anycast IP:** Assigning the same IP to multiple servers worldwide. Routers automatically send traffic to the "closest" instance (BGP-based). Used by Cloudflare and AWS Global Accelerator.
 - **DSR (Direct Server Return):** A load balancing technique where the LB only handles incoming packets; the backend server responds directly to the client, bypassing the LB and doubling throughput.
 
----
+***
 
 #### 💡 Senior Interview Strategy: "The packet's journey"
 When asked about network latency, discuss:
@@ -28,7 +28,7 @@ When asked about network latency, discuss:
 3. **Queuing Latency:** Packets waiting in router buffers (Bufferbloat).
 4. **Handling Latency:** OS context switches and application processing.
 
----
+***
 
 **Continue your preparation with these specialized deep-dives:**
 1. `[HARD]` [Advanced Protocols & Forensics](./interview-hard.md)
@@ -73,7 +73,7 @@ BGP is the "glue" of the internet. In cloud environments, it's used for **Hybrid
 
 **DevOps Context:** Used by CDNs (CloudFront, Cloudflare) and Global Load Balancers (Azure Front Door). Provides single-IP global reachability and massive DDoS protection.
 
----
+***
 
 ## Deep Dive: Modern Protocols
 
@@ -111,7 +111,7 @@ Binary framing over a single TCP connection.
 - **Stream prioritization:** Weight-based prioritization
 - **Limitation:** TCP-level HOL blocking remains — one lost packet stalls all streams in the connection
 
----
+***
 
 ## Network Performance & Latency Optimization
 
@@ -138,7 +138,7 @@ In networking, the "average" latency (P50) is irrelevant. High-scale systems are
 | **Reno** | Classic TCP congestion control | Legacy systems |
 | **Vegas** | RTT-based, proactive | Low latency networks |
 
----
+***
 
 ## Network Forensics & Security
 
@@ -167,7 +167,7 @@ openssl s_client -connect example.com:443 -showcerts
 openssl s_client -connect example.com:443 -tls1_3
 ```
 
----
+***
 
 ## Software Defined Networking (SDN) & Overlays
 
@@ -202,7 +202,7 @@ Why choosing the right CNI (Calico for BGP-based routing vs. Flannel for simple 
 
 Geneve (Generic Network Virtualization Encapsulation) is the successor to VXLAN and STT. Variable-length header allows arbitrary metadata. Used by OVN, OpenStack, and VMware NSX-T. Transport: UDP port 6081.
 
----
+***
 
 ## eBPF Networking
 
@@ -249,7 +249,7 @@ Cilium replaces iptables with eBPF programs for all Kubernetes networking:
 
 Kernel bypass networking for extreme performance. Applications access NIC hardware directly from userspace. No system calls, no interrupts. Used by telco, trading, and high-frequency workloads. Not suitable for typical DevOps workloads.
 
----
+***
 
 ## Summary: Key Takeaways
 

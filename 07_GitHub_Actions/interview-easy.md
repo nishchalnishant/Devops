@@ -22,7 +22,7 @@ Workflows are triggered by events defined in the `on:` block: `push`, `pull_requ
 
 `workflow_dispatch` allows a workflow to be triggered manually from the GitHub UI or via the API. It supports defining inputs that the user fills in at trigger time. Used for on-demand deployments, releases, or maintenance tasks.
 
----
+***
 
 
 **6. What does `actions/checkout` do and why is it almost always the first step?**

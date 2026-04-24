@@ -40,7 +40,7 @@ git config --list --show-origin              # show where each setting comes fro
 git config --global -e                       # open global config in editor
 ```
 
----
+***
 
 ## Init and Clone
 
@@ -61,7 +61,7 @@ git clone --mirror <url>                     # full mirror including all refs
 git clone --single-branch --branch main <url>     # only fetch one branch
 ```
 
----
+***
 
 ## Staging and Committing
 
@@ -98,7 +98,7 @@ git checkout -- <file>                       # legacy syntax for restore
 git reset HEAD <file>                        # legacy syntax to unstage
 ```
 
----
+***
 
 ## Branching
 
@@ -147,7 +147,7 @@ git merge -X ours <branch>                   # prefer current branch on conflict
 git merge -X theirs <branch>                 # prefer incoming branch on conflict
 ```
 
----
+***
 
 ## Remote Operations
 
@@ -186,7 +186,7 @@ git push origin --delete <tag>               # delete remote tag
 git push origin HEAD                         # push current branch (regardless of name)
 ```
 
----
+***
 
 ## History Inspection
 
@@ -249,7 +249,7 @@ git shortlog -sn                             # commit count by author, sorted
 git log --graph --all --oneline              # full repo history graph
 ```
 
----
+***
 
 ## Rebase and Cherry-Pick
 
@@ -283,7 +283,7 @@ git cherry-pick --abort                      # abort cherry-pick
 git cherry-pick --continue                   # continue after resolving conflict
 ```
 
----
+***
 
 ## Stash
 
@@ -312,7 +312,7 @@ git stash clear                              # delete all stashes
 git stash branch <branch>                    # create branch from stash and apply it
 ```
 
----
+***
 
 ## Tags
 
@@ -340,7 +340,7 @@ git describe --tags                          # describe current commit relative 
 git describe --tags --abbrev=0               # show nearest tag only
 ```
 
----
+***
 
 ## Undo and Reset
 
@@ -370,7 +370,7 @@ git clean -fdx                               # also delete ignored files
 git clean -fdi                               # interactive mode
 ```
 
----
+***
 
 ## Bisect
 
@@ -395,7 +395,7 @@ git bisect run ./ci/test.sh
 git bisect run make test
 ```
 
----
+***
 
 ## Reflog
 
@@ -414,7 +414,7 @@ git branch recover HEAD@{5}                  # create branch from old HEAD posit
 git reflog expire --expire=now --all         # expire all reflog entries immediately
 ```
 
----
+***
 
 ## Submodules
 
@@ -449,7 +449,7 @@ git clone --recurse-submodules <url>
 git clone --recurse-submodules --shallow-submodules <url>  # shallow submodule clones
 ```
 
----
+***
 
 ## Worktrees
 
@@ -473,7 +473,7 @@ git worktree remove ../hotfix
 > [!TIP]
 > Worktrees share the same `.git` directory. You cannot check out the same branch in two worktrees simultaneously.
 
----
+***
 
 ## Sparse Checkout
 
@@ -496,7 +496,7 @@ git sparse-checkout init
 git sparse-checkout set '/*' '!/docs'        # everything except docs/
 ```
 
----
+***
 
 ## GPG and SSH Signing
 
@@ -517,7 +517,7 @@ git config --global user.signingkey ~/.ssh/id_ed25519.pub
 git config --global commit.gpgsign true
 ```
 
----
+***
 
 ## SSH Setup
 
@@ -542,7 +542,7 @@ ssh -T git@github.com
 git remote set-url origin git@github.com:org/repo.git
 ```
 
----
+***
 
 ## Large File Handling
 
@@ -570,7 +570,7 @@ git lfs fetch --all                          # fetch all LFS objects
 git lfs pull                                 # fetch + checkout LFS files
 ```
 
----
+***
 
 ## Repository Maintenance
 
@@ -596,7 +596,7 @@ git repack -a -d                             # repack all, delete redundant pack
 git repack -a -d -f --delta-depth=250 --window=250  # aggressive repack
 ```
 
----
+***
 
 ## Useful One-Liners
 
@@ -641,7 +641,7 @@ git archive --format=tar.gz HEAD > snapshot.tar.gz
 git ls-files | xargs wc -l
 ```
 
----
+***
 
 ## Aliases (Recommended ~/.gitconfig)
 
@@ -671,7 +671,7 @@ git ls-files | xargs wc -l
     rbo = rebase --onto
 ```
 
----
+***
 
 ## Log Format Reference
 
@@ -735,7 +735,7 @@ Shubham
 TrainWith
 
 
----
+***
 
 ## Page 2
 
@@ -783,7 +783,7 @@ Shubham
 TrainWith
 
 
----
+***
 
 ## Page 3
 
@@ -824,7 +824,7 @@ Shubham
 TrainWith
 
 
----
+***
 
 ## Page 4
 
@@ -865,7 +865,7 @@ Shubham
 TrainWith
 
 
----
+***
 
 ## Page 5
 
@@ -902,7 +902,7 @@ Shubham
 TrainWith
 
 
----
+***
 
 ## Page 6
 
@@ -938,7 +938,7 @@ commit the changes
 using : ` git push origin main`
 
 
----
+***
 
 ## Page 7
 
@@ -970,7 +970,7 @@ b. git fetch upstream
 c. git merge upstream/main
 
 
----
+***
 
 ## Page 8
 
@@ -992,5 +992,5 @@ Shubham
 TrainWith
 
 
----
+***
 

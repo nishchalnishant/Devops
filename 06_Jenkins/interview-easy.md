@@ -32,7 +32,7 @@ The `post` block defines steps that run after the pipeline or a stage completes,
 
 Configure a webhook in the SCM (GitHub, GitLab, Bitbucket) to notify Jenkins when a push occurs. In Jenkins, enable "GitHub hook trigger for GITScm polling" or the GitLab/Bitbucket equivalent on the pipeline job.
 
----
+***
 
 
 **9. What is the difference between a Jenkins controller and a Jenkins agent?**

@@ -55,7 +55,7 @@ Linux uses a **single-rooted, inverted tree-like structure**. The **Root Directo
 /etc/hostname        — System hostname
 ```
 
----
+***
 
 ## Linux Kernel Architecture
 
@@ -93,7 +93,7 @@ High-performance systems minimize syscall frequency through:
 | `epoll_wait()` | Efficient I/O event multiplexing |
 | `sendfile()` | Zero-copy file-to-socket transfer |
 
----
+***
 
 ## Virtual Filesystem (VFS)
 
@@ -110,7 +110,7 @@ VFS is the abstraction layer that presents a unified file interface regardless o
 | `devtmpfs` | `/dev` | Device nodes managed by kernel |
 | `securityfs` | `/sys/kernel/security` | LSM policy files |
 
----
+***
 
 ## Process Management
 
@@ -173,7 +173,7 @@ killall nginx             # Kill by process name
 pkill -f pattern          # Kill by pattern
 ```
 
----
+***
 
 ## User and Group Management
 
@@ -230,7 +230,7 @@ alice ALL=(ALL:ALL) ALL
 %developers ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /usr/bin/docker
 ```
 
----
+***
 
 ## File Permissions
 
@@ -285,7 +285,7 @@ chmod g+s /shared/dir        # SetGID (files inherit group)
 chmod +t /tmp                # Sticky bit (prevent deletion)
 ```
 
----
+***
 
 ## Disk and Storage Management
 
@@ -325,7 +325,7 @@ umount /mnt/data             # Unmount
 UUID=abc123 /data         xfs                defaults     0      2
 ```
 
----
+***
 
 ## Package Management
 
@@ -353,7 +353,7 @@ dnf search keyword           # Search packages
 dnf info nginx               # Show package details
 ```
 
----
+***
 
 ## Key Takeaways
 

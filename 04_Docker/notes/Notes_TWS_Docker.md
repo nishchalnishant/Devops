@@ -13,7 +13,7 @@ With
 With
 
 
----
+***
 
 ## Page 2
 
@@ -50,7 +50,7 @@ You can re-use the image.
 It took very less time to create the container.
 
 
----
+***
 
 ## Page 3
 
@@ -75,7 +75,7 @@ Note
 Architecture of Docker
 
 
----
+***
 
 ## Page 4
 
@@ -112,7 +112,7 @@ required to run a program.
 Docker Images
 
 
----
+***
 
 ## Page 5
 
@@ -145,7 +145,7 @@ not installed. yum install docker
  To download an image from docker-hub to a local machine.
 
 
----
+***
 
 ## Page 6
 
@@ -171,7 +171,7 @@ With
  To see only running containers.
 
 
----
+***
 
 ## Page 7
 
@@ -197,7 +197,7 @@ container first —
 
 
 
----
+***
 
 ## Page 8
 
@@ -219,7 +219,7 @@ then —
  Now create a container from this image.
 
 
----
+***
 
 ## Page 9
 
@@ -254,7 +254,7 @@ CMD
 Execute commands but during container creation.
 
 
----
+***
 
 ## Page 10
 
@@ -289,7 +289,7 @@ Run image to create the container
  Check process state
 
 
----
+***
 
 ## Page 11
 
@@ -312,7 +312,7 @@ Then build the image
 Then create the image
 
 
----
+***
 
 ## Page 12
 
@@ -344,7 +344,7 @@ Attach the volume to containers
 On deleting the container, the volume does not delete.
 
 
----
+***
 
 ## Page 13
 
@@ -368,7 +368,7 @@ Now after creating container2, myvolume1 is visible, whatever you do in
 one volume, can be seen from another volume.
 
 
----
+***
 
 ## Page 14
 
@@ -394,7 +394,7 @@ Create volumes in host and container and mapped them
 Now check in ec2, you can see the files.
 
 
----
+***
 
 ## Page 15
 
@@ -419,7 +419,7 @@ To get container details
 
 
 
----
+***
 
 ## Page 16
 
@@ -459,7 +459,7 @@ other docker containers.
 Note
 
 
----
+***
 
 ## Page 17
 

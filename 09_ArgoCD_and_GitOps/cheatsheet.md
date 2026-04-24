@@ -192,7 +192,7 @@ kubectl patch secret -n argocd argocd-secret \
   -p '{"stringData":{"admin.password":"'$(htpasswd -nbBC 10 "" newpassword | tr -d ':\n' | sed 's/$2y/$2a/')'"}}' 
 ```
 
----
+***
 
 ## ApplicationSet YAML Templates
 
@@ -404,7 +404,7 @@ spec:
         namespace: platform
 ```
 
----
+***
 
 ## Argo Rollouts YAML Patterns
 
@@ -554,7 +554,7 @@ kubectl argo rollouts history rollout my-service -n production
 kubectl argo rollouts undo my-service -n production              # Roll back one revision
 ```
 
----
+***
 
 ## Sync Options Reference
 
@@ -590,7 +590,7 @@ syncOptions:
 | `OutOfSync` | Live state differs from Git state |
 | `Unknown` | Cannot determine sync status (cluster unreachable, etc.) |
 
----
+***
 
 ## Notification Annotations
 
@@ -604,7 +604,7 @@ metadata:
     notifications.argoproj.io/subscribe.on-sync-running.slack: deployments
 ```
 
----
+***
 
 ## Useful kubectl + argocd Combos
 
@@ -651,7 +651,7 @@ kubectl top pods -n argocd
 kubectl logs -n argocd deploy/argocd-application-controller --tail=50 | grep -i error
 ```
 
----
+***
 
 ## ignoreDifferences Patterns
 

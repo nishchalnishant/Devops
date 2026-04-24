@@ -23,7 +23,7 @@ git checkout rescue/my-work
 
 **Prevention:** Never do work in detached HEAD without immediately creating a branch. Always `git checkout -b <name>` before making changes after checking out a tag/SHA.
 
----
+***
 
 ## 2. Force-Push Disaster Recovery
 
@@ -58,7 +58,7 @@ git rebase origin/main
 
 **Prevention:** Protect `main` with branch protection rules. Require PRs. If force push is needed legitimately, use `git push --force-with-lease` — it fails if the remote tip moved since your last fetch.
 
----
+***
 
 ## 3. Large File Accidentally Committed
 
@@ -104,7 +104,7 @@ java -jar bfg.jar --delete-files large-file.bin
 git reflog expire --expire=now --all && git gc --prune=now --aggressive
 ```
 
----
+***
 
 ## 4. Merge Conflict in CI
 
@@ -148,7 +148,7 @@ git merge -X ours release/1.4       # prefer current branch on conflict
 git merge -X theirs release/1.4     # prefer incoming branch on conflict
 ```
 
----
+***
 
 ## 5. Lost Commit Recovery via Reflog
 
@@ -193,7 +193,7 @@ git fsck --lost-found
 
 **Time limit:** Reflog entries expire after 90 days by default. `git gc` removes unreferenced objects. Act quickly.
 
----
+***
 
 ## 6. Monorepo Partial Checkout
 
@@ -246,7 +246,7 @@ for svc in $CHANGED; do
 done
 ```
 
----
+***
 
 ## 7. Broken Submodule
 
@@ -309,7 +309,7 @@ git clone --recurse-submodules <url>
 git submodule update --init --recursive
 ```
 
----
+***
 
 ## 8. Bisect a Regression
 
@@ -382,7 +382,7 @@ git show --stat a4f9d12
 git log --merges --ancestry-path a4f9d12..main | head -5
 ```
 
----
+***
 
 ## 9. Git Worktrees for Multi-Tasking
 **Situation:** You are in the middle of a massive feature branch (`feature/ui-overhaul`) with hundreds of uncommitted changes. Your boss asks for an immediate hotfix on `main`. Stashing and switching is risky and slow.

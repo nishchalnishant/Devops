@@ -616,7 +616,7 @@ Say:
 - You think about latency, accuracy, and cost together.
 - You describe both the immediate mitigation and the prevention plan.
 
----
+***
 
 ## Scenario 1: Model Training Data Drift
 **Symptom:** The model's accuracy in production has dropped by 10% compared to validation.

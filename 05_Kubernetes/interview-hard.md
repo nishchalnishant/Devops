@@ -74,7 +74,7 @@ MIG (NVIDIA A100/H100) partitions a single physical GPU into isolated slices, ea
  
 
 
----
+***
 
 ## Page 2
 
@@ -123,7 +123,7 @@ software responsible for running containers.
 3. What is a Pod in Kubernetes? Why is it the smallest deployable unit? 
 
 
----
+***
 
 ## Page 3
 
@@ -169,7 +169,7 @@ a policy by which to access them. It provides a stable network endpoint (a
 fixed IP address and DNS name) for a group of Pods, even as Pods are 
 
 
----
+***
 
 ## Page 4
 
@@ -216,7 +216,7 @@ Stable, unique network identifiers: Each Pod gets a stable
 hostname. 
 
 
----
+***
 
 ## Page 5
 
@@ -263,7 +263,7 @@ within the cluster, typically HTTP/HTTPS traffic. It provides features
 like URL-based routing, name-based virtual hosting, and SSL/TLS 
 
 
----
+***
 
 ## Page 6
 
@@ -308,7 +308,7 @@ o Answer: Pods on the same node communicate via the CNI bridge. The
 CNI plugin creates a virtual Ethernet pair for each Pod, with one end in the 
 
 
----
+***
 
 ## Page 7
 
@@ -351,7 +351,7 @@ continuous availability during the update.
 22. How do you perform a rollback of a Deployment? 
 
 
----
+***
 
 ## Page 8
 
@@ -390,7 +390,7 @@ scheduling.
 state. 
 
 
----
+***
 
 ## Page 9
 
@@ -435,7 +435,7 @@ ClusterRole to a Subject across the entire cluster.
 30. What are Service Accounts? How are they used? 
 
 
----
+***
 
 ## Page 10
 
@@ -482,7 +482,7 @@ V. Monitoring and Logging
 33. How do you monitor a Kubernetes cluster? What tools are commonly used? 
 
 
----
+***
 
 ## Page 11
 
@@ -527,7 +527,7 @@ VI. Advanced Topics and Troubleshooting Scenarios
 (CRD) and a Custom Controller/Operator. 
 
 
----
+***
 
 ## Page 12
 
@@ -573,7 +573,7 @@ o Use cases: Ensuring performance, compliance, or high availability.
 o Answer:  
 
 
----
+***
 
 ## Page 13
 
@@ -627,7 +627,7 @@ correctly pointing to the Ingress Controller's external IP/hostname.
 kube-proxy: Ensure kube-proxy is running on all nodes and check its logs. 
 
 
----
+***
 
 ## Page 14
 
@@ -674,7 +674,7 @@ o Answer: kubectl exec allows you to execute commands inside a
 container running in a Pod. It establishes a secure, bidirectional stream 
 
 
----
+***
 
 ## Page 15
 
@@ -715,7 +715,7 @@ container running out of memory or CPU?
 6. Examine the application code for bugs or misconfigurations. 
 
 
----
+***
 
 ## Page 16
 
@@ -763,7 +763,7 @@ You'll need to manually delete them if the data is no longer
 needed. 
 
 
----
+***
 
 ## Page 17
 
@@ -807,7 +807,7 @@ on CPU, consider configuring Cluster Autoscaler to add
 more nodes. 
 
 
----
+***
 
 ## Page 18
 
@@ -852,7 +852,7 @@ Grafana: Open-source platform for analytics and interactive
 visualization. Often used with Prometheus to create dashboards. 
 
 
----
+***
 
 ## Page 19
 
@@ -901,7 +901,7 @@ Security: Implementing RBAC, managing secrets, and
 understanding Pod Security Standards. 
 
 
----
+***
 
 ## Page 20
 
@@ -951,7 +951,7 @@ are met before the main application runs.
 o Answer:  
 
 
----
+***
 
 ## Page 21
 
@@ -997,7 +997,7 @@ emptyDir: A volume that is created when a Pod is first assigned to
 a node and exists as long as that Pod is running on that node. It's 
 
 
----
+***
 
 ## Page 22
 
@@ -1045,7 +1045,7 @@ replica (e.g., peer discovery in a distributed database like
 Cassandra). 
 
 
----
+***
 
 ## Page 23
 
@@ -1093,7 +1093,7 @@ those nodes.
 Kubernetes. What are some key design considerations for this migration? 
 
 
----
+***
 
 ## Page 24
 
@@ -1147,7 +1147,7 @@ Ensure your CNI plugin supports Network Policies (e.g., Calico, Cilium).
 development, staging, and production environments in Kubernetes? 
 
 
----
+***
 
 ## Page 25
 
@@ -1198,7 +1198,7 @@ Selinux/AppArmor (on host): If present, these security modules on the node
 might be preventing access. 
 
 
----
+***
 
 ## Page 26
 
@@ -1245,7 +1245,7 @@ o Answer: Kubernetes Operators are a method of packaging, deploying,
 and managing a Kubernetes application. They extend the Kubernetes API 
 
 
----
+***
 
 ## Page 27
 
@@ -1293,7 +1293,7 @@ cleans up various objects.
 76. What is a Multi-Cluster Kubernetes setup? Why would you need one? 
 
 
----
+***
 
 ## Page 28
 
@@ -1343,7 +1343,7 @@ Pods to available nodes. It considers various factors during the
 scheduling process:  
 
 
----
+***
 
 ## Page 29
 
@@ -1395,7 +1395,7 @@ CMD/ENTRYPOINT: Define how the application starts.
 Environment variables: Use for dynamic configuration. 
 
 
----
+***
 
 ## Page 30
 
@@ -1443,7 +1443,7 @@ ExternalSecrets Operator or Secrets Store CSI Driver.
 RBAC: Restrict access to Secrets using RBAC policies. 
 
 
----
+***
 
 ## Page 31
 
@@ -1490,7 +1490,7 @@ o Answer:
 Identify affected Pods/Services: Is it all traffic, or specific services? 
 
 
----
+***
 
 ## Page 32
 
@@ -1541,7 +1541,7 @@ container. If one container exceeds its limit, only that specific container is
 affected (throttled or killed), not the entire Pod. 
 
 
----
+***
 
 ## Page 33
 
@@ -1589,7 +1589,7 @@ one active at a time (leader election).
 Backup and Restore: Regularly back up etcd data. 
 
 
----
+***
 
 ## Page 34
 
@@ -1631,7 +1631,7 @@ prevent unintended modifications.
 o Answer:  
 
 
----
+***
 
 ## Page 35
 
@@ -1681,7 +1681,7 @@ Two Deployments: One for the stable version (main) and another for the canary
 (new version). 
 
 
----
+***
 
 ## Page 36
 
@@ -1720,13 +1720,13 @@ container.
  
 
 
----
+***
 
 # Kubernetes — Easy Interview Questions
 
 15+ foundational questions covering core concepts every Kubernetes practitioner must know.
 
----
+***
 
 **1. What is Kubernetes and what problem does it solve?**
 
@@ -1734,7 +1734,7 @@ Kubernetes is an open-source container orchestration platform that automates the
 
 Without Kubernetes, running containers in production requires manual intervention for: restarting crashed containers, distributing containers across machines, scaling up/down based on traffic, and rolling out new versions without downtime. Kubernetes automates all of this via a declarative model — you describe the desired state, and the control plane continuously reconciles actual state to match it.
 
----
+***
 
 **2. What is a Pod, and why is it the smallest deployable unit?**
 
@@ -1758,7 +1758,7 @@ spec:
     - containerPort: 80
 ```
 
----
+***
 
 **3. What is the difference between a Deployment and a bare Pod?**
 
@@ -1771,7 +1771,7 @@ spec:
 
 A Deployment manages a ReplicaSet, which in turn manages Pods. The Deployment controller watches for drift and reconciles.
 
----
+***
 
 **4. What is a Service, and why is it needed?**
 
@@ -1792,7 +1792,7 @@ spec:
 
 DNS: `backend.production.svc.cluster.local`
 
----
+***
 
 **5. What are the four types of Kubernetes Services?**
 
@@ -1803,7 +1803,7 @@ DNS: `backend.production.svc.cluster.local`
 | `LoadBalancer` | External via cloud LB IP | Production external services |
 | `ExternalName` | CNAME redirect to external DNS | Integrate external services into cluster DNS |
 
----
+***
 
 **6. What is a Namespace, and when do you use one?**
 
@@ -1823,7 +1823,7 @@ kubectl get pods -n production
 kubectl config set-context --current --namespace=production
 ```
 
----
+***
 
 **7. What is the difference between a ConfigMap and a Secret?**
 
@@ -1844,7 +1844,7 @@ kubectl create secret generic db-creds --from-literal=password=secret123
 > [!CAUTION]
 > Base64 is encoding, not encryption. Enable etcd encryption-at-rest and use external secret managers (Vault, AWS Secrets Manager) for production.
 
----
+***
 
 **8. What is `kubectl apply` vs. `kubectl create`?**
 
@@ -1860,7 +1860,7 @@ kubectl apply -f deployment.yaml           # idempotent
 kubectl apply --server-side -f deployment.yaml  # server-side apply (recommended)
 ```
 
----
+***
 
 **9. What is a liveness probe vs. a readiness probe?**
 
@@ -1893,7 +1893,7 @@ startupProbe:
   periodSeconds: 10
 ```
 
----
+***
 
 **10. What is a DaemonSet?**
 
@@ -1918,7 +1918,7 @@ spec:
         image: prom/node-exporter:v1.7.0
 ```
 
----
+***
 
 **11. What is a StatefulSet, and when do you use it over a Deployment?**
 
@@ -1931,7 +1931,7 @@ spec:
 
 Use StatefulSets for: databases (MySQL, PostgreSQL, MongoDB, Cassandra), message brokers (Kafka, RabbitMQ), any workload that needs stable identity and per-pod storage.
 
----
+***
 
 **12. What is a PersistentVolume (PV) and PersistentVolumeClaim (PVC)?**
 
@@ -1954,7 +1954,7 @@ spec:
       storage: 50Gi
 ```
 
----
+***
 
 **13. What are resource requests and limits?**
 
@@ -1977,7 +1977,7 @@ QoS implications:
 - `requests < limits` → `Burstable`
 - No requests or limits → `BestEffort` (first evicted)
 
----
+***
 
 **14. What is a rolling update strategy, and how do `maxUnavailable` and `maxSurge` work?**
 
@@ -1996,7 +1996,7 @@ strategy:
 
 With 4 replicas: at most 3 Pods unavailable at once; at most 5 Pods running at once.
 
----
+***
 
 **15. What is `kubectl port-forward`, and when do you use it?**
 
@@ -2012,7 +2012,7 @@ Use cases:
 - Access a database inside the cluster without a NodePort/LoadBalancer
 - Test an internal service from your laptop
 
----
+***
 
 **16. What are Node taints and Pod tolerations?**
 
@@ -2035,7 +2035,7 @@ Taint effects:
 - `PreferNoSchedule` — Soft version of NoSchedule
 - `NoExecute` — Also evicts running pods that don't tolerate it
 
----
+***
 
 **17. What happens internally when you run `kubectl apply -f deployment.yaml`?**
 
@@ -2053,7 +2053,7 @@ Taint effects:
 
 15+ intermediate questions covering operational patterns, autoscaling, RBAC, networking, and stateful workloads.
 
----
+***
 
 **1. How does the Kubernetes scheduler decide where to place a Pod?**
 
@@ -2076,7 +2076,7 @@ Two-phase process:
 
 Node with the highest aggregate score is selected. On a tie, a random node is chosen.
 
----
+***
 
 **2. What are Kubernetes QoS classes, and how do they affect eviction?**
 
@@ -2093,7 +2093,7 @@ The kubelet evicts pods in BestEffort → Burstable (sorted by how far over requ
 > [!IMPORTANT]
 > For latency-sensitive production workloads, set `requests == limits` (Guaranteed). This also prevents CPU throttling because CPU limit equals what the CFS scheduler guarantees.
 
----
+***
 
 **3. What is a ResourceQuota, and what is a LimitRange?**
 
@@ -2143,7 +2143,7 @@ spec:
 
 If a namespace has a ResourceQuota, every pod MUST have requests set (LimitRange provides them when not specified).
 
----
+***
 
 **4. How does Horizontal Pod Autoscaling (HPA) work?**
 
@@ -2182,7 +2182,7 @@ spec:
       stabilizationWindowSeconds: 300  # Prevent flapping
 ```
 
----
+***
 
 **5. What is the difference between RBAC Roles and ClusterRoles?**
 
@@ -2205,7 +2205,7 @@ rules:
 - apiGroups: [""]
   resources: ["pods", "pods/log"]
   verbs: ["get", "list", "watch"]
----
+***
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -2221,7 +2221,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ```
 
----
+***
 
 **6. What are Ingress Controllers, and how does Ingress routing work?**
 
@@ -2259,7 +2259,7 @@ spec:
 
 A single Ingress Controller with one cloud load balancer can route to hundreds of services, compared to provisioning a new cloud LB per service.
 
----
+***
 
 **7. What are PVC access modes, and which storage solutions support ReadWriteMany?**
 
@@ -2275,7 +2275,7 @@ RWX-capable storage: NFS, CephFS, GlusterFS, AWS EFS (via `efs.csi.aws.com`), Az
 > [!TIP]
 > Cloud-managed block disks (EBS, Azure Disk, GCP Persistent Disk) are RWO only — they can attach to exactly one node at a time. For RWX, use a managed file service.
 
----
+***
 
 **8. What are Init Containers, and how do they differ from regular containers?**
 
@@ -2302,7 +2302,7 @@ containers:
 
 Use cases: waiting for dependencies, DB migrations, pre-populating volumes, setting permissions on PVC mounts.
 
----
+***
 
 **9. What is a Pod Disruption Budget (PDB), and when is it critical?**
 
@@ -2328,7 +2328,7 @@ Critical scenarios:
 - StatefulSet Kafka cluster — must not drain the leader without a safe replacement
 - `maxUnavailable: 0` prevents any voluntary disruption (use only if the app cannot tolerate even momentary pod loss)
 
----
+***
 
 **10. What are NetworkPolicies, and how do you implement a default-deny posture?**
 
@@ -2379,7 +2379,7 @@ spec:
       port: 53
 ```
 
----
+***
 
 **11. What is the difference between a StatefulSet and a Deployment?**
 
@@ -2394,7 +2394,7 @@ spec:
 
 A StatefulSet also requires a **headless service** (`clusterIP: None`) to provide stable per-pod DNS.
 
----
+***
 
 **12. What is Vertical Pod Autoscaler (VPA) and what are its limitations?**
 
@@ -2434,7 +2434,7 @@ spec:
         memory: 4Gi
 ```
 
----
+***
 
 **13. How do admission webhooks work, and what is the risk of `failurePolicy: Fail`?**
 
@@ -2450,7 +2450,7 @@ Admission webhooks are HTTP endpoints called by the API server during object cre
 > [!CAUTION]
 > A `failurePolicy: Fail` webhook with no PodDisruptionBudget or high-availability deployment can block ALL pod creation in a cluster if the webhook pod crashes. Always run webhook deployments with `minAvailable: 1` PDB and configure `namespaceSelector` to exclude `kube-system`.
 
----
+***
 
 **14. How does topology-aware volume provisioning work?**
 
@@ -2468,7 +2468,7 @@ spec:
   volumeBindingMode: WaitForFirstConsumer
 ```
 
----
+***
 
 **15. What is custom metrics scaling with HPA and KEDA?**
 
@@ -2509,7 +2509,7 @@ spec:
       lagThreshold: "50"   # Scale: 1 replica per 50 messages of lag
 ```
 
----
+***
 
 **16. What is a headless Service and when is it used?**
 
@@ -2535,7 +2535,7 @@ Use cases:
 - Applications that manage their own load balancing (Cassandra, Kafka, etcd)
 - Client-side load balancing with gRPC (which uses long-lived connections)
 
----
+***
 
 ## Advanced Architecture Questions (Staff/Principal Level)
 
@@ -2553,7 +2553,7 @@ eBPF (extended Berkeley Packet Filter) runs sandboxed programs in the kernel at 
 
 For CKA/CKAD: understand that Cilium = eBPF CNI. For architecture interviews: the key insight is that eBPF moves enforcement to the kernel data path, making it both faster and more observable than userspace proxies (Envoy sidecars) for L3/L4 policies.
 
----
+***
 
 **Q: What is the Kubernetes Gateway API and how does it improve on Ingress?**
 
@@ -2577,7 +2577,7 @@ GatewayClass (cluster-scoped) → Gateway (namespace, provisions LB) → HTTPRou
 
 Migration path: Ingress still works and won't be removed. New deployments should use Gateway API. Major controllers (NGINX, Traefik, Istio, Envoy Gateway, GKE NEG) all support it.
 
----
+***
 
 **Q: Explain how you would design a multi-cluster Kubernetes architecture for a global SaaS application. What components are needed and what are the failure modes?**
 
@@ -2607,7 +2607,7 @@ Migration path: Ingress still works and won't be removed. New deployments should
 
 **Interview answer key**: Mention CAPI for fleet management, ArgoCD ApplicationSet for GitOps at scale, the data layer complexity, and that you prefer regional clusters over a single global mega-cluster for blast radius containment.
 
----
+***
 
 **Q: How does the Kubernetes scheduler framework work and how would you write a custom scheduler plugin?**
 
@@ -2647,7 +2647,7 @@ Deploy as a separate scheduler binary (not a webhook — it's compiled in). Conf
 
 **Real use cases**: GPU topology-aware scheduling (place pods on nodes where their GPUs share NVLink), cost-aware scheduling (prefer spot nodes, fallback to on-demand), gang scheduling for ML jobs (Volcano, YuniKorn use this).
 
----
+***
 
 **Q: Explain API Priority and Fairness (APF) and how it prevents API server overload.**
 
@@ -2671,7 +2671,7 @@ APF introduces two concepts:
 
 **Debugging**: `kubectl get flowschema`, `kubectl get prioritylevelconfiguration`. Metrics: `apiserver_flowcontrol_rejected_requests_total`, `apiserver_flowcontrol_current_inqueue_requests`.
 
----
+***
 
 **Q: What is Karpenter and how does it differ from Cluster Autoscaler? When would you choose each?**
 
@@ -2694,7 +2694,7 @@ APF introduces two concepts:
 
 **Key Karpenter concepts for interviews**: `NodePool` (node constraints), `EC2NodeClass` (AWS-specific config: AMI, subnet, security groups), disruption budget (how aggressively to consolidate).
 
----
+***
 
 **Q: How does Pod Security Admission work in Kubernetes 1.25+ and what replaced PodSecurityPolicy?**
 
@@ -2720,7 +2720,7 @@ Three modes: `enforce` (reject), `warn` (allow but show warning), `audit` (allow
 
 **Interview answer**: PSA for standard security baselines, Kyverno/Gatekeeper for custom policies (e.g., "all images must come from our private registry", "all deployments must have resource limits set").
 
----
+***
 
 **Q: Explain how Sigstore/Cosign can be used to enforce image supply chain security in Kubernetes.**
 
@@ -2767,7 +2767,7 @@ spec:
 
 **What this achieves**: Only images signed by your specific GitHub Actions workflow can run in the cluster. Tampering with the image changes its digest, invalidating the signature.
 
----
+***
 
 **Q: Walk through debugging a scenario where the API server is experiencing high latency (>500ms p99) and some requests are timing out.**
 
@@ -2816,7 +2816,7 @@ kubectl get --raw /metrics | grep watch_cache
 
 **Long-term fixes**: Enable APF fine-tuning; ensure etcd has dedicated fast disk; set up API server horizontal scaling (in managed clusters this is automatic); implement client-side caching in controllers (use informers, not direct API calls).
 
----
+***
 
 **Q: How would you implement zero-downtime migration of a stateful application (PostgreSQL primary) from one Kubernetes cluster to another?**
 

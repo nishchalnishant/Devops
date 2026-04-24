@@ -19,7 +19,7 @@ GitHub Actions has redefined CI/CD by bringing automation directly into the repo
 *   **OIDC (OpenID Connect):** Connect GitHub Actions to AWS/Azure without using long-lived secrets/keys.
 *   **GitHub Token:** Use the automatic `${{ secrets.GITHUB_TOKEN }}` for repo operations, but always restrict its permissions to `contents: read` unless more is needed.
 *   **Caching:** Use `actions/cache` to speed up builds by caching dependencies like `node_modules` or `~/.m2`.
----
+***
 
 ## Workflow Syntax Deep Dive
 
@@ -76,7 +76,7 @@ concurrency:
 
 Prevents multiple workflow runs for the same branch running simultaneously. `cancel-in-progress: true` cancels older runs when a new push arrives — saves minutes on rapid commits. For production deploys, set `cancel-in-progress: false` so a running deploy isn't interrupted.
 
----
+***
 
 ## OIDC: Keyless Cloud Authentication
 
@@ -125,7 +125,7 @@ The `sub` claim can be scoped to: specific repo, branch, tag, environment, or PR
 
 Configure a Federated Credential on the Azure App Registration pointing to the GitHub OIDC subject.
 
----
+***
 
 ## Reusable Workflows
 
@@ -167,7 +167,7 @@ jobs:
 > [!IMPORTANT]
 > Secrets are NOT automatically inherited by reusable workflows — they must be explicitly passed via `secrets:` or use `secrets: inherit` (passes all caller secrets).
 
----
+***
 
 ## Matrix Strategy
 
@@ -209,7 +209,7 @@ jobs:
     - run: pytest services/${{ matrix.service }}/tests/
 ```
 
----
+***
 
 ## Custom Actions
 
@@ -251,7 +251,7 @@ runs:
   image: Dockerfile
 ```
 
----
+***
 
 ## Caching
 
@@ -274,7 +274,7 @@ Cache hit: restores cache, skips expensive install. Cache miss: runs install, sa
     cache: 'npm'        # built-in cache — no separate cache step needed
 ```
 
----
+***
 
 ## Environments and Protection Rules
 
@@ -299,7 +299,7 @@ Environment protection rules (configured in GitHub UI):
 - **Deployment branches**: only specific branches can deploy to this environment
 - **Deployment protection rules** (custom): call a webhook to external approval system
 
----
+***
 
 ## Security Hardening
 

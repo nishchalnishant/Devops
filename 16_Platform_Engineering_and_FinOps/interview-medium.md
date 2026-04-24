@@ -39,5 +39,5 @@ Backstage (CNCF) is an open-source developer portal framework originally built a
 
 Crossplane is a Kubernetes-native control plane for infrastructure. It lets platform teams define Composite Resource Definitions (XRDs) that abstract cloud resources — a team creates a `DatabaseClaim` Kubernetes resource and Crossplane provisions an actual RDS/Azure SQL instance, configures networking, and creates the Kubernetes Secret with connection details. Infrastructure becomes a Kubernetes API — developers provision resources using `kubectl apply` or GitOps, with the same interface they use for applications.
 
----
+***
 

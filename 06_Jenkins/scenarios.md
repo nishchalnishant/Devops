@@ -43,7 +43,7 @@ stage('Build') {
 2. Add `-B` (batch mode) to Maven — it prevents interactive prompts that hang CI
 3. Check if the agent lost connectivity to a remote resource (Nexus, artifact repo) — add retry logic
 
----
+***
 
 ## Scenario 2: Jenkins Controller Out of Disk Space
 
@@ -66,7 +66,7 @@ options {
 2. **Workspace cleanup**: Use `cleanWs()` in `post { always { cleanWs() } }` to delete workspaces after build
 3. **Long-term**: Move Jenkins home to a larger volume; configure build discarder globally via JCasC
 
----
+***
 
 ## Scenario 3: Flaky Tests Causing Pipeline Instability
 
@@ -85,7 +85,7 @@ stage('Test') {
 ```
 4. **Root cause**: Most flakiness is timing-dependent (async tests, sleep-based assertions) or environment-dependent (port conflicts on shared agents). Switch to dedicated K8s pod agents to eliminate shared state.
 
----
+***
 
 ## Scenario 4: Shared Library Change Breaks All Pipelines
 
@@ -103,7 +103,7 @@ stage('Test') {
 // Pipelines using @main are affected — this is why pinning is mandatory
 ```
 
----
+***
 
 ## Scenario 5: Agent Pods Not Starting in Kubernetes
 
@@ -123,7 +123,7 @@ kubectl get events -n jenkins --sort-by=.lastTimestamp
 - **JNLP connection refused**: Ensure the agent can reach the Jenkins controller on port 50000 (JNLP port); check NetworkPolicy
 - **Plugin version mismatch**: `jenkins/inbound-agent` image version must match Jenkins controller version
 
----
+***
 
 ## Scenario 6: Pipeline Runs Correctly Locally but Fails in Jenkins
 
@@ -154,7 +154,7 @@ agent {
 
 Docker agents eliminate "works on my machine" — the build environment is the same everywhere.
 
----
+***
 
 ## Scenario 7: Build Queue Congestion
 **Symptom:** Jenkins has 500 jobs in the queue, but plenty of idle agents.
@@ -178,7 +178,7 @@ Docker agents eliminate "works on my machine" — the build environment is the s
 1. Use "GitHub Organization Folder" with "Suppress automatic SCM triggering".
 2. Use "Generic Webhook Trigger" with filters to only trigger on specific events (e.g., PR opened/merged).
 
----
+***
 
 ### Scenario 4: Shared Library Version Drift Breaks All Pipelines
 
@@ -214,7 +214,7 @@ def deploy(Map config = [:]) {
 
 4. **Canary-test library changes:** Create a `library-testing` Jenkins folder that always pulls from the library's feature branch, using a single test pipeline. Only merge to main after that test passes.
 
----
+***
 
 ### Scenario 5: Jenkins Agents Running Out of Disk During Docker Builds
 
@@ -265,7 +265,7 @@ Jenkins.instance.nodes.each { node ->
 
 **Long-term:** Use ephemeral cloud agents (Kubernetes plugin or EC2 plugin). Each build gets a fresh agent pod/VM; disk state doesn't persist between builds. No disk management needed.
 
----
+***
 
 ### Scenario 6: Pipeline Succeeds but Deployment Never Happens — Silent Skip
 
@@ -314,7 +314,7 @@ stage('Deploy') {
 }
 ```
 
----
+***
 
 ### Scenario 7: Parallel Stage Causing Intermittent Build Failures — Race Condition
 
@@ -370,7 +370,7 @@ parallel {
 }
 ```
 
----
+***
 
 ### Scenario 8: Jenkins Build History Grows Unboundedly — Controller Runs Out of Memory
 

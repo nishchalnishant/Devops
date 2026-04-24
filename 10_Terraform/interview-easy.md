@@ -32,7 +32,7 @@ A module is a container for multiple Terraform resources that are used together.
 
 `terraform import` brings an existing real-world resource under Terraform management without recreating it. It populates state with the resource's current attributes. Used when infrastructure was created manually and needs to be managed as code going forward.
 
----
+***
 
 
 **9. What is HCL and what are the basic building blocks of a Terraform configuration?**

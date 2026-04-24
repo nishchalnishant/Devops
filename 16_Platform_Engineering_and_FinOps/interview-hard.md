@@ -386,7 +386,7 @@ You have an AKS cluster behind an Azure Application Gateway (AGIC). Users are re
 
 Being a Staff-level DevOps Engineer or SRE is no longer about being the best individual contributor in the room. It is about multiplying the output of **every engineer around you**.
 
----
+***
 
 ## 1. Architecture Decision Records (ADRs)
 
@@ -430,7 +430,7 @@ Proxy for L7 policy.
 - Status quo: Not viable — the RAM overhead is blocking cluster autoscaler efficiency.
 ```
 
----
+***
 
 ## 2. DORA & SPACE Metrics: Measuring Engineering Velocity
 
@@ -456,7 +456,7 @@ DORA measures the system. SPACE measures the humans.
 ### The Staff Engineer Narrative
 "I presented DORA metrics to our VP of Engineering every quarter. When our Lead Time for Changes climbed from 45 minutes to 4 hours, I used the trend to justify a $30k investment in a faster ephemeral testing environment. Lead times returned to 50 minutes within 6 weeks."
 
----
+***
 
 ## 3. Chaos Engineering & GameDays
 
@@ -485,7 +485,7 @@ Before injecting any failure, define and measure your steady state:
 | Inject 500ms network latency | Downstream timeout configuration |
 | Kill the database primary | Auto-failover correctness |
 
----
+***
 
 ## 4. Developer Experience (DevEx): From Gatekeeper to Enabler
 
@@ -511,7 +511,7 @@ The platform team must:
 - Run a **monthly demo** — showcase new platform capabilities.
 - Issue **deprecation notices with runways** — never remove a capability without 60+ days of warning.
 
----
+***
 
 ## 5. Value Stream Mapping
 
@@ -538,7 +538,7 @@ Identify and eliminate the largest wait time steps. In this example:
 
 Result: 3-week → 45-minute lead time.
 
----
+***
 
 ## 6. The Stakeholder Communication Model
 

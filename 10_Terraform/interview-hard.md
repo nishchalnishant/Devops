@@ -84,7 +84,7 @@ region = "us-west-2"
 Ansible, Puppet, and Chef? 
 
 
----
+***
 
 ## Page 2
 
@@ -143,7 +143,7 @@ terraform show
 7. Why is it important to manage the state file in Terraform? 
 
 
----
+***
 
 ## Page 3
 
@@ -197,7 +197,7 @@ Example:
 terraform plan 
 
 
----
+***
 
 ## Page 4
 
@@ -249,7 +249,7 @@ value = aws_instance.example.id
 Terraform? 
 
 
----
+***
 
 ## Page 5
 
@@ -305,7 +305,7 @@ values = ["amzn-ami-hvm-*"]
 20. What are provisioners in Terraform? 
 
 
----
+***
 
 ## Page 6
 
@@ -365,7 +365,7 @@ Conditional expressions in Terraform are used to assign values based on conditio
 ternary operator condition ? true_value : false_value. 
 
 
----
+***
 
 ## Page 7
 
@@ -426,7 +426,7 @@ Name = each.key
 } 
 
 
----
+***
 
 ## Page 8
 
@@ -485,7 +485,7 @@ the source attribute of a module block, typically in combination with a registry
 Example: 
 
 
----
+***
 
 ## Page 9
 
@@ -536,7 +536,7 @@ different states to be associated with the same configuration.
 Example: 
 
 
----
+***
 
 ## Page 10
 
@@ -593,7 +593,7 @@ version = "~> 3.0"
 39. What is the purpose of the terraform refresh command? 
 
 
----
+***
 
 ## Page 11
 
@@ -649,7 +649,7 @@ terraform import is used to import existing infrastructure into Terraform's stat
 it to resources defined in the configuration. 
 
 
----
+***
 
 ## Page 12
 
@@ -709,7 +709,7 @@ cidr_blocks = ingress.value.cidr_blocks
 } 
 
 
----
+***
 
 ## Page 13
 
@@ -768,7 +768,7 @@ name = "my-workspace"
 } 
 
 
----
+***
 
 ## Page 14
 
@@ -819,7 +819,7 @@ AWS Secrets Manager), or Terraform's sensitive attribute.
 Example: 
 
 
----
+***
 
 ## Page 15
 
@@ -881,7 +881,7 @@ terraform state mv aws_instance.old_name aws_instance.new_name
 58. How do you use conditional expressions in Terraform? 
 
 
----
+***
 
 ## Page 16
 
@@ -939,7 +939,7 @@ required_providers {
 aws = { 
 
 
----
+***
 
 ## Page 17
 
@@ -998,7 +998,7 @@ Name = each.key
 65. What is the terraform import command used for? 
 
 
----
+***
 
 ## Page 18
 
@@ -1055,7 +1055,7 @@ from_port
 = ingress.value.from_port 
 
 
----
+***
 
 ## Page 19
 
@@ -1112,7 +1112,7 @@ terraform console
 72. How do you reference data sources in Terraform? 
 
 
----
+***
 
 ## Page 20
 
@@ -1172,7 +1172,7 @@ terraform {
 backend "s3" { 
 
 
----
+***
 
 ## Page 21
 
@@ -1230,7 +1230,7 @@ version = "2.0.0"
 } 
 
 
----
+***
 
 ## Page 22
 
@@ -1283,7 +1283,7 @@ the terraform block, specifying the version constraints.
 Example: 
 
 
----
+***
 
 ## Page 23
 
@@ -1335,7 +1335,7 @@ terraform workspace new prod
 88. What is the difference between count and for_each in Terraform? 
 
 
----
+***
 
 ## Page 24
 
@@ -1401,7 +1401,7 @@ instance_type = "t2.micro"
 } 
 
 
----
+***
 
 ## Page 25
 
@@ -1454,7 +1454,7 @@ terraform init
 95. What is the purpose of the terraform workspace command? 
 
 
----
+***
 
 ## Page 26
 
@@ -1514,7 +1514,7 @@ name
 values = ["amzn-ami-hvm-*"] 
 
 
----
+***
 
 ## Page 27
 
@@ -1572,7 +1572,7 @@ Local backends store the state file on the local filesystem, while remote backen
 file in a remote storage service (e.g., S3, Consul). 
 
 
----
+***
 
 ## Page 28
 
@@ -1627,7 +1627,7 @@ terraform graph | dot -Tpng > graph.png
 106. What is the purpose of the terraform validate command? 
 
 
----
+***
 
 ## Page 29
 
@@ -1682,7 +1682,7 @@ version = "~> 3.0"
 110. What is the terraform apply command used for? 
 
 
----
+***
 
 ## Page 30
 
@@ -1736,7 +1736,7 @@ instance_type = "t2.micro"
 } 
 
 
----
+***
 
 ## Page 31
 
@@ -1799,7 +1799,7 @@ terraform {
 backend "remote" { 
 
 
----
+***
 
 ## Page 32
 
@@ -1850,7 +1850,7 @@ terraform workspace new dev
 terraform workspace select dev 
 
 
----
+***
 
 ## Page 33
 
@@ -1910,7 +1910,7 @@ instance_type = "t2.micro"
 125. What is the purpose of the terraform state mv command? 
 
 
----
+***
 
 ## Page 34
 
@@ -1967,7 +1967,7 @@ path = "terraform.tfstate"
 Example (remote backend): 
 
 
----
+***
 
 ## Page 35
 
@@ -2021,7 +2021,7 @@ terraform validate
 133. What is the terraform fmt command used for? 
 
 
----
+***
 
 ## Page 36
 
@@ -2076,7 +2076,7 @@ terraform apply
 137. What is the terraform destroy command used for? 
 
 
----
+***
 
 ## Page 37
 
@@ -2134,7 +2134,7 @@ Name = each.key
 } 
 
 
----
+***
 
 ## Page 38
 
@@ -2187,7 +2187,7 @@ terraform init
 147. What is the purpose of the terraform workspace command? 
 
 
----
+***
 
 ## Page 39
 
@@ -2247,7 +2247,7 @@ values = ["amzn-ami-hvm-*"]
 } 
 
 
----
+***
 
 ## Page 40
 
@@ -2302,7 +2302,7 @@ Local backends store the state file on the local filesystem, while remote backen
 file in a remote storage service (e.g., S3, Consul). 
 
 
----
+***
 
 ## Page 41
 
@@ -2357,7 +2357,7 @@ terraform graph | dot -Tpng > graph.png
 158. What is the purpose of the terraform validate command? 
 
 
----
+***
 
 ## Page 42
 
@@ -2412,7 +2412,7 @@ version = "~> 3.0"
 162. What is the terraform apply command used for? 
 
 
----
+***
 
 ## Page 43
 
@@ -2466,7 +2466,7 @@ instance_type = "t2.micro"
 } 
 
 
----
+***
 
 ## Page 44
 
@@ -2528,7 +2528,7 @@ collaboration, governance, and automation features.
 Example: 
 
 
----
+***
 
 ## Page 45
 
@@ -2582,7 +2582,7 @@ terraform workspace new dev
 terraform workspace select dev 
 
 
----
+***
 
 ## Page 46
 
@@ -2642,7 +2642,7 @@ instance_type = "t2.micro"
 177. What is the purpose of the terraform state mv command? 
 
 
----
+***
 
 ## Page 47
 
@@ -2699,7 +2699,7 @@ path = "terraform.tfstate"
 Example (remote backend): 
 
 
----
+***
 
 ## Page 48
 
@@ -2753,7 +2753,7 @@ terraform validate
 185. What is the terraform fmt command used for? 
 
 
----
+***
 
 ## Page 49
 
@@ -2808,7 +2808,7 @@ terraform apply
 189. What is the terraform destroy command used for? 
 
 
----
+***
 
 ## Page 50
 
@@ -2867,7 +2867,7 @@ Name = each.key
 } 
 
 
----
+***
 
 ## Page 51
 
@@ -2927,7 +2927,7 @@ name = "my-workspace"
 196. How do you use a Terraform backend? 
 
 
----
+***
 
 ## Page 52
 
@@ -2982,7 +2982,7 @@ name
 description = "An example secret" 
 
 
----
+***
 
 ## Page 53
 
@@ -2998,5 +2998,5 @@ password = "example_password"
 } 
 
 
----
+***
 

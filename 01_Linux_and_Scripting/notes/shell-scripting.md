@@ -11,7 +11,7 @@ Shell scripting is essential for DevOps engineers to automate repetitive tasks a
 - Monitor system resources
 - Integrate with tools like Docker, Jenkins, Kubernetes
 
----
+***
 
 ## Basic Shell Script Structure
 
@@ -24,7 +24,7 @@ echo "Hello, DevOps!"
 
 The shebang (`#!/bin/bash`) tells the system which interpreter to use.
 
----
+***
 
 ## Essential DevOps Scripts
 
@@ -204,7 +204,7 @@ echo "Build completed successfully"
 
 **Purpose:** Runs a typical CI build pipeline with error handling.
 
----
+***
 
 ## 3. Advanced Pattern: Idempotent Scripting
 
@@ -236,7 +236,7 @@ sudo apt-get install -y nginx
 | **Concurrency** | Hacky (`&`, `wait`) | Good (AsyncIO/Threads) | **Best (Goroutines)** |
 | **Distribution** | Single file | Venv/Pip dependency hell | **Best (Static Binary)** |
 
----
+***
 
 ## Script Best Practices
 
@@ -293,7 +293,7 @@ BACKUP_RETENTION_DAYS=7
 : "${APP_DIR:?APP_DIR must be set}"
 ```
 
----
+***
 
 ## Advanced Scripting Patterns
 
@@ -347,7 +347,7 @@ log_success() { echo -e "${GREEN}SUCCESS: $1${NC}"; }
 log_warn()    { echo -e "${YELLOW}WARN: $1${NC}"; }
 ```
 
----
+***
 
 ## Summary: Key Takeaways
 

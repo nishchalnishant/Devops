@@ -57,7 +57,7 @@ kubectl describe pvc <pvc-name> -n <namespace>
 kubectl get resourcequota -n <namespace> -o yaml
 ```
 
----
+***
 
 ## Runbook 2: CrashLoopBackOff
 
@@ -86,7 +86,7 @@ kubectl debug pod/<pod> --copy-to=<pod>-debug --container=<container> -it -- /bi
 - Missing required files/secrets not mounted
 - Permission denied (check `securityContext.runAsUser` vs file ownership)
 
----
+***
 
 ## Runbook 3: ImagePullBackOff / ErrImagePull
 
@@ -124,7 +124,7 @@ kubectl create secret docker-registry regcred \
 docker pull <image>  # verify locally first
 ```
 
----
+***
 
 ## Runbook 4: Service Not Reachable
 
@@ -161,7 +161,7 @@ kubectl get networkpolicy -n <ns>
 - kube-proxy rules not synced (check `kubectl -n kube-system logs -l k8s-app=kube-proxy`)
 - Pod not ready (readiness probe failing → removed from endpoints)
 
----
+***
 
 ## Runbook 5: OOMKilled
 
@@ -193,7 +193,7 @@ resources:
     memory: "1Gi"  # increased from previous value
 ```
 
----
+***
 
 ## Runbook 6: PVC Stuck in Pending
 
@@ -216,7 +216,7 @@ kubectl describe pvc <pvc-name> -n <ns>
 | `volumeBindingMode: WaitForFirstConsumer` | PVC binds only when a Pod is scheduled — check if pod is also pending |
 | Wrong `storageClassName` | Fix the PVC spec |
 
----
+***
 
 ## Runbook 7: Node Not Ready
 
@@ -242,7 +242,7 @@ kubectl get events --field-selector involvedObject.name=<node> -A
 - Certificate expired: renew kubelet serving certificate
 - Node lost network connectivity to API server
 
----
+***
 
 ## Runbook 8: Ingress 502/504 Bad Gateway
 
@@ -271,7 +271,7 @@ kubectl exec -n ingress-nginx <controller-pod> -- curl -v http://<service>.<ns>.
 - SSL termination misconfigured
 - Missing `ingressClassName` (1.18+)
 
----
+***
 
 ## Runbook 9: Namespace Stuck in Terminating
 
@@ -302,7 +302,7 @@ kubectl get namespace <ns> -o json | \
 > [!CAUTION]
 > Force-removing finalizers may leak external resources. Fix the underlying controller first.
 
----
+***
 
 ## Runbook 10: HPA Not Scaling
 
@@ -332,7 +332,7 @@ kubectl get apiservices | grep metrics
 kubectl get pod <pod> -o jsonpath='{.spec.containers[*].resources.requests}'
 ```
 
----
+***
 
 ## Runbook 11: etcd Issues
 
@@ -368,7 +368,7 @@ ETCDCTL_API=3 etcdctl compact $(ETCDCTL_API=3 etcdctl endpoint status --write-ou
 ETCDCTL_API=3 etcdctl defrag --endpoints=https://127.0.0.1:2379 ...
 ```
 
----
+***
 
 ## Runbook 12: DNS Resolution Failing
 
@@ -399,7 +399,7 @@ kubectl get networkpolicy -n <pod-namespace>
 - CoreDNS config loop plugin conflicting with upstream
 - ndots: 5 causing excessive NXDOMAIN lookups (use FQDN with trailing dot)
 
----
+***
 
 ## Runbook 13: Rolling Update Stuck
 
@@ -430,7 +430,7 @@ kubectl rollout undo deployment/<name>
 kubectl patch deployment <name> -p '{"spec":{"progressDeadlineSeconds":300}}'
 ```
 
----
+***
 
 ## Runbook 14: Certificate Expiry
 
@@ -460,7 +460,7 @@ kubectl -n kube-system rollout restart daemonset/kube-proxy
 > [!CAUTION]
 > Schedule certificate renewal at least 30 days before expiry. Set up monitoring: `openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -enddate` in a cron job or Prometheus alert.
 
----
+***
 
 ## Runbook 15: ArgoCD App OutOfSync Loop
 
@@ -494,7 +494,7 @@ spec:
     - .spec.metrics[] | select(.type == "ContainerResource")
 ```
 
----
+***
 
 ## Quick Reference: Exit Codes
 

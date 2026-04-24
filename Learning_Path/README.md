@@ -78,7 +78,7 @@ If you are already mid-level and preparing quickly:
 - Do not stop at deployment; senior roles are about operations, reliability, and trade-offs.
 - Do not treat Azure, AWS, or Kubernetes as isolated tools. Always connect them to delivery, observability, and failure handling.
 
----
+***
 
 ## Quick Navigation
 
@@ -90,7 +90,7 @@ If you are already mid-level and preparing quickly:
 | [Phase 4](phase-4-senior-role-readiness.md) | Architecture, Leadership, Governance | Weeks 10-12 |
 | [Capstones](capstone-projects.md) | Hands-on Projects | Ongoing |
 
----
+***
 
 ## Related Resources
 

@@ -49,7 +49,7 @@ Apply to critical, hard-to-recover resources: production databases, foundational
 
 Terragrunt is a thin wrapper around Terraform that adds: DRY configuration (keep backend configuration, provider versions, and common inputs in a root `terragrunt.hcl`), dependency management between Terraform modules, environment-specific configuration inheritance, and parallelized multi-module operations. It solves the boilerplate problem in large Terraform monorepos with many environments and modules.
 
----
+***
 
 
 **17. How do you structure a Terraform project for multiple environments (dev/staging/prod)?**

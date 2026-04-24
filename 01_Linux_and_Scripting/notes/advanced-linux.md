@@ -1,4 +1,6 @@
 ---
+description: Advanced Linux performance profiling, boot process, and kernel internals for senior engineers.
+---
 
 ## 4. The Linux Boot Process (Mastery Hub)
 
@@ -21,7 +23,7 @@ graph TD
 | **Kernel** | `Kernel Panic - not syncing` | Check for driver conflicts or corrupted `initrd`. |
 | **Systemd** | Hangs at "Starting..." | Use `systemd-analyze blame` to find the culprit service. |
 
----
+***
 
 ## 5. Senior Logic & Trickiness: The Kernel Matrix
 
@@ -32,7 +34,7 @@ graph TD
 | **Load Avg** | "CPU usage over time." | "The count of processes in **R** (Running) + **D** (Uninterruptible Sleep) states." |
 | **iNode** | "A file index." | "The metadata structure containing pointers to data blocks; exhaustion stops writes even if space is free." |
 
----
+***
 
 ## 1. Advanced Performance Profiling: The USE Method
 
@@ -65,7 +67,7 @@ sudo biolatency.bt
 sudo bpftrace -e 'tracepoint:syscalls:sys_enter_open /retval < 0/ { @failed[comm] = count(); }'
 ```
 
----
+***
 
 ## 2. Kernel Tuning for High-Scale Workloads
 
@@ -118,7 +120,7 @@ sysctl net.ipv4.tcp_fastopen
 sysctl vm.swappiness
 ```
 
----
+***
 
 ## 3. Enterprise Hardening & Security
 
@@ -174,7 +176,7 @@ ClientAliveCountMax 2
 -w /var/log/ -p wa -k logfiles
 ```
 
----
+***
 
 ## 4. Advanced Process Debugging
 
@@ -227,7 +229,7 @@ ProtectHome=true          # Make /home read-only
 ReadWritePaths=/var/lib/myapp  # Only writable path
 ```
 
----
+***
 
 ## 5. From Scripts to Tooling
 
@@ -253,7 +255,7 @@ A senior engineer doesn't provide a folder of 20 `.sh` files. They provide a sin
 # Output: "Would delete 42 orphaned snapshots (total: 150GB)"
 ```
 
----
+***
 
 ## 6. Defensive Programming & Safety Rails
 
@@ -302,7 +304,7 @@ aws ec2 copy-snapshot --source-region us-east-1 --destination-region us-west-2 -
 # If this fails, trap will delete the snapshot
 ```
 
----
+***
 
 ## Summary: Key Takeaways
 

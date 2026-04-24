@@ -34,7 +34,7 @@ A resource group is a logical container for Azure resources that share the same 
 
 Azure Kubernetes Service (AKS) is a managed Kubernetes offering. Azure manages the control plane (API server, etcd, scheduler) at no cost; you pay only for worker nodes. It integrates with Azure AD, Azure CNI networking, Azure Monitor, and managed node pools for simplified cluster lifecycle management.
 
----
+***
 
 
 **9. What is an Azure Container Registry (ACR)?**

@@ -20,7 +20,7 @@ alias kgpw='kubectl get pods -w'  # watch
 alias kgpwide='kubectl get pods -o wide'
 ```
 
----
+***
 
 ## Context and Namespace Management
 
@@ -52,7 +52,7 @@ kubectx prod-cluster
 kubens production
 ```
 
----
+***
 
 ## Getting Resources
 
@@ -96,7 +96,7 @@ kubectl get pod my-pod -o jsonpath='{.spec.containers[0].image}'
 kubectl get pod my-pod -o jsonpath='{.status.containerStatuses[0].restartCount}'
 ```
 
----
+***
 
 ## JSONPath Queries
 
@@ -126,7 +126,7 @@ kubectl get svc -A -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadat
 kubectl get secrets -A --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}'
 ```
 
----
+***
 
 ## Describe
 
@@ -146,7 +146,7 @@ kubectl describe node <node> | grep -A 10 Conditions
 kubectl describe node <node> | grep -A 10 "Allocated resources"
 ```
 
----
+***
 
 ## Logs
 
@@ -175,7 +175,7 @@ stern --since 5m -n production ".*"    # all pods last 5 min
 kubectl logs <pod> --timestamps=true
 ```
 
----
+***
 
 ## Exec and Debug
 
@@ -205,7 +205,7 @@ kubectl cp <pod>:/path/to/file ./local-file
 kubectl cp ./local-file <pod>:/path/to/dest
 ```
 
----
+***
 
 ## Apply, Create, Delete
 
@@ -250,7 +250,7 @@ kubectl create job myjob --image=busybox -- /bin/sh -c "echo hello"
 kubectl create cronjob mycron --image=busybox --schedule="*/5 * * * *" -- date
 ```
 
----
+***
 
 ## Rollout and Scaling
 
@@ -280,7 +280,7 @@ kubectl set image deployment/frontend web=nginx:1.26 --record  # --record deprec
 kubectl set resources deployment/<name> --limits=cpu=500m,memory=512Mi --requests=cpu=250m,memory=256Mi
 ```
 
----
+***
 
 ## Labels, Annotations, and Patches
 
@@ -316,7 +316,7 @@ spec:
 kubectl patch pod <pod> --type=json -p='[{"op":"replace","path":"/spec/containers/0/image","value":"nginx:1.26"}]'
 ```
 
----
+***
 
 ## Port-forward and Proxy
 
@@ -339,7 +339,7 @@ kubectl proxy --port=8001
 # Then: curl http://localhost:8001/api/v1/namespaces/production/pods
 ```
 
----
+***
 
 ## Top / Resource Usage
 
@@ -359,7 +359,7 @@ kubectl describe node <node> | grep -A 10 "Allocated resources"
 kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .spec.containers[*]}{.resources}{"\n"}{end}{end}'
 ```
 
----
+***
 
 ## Events
 
@@ -378,7 +378,7 @@ kubectl get events -A --field-selector type=Warning
 kubectl get events -n production -w
 ```
 
----
+***
 
 ## Node Operations
 
@@ -400,7 +400,7 @@ kubectl get nodes -L disktype,zone,instanceType
 kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .status.conditions[*]}{.type}={.status}{" "}{end}{"\n"}{end}'
 ```
 
----
+***
 
 ## Explain (API Reference)
 
@@ -413,7 +413,7 @@ kubectl explain deployment.spec.strategy
 kubectl explain hpa.spec.metrics
 ```
 
----
+***
 
 ## Imperative Resource Creation Flags
 
@@ -447,7 +447,7 @@ kubectl create secret generic mysecret \
   --from-file=tls.key
 ```
 
----
+***
 
 ## Useful kubectl Plugins (krew)
 
@@ -483,7 +483,7 @@ kubectl who-can get secrets -n production
 kubectl resource-capacity --sort cpu.limit
 ```
 
----
+***
 
 ## Cluster Health Quick Checks
 
@@ -556,7 +556,7 @@ and it selects nodes for them to run.
  
 
 
----
+***
 
 ## Page 2
 
@@ -586,7 +586,7 @@ virtual hosting,
 at the same IP Address. 
 
 
----
+***
 
 ## Page 3
 
@@ -616,7 +616,7 @@ resource has no effect.
  
 
 
----
+***
 
 ## Page 4
 
@@ -636,7 +636,7 @@ And secret name that you have created using TLS certificate.
  
 
 
----
+***
 
 ## Page 5
 
@@ -662,7 +662,7 @@ cluster.
  
 
 
----
+***
 
 ## Page 6
 
@@ -676,7 +676,7 @@ liveness probe fails, then automatically container move on with its restart poli
  
 
 
----
+***
 
 ## Page 7
 
@@ -697,7 +697,7 @@ nodes of the cluster. If a node is added/removed from a cluster, DaemonSet
 automatically adds/deletes the pod. 
 
 
----
+***
 
 ## Page 8
 
@@ -707,7 +707,7 @@ based on observed CPU utilization.
  
 
 
----
+***
 
 ## Page 9
 
@@ -725,7 +725,7 @@ configuration files. We can mount configmaps as volume.
  
 
 
----
+***
 
 ## Page 10
 
@@ -741,7 +741,7 @@ How to mount configmaps as volume.
  
 
 
----
+***
 
 ## Page 11
 
@@ -761,7 +761,7 @@ Create generic secrets.
  
 
 
----
+***
 
 ## Page 12
 
@@ -778,7 +778,7 @@ Now create secrets from this file.
  
 
 
----
+***
 
 ## Page 13
 
@@ -790,7 +790,7 @@ username and password will be encoded automatically you don’t need to encode i
 put in yaml. 
 
 
----
+***
 
 ## Page 14
 
@@ -806,7 +806,7 @@ kubectl taint nodes node1 mysize=large:NoSchedule-     to remove the taints.
  
 
 
----
+***
 
 ## Page 15
 
@@ -825,7 +825,7 @@ When you apply the below configurations, pod will tolerate the node till 60 seco
 only, after 60 seconds it will be in terminated. 
 
 
----
+***
 
 ## Page 16
 
@@ -849,7 +849,7 @@ deploying version2.
  
 
 
----
+***
 
 ## Page 17
 
@@ -868,7 +868,7 @@ namespace.
  
 
 
----
+***
 
 ## Page 18
 
@@ -885,7 +885,7 @@ Now try to access the pods using zeal user.
  
 
 
----
+***
 
 ## Page 19
 
@@ -910,7 +910,7 @@ cluster.
  
 
 
----
+***
 
 ## Page 20
 
@@ -928,7 +928,7 @@ You can see above zeal user can access the pods in all the namespaces.
  
 
 
----
+***
 
 ## Page 21
 
@@ -945,14 +945,14 @@ Practicle:
  
 
 
----
+***
 
 ## Page 22
 
  
 
 
----
+***
 
 ## Page 23
 
@@ -960,7 +960,7 @@ Practicle:
  
 
 
----
+***
 
 ## Page 24
 
@@ -982,7 +982,7 @@ Practicle:
  
 
 
----
+***
 
 ## Page 25
 
@@ -999,7 +999,7 @@ you can use whole PV )).
  
 
 
----
+***
 
 ## Page 26
 
@@ -1031,7 +1031,7 @@ Local
  
 
 
----
+***
 
 ## Page 27
 
@@ -1044,7 +1044,7 @@ use security context which allows us to run container as non-root user.
  
 
 
----
+***
 
 ## Page 28
 
@@ -1059,7 +1059,7 @@ mynamespace and editing the memory limit.
  
 
 
----
+***
 
 ## Page 29
 
@@ -1078,7 +1078,7 @@ kubectl rollout history deployment myDeployment
  
 
 
----
+***
 
 ## Page 30
 
@@ -1092,7 +1092,7 @@ again, and then crashing again)
 There can be many reasons for this error. 
 
 
----
+***
 
 ## Page 31
 
@@ -1127,7 +1127,7 @@ below parameters in deployment file.
  
 
 
----
+***
 
 ## Page 32
 
@@ -1145,5 +1145,5 @@ Openssl x509 –in  /var/lib/kubelet/worker-1.crt  -text
  
 
 
----
+***
 

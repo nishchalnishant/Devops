@@ -14,7 +14,7 @@ With
 With
 
 
----
+***
 
 ## Page 2
 
@@ -39,7 +39,7 @@ applications or when network isolation is not a concern.
 docker run --network=host my-container
 
 
----
+***
 
 ## Page 3
 
@@ -63,7 +63,7 @@ With
 With
 
 
----
+***
 
 ## Page 4
 
@@ -88,7 +88,7 @@ With
 With
 
 
----
+***
 
 ## Page 5
 
@@ -114,7 +114,7 @@ when you want to run a container in a fully isolated environment.
 docker run --network=none my-container
 
 
----
+***
 
 ## Page 6
 

@@ -272,7 +272,7 @@ When talking about Kubernetes, always mention "Declarative State."
 
 * The SRE Answer: "Kubernetes is a reconciliation engine. When I apply a YAML, I am defining the Desired State. The Control Plane continuously runs a loop to ensure the Actual State matches my definition. If a node fails, the Scheduler sees the gap and recreates the pods elsewhere to restore that state."
 
----
+***
 
 ## 🔷 Advanced Orchestration & Containers (7 YOE)
 

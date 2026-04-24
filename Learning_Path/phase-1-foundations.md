@@ -76,7 +76,7 @@ Move to Phase 2 only when you can:
 - explain DNS, TCP, CIDR, and TLS at a practical level
 - automate a simple operational task with a script
 
----
+***
 
 ## Related Resources
 
@@ -87,6 +87,6 @@ Move to Phase 2 only when you can:
 - [Easy Interview Questions](../../07_Interview_Preparation/interview-questions-easy.md)
 - [Advanced Linux Performance](../01_Prerequisites_and_Fundamentals/Linux/advanced-linux-performance-and-hardening.md) (for senior depth)
 
----
+***
 
 **Next:** [Phase 2 - Platform and Delivery](phase-2-platform-and-delivery.md)

@@ -17,7 +17,7 @@
 13. [Container Lifecycle](#13-container-lifecycle)
 14. [BuildKit Internals](#14-buildkit-internals)
 
----
+***
 
 ## 1. Container vs Virtual Machine
 
@@ -36,7 +36,7 @@ Containers are **isolated processes** running in user space on the host kernel. 
 > [!IMPORTANT]
 > Because containers share the host kernel, a kernel vulnerability can potentially allow container escape. VMs with separate kernels provide a stronger security boundary. In multi-tenant environments (SaaS, shared Kubernetes clusters), use VM-based runtimes like Kata Containers or gVisor.
 
----
+***
 
 ## 2. Docker Architecture
 
@@ -78,7 +78,7 @@ Docker uses a **client-server architecture**:
 - `dockerd` communicates with `containerd` over a local gRPC socket, not the Docker API.
 - Kubernetes bypasses `dockerd` entirely — it talks directly to `containerd` (or `CRI-O`) via the CRI (Container Runtime Interface).
 
----
+***
 
 ## 3. Linux Namespaces — Isolation Internals
 
@@ -118,7 +118,7 @@ nsenter --target <PID> --net -- ip addr
 > [!TIP]
 > `nsenter` is the production debugging tool for inspecting container network and mount namespaces from the host without using `docker exec`. It works even when the container image has no shell.
 
----
+***
 
 ## 4. cgroups — Resource Control
 
@@ -182,7 +182,7 @@ When a container exceeds its memory limit, the kernel OOM killer sends `SIGKILL`
 docker inspect mycontainer | jq '.[0].State.OOMKilled'
 ```
 
----
+***
 
 ## 5. Union Filesystems — overlay2 and devicemapper
 
@@ -237,7 +237,7 @@ docker system info --format '{{.Driver}}'
 
 Alternative storage drivers providing native filesystem-level snapshotting. Preferred in environments already running btrfs/zfs on the host.
 
----
+***
 
 ## 6. OCI Specification
 
@@ -293,7 +293,7 @@ docker inspect mycontainer | jq '.[0].HostConfig'
 runc spec  # creates a template config.json
 ```
 
----
+***
 
 ## 7. Container Runtimes — runc, containerd, CRI-O
 
@@ -384,13 +384,13 @@ kind: RuntimeClass
 metadata:
   name: gvisor
 handler: runsc
----
+***
 # In Pod spec:
 spec:
   runtimeClassName: gvisor
 ```
 
----
+***
 
 ## 8. Image Layering and Build Cache
 
@@ -450,7 +450,7 @@ docker buildx build \
 
 `mode=max` exports all intermediate layer caches, not just the final image layers.
 
----
+***
 
 ## 9. Multi-Stage Builds
 
@@ -508,7 +508,7 @@ docker build --target test -t myapp:test .
 docker build -t myapp:prod .
 ```
 
----
+***
 
 ## 10. Docker Networking Deep Dive
 
@@ -646,7 +646,7 @@ docker run --dns-search example.com --dns 8.8.8.8 myapp
 docker exec mycontainer cat /etc/resolv.conf
 ```
 
----
+***
 
 ## 11. Volumes and Bind Mounts
 
@@ -732,7 +732,7 @@ Or at runtime:
 docker run --rm -v myvolume:/data alpine chown -R 1000:1000 /data
 ```
 
----
+***
 
 ## 12. Docker Security
 
@@ -878,7 +878,7 @@ spec:
               -----END PUBLIC KEY-----
 ```
 
----
+***
 
 ## 13. Container Lifecycle
 
@@ -937,7 +937,7 @@ ENTRYPOINT ["tini", "--"]
 CMD ["myapp"]
 ```
 
----
+***
 
 ## 14. BuildKit Internals
 
@@ -1051,7 +1051,7 @@ docker run --privileged --rm tonistiigi/binfmt --install all
 
 
 
----
+***
 
 ## Page 2
 
@@ -1088,7 +1088,7 @@ Cheat Sheets and Useful Commands
 Conclusion 
 
 
----
+***
 
 ## Page 3
 
@@ -1142,7 +1142,7 @@ The Role of Containers
 The Evolution of DevOps 
 
 
----
+***
 
 ## Page 4
 
@@ -1189,7 +1189,7 @@ AutomatedDeployment
 • ResourceManagement
 
 
----
+***
 
 ## Page 5
 
@@ -1226,7 +1226,7 @@ commands.
 Structure of the Book 
 
 
----
+***
 
 ## Page 6
 
@@ -1257,7 +1257,7 @@ How to Use This Book
 Getting the Most Out of This Book 
 
 
----
+***
 
 ## Page 7
 
@@ -1312,7 +1312,7 @@ Dockerfile
 Real-World Example: Continuous Integration/Continuous Deployment (CI/CD) 
 
 
----
+***
 
 ## Page 8
 
@@ -1376,7 +1376,7 @@ docker --version
 •
 
 
----
+***
 
 ## Page 9
 
@@ -1404,7 +1404,7 @@ docker run hello-world
 Real-World Example: Setting Up a Development Environment 
 
 
----
+***
 
 ## Page 10
 
@@ -1449,7 +1449,7 @@ docker pull <image_name>
 docker stop <container_id> 
 
 
----
+***
 
 ## Page 11
 
@@ -1466,7 +1466,7 @@ CMD ["node", "app.js"]
 Real-World Example: Web Application Deployment 
 
 
----
+***
 
 ## Page 12
 
@@ -1545,7 +1545,7 @@ dockerrestart.
 docker rm
 
 
----
+***
 
 ## Page 13
 
@@ -1591,7 +1591,7 @@ COPY requirements.txt .
 Dockerfile: 
 
 
----
+***
 
 ## Page 14
 
@@ -1654,7 +1654,7 @@ Run the Docker Container:
 Diagram: Docker Workflow
 
 
----
+***
 
 ## Page 15
 
@@ -1697,7 +1697,7 @@ Basic Concepts
 What is Kubernetes? 
 
 
----
+***
 
 ## Page 16
 
@@ -1765,7 +1765,7 @@ e-linux-amd64
 sudo install minikube-linux-amd64 /usr/local/bin/minikube 
 
 
----
+***
 
 ## Page 17
 
@@ -1808,7 +1808,7 @@ Expose the Deployment:
 Check the Status of Pods: 
 
 
----
+***
 
 ## Page 18
 
@@ -1865,7 +1865,7 @@ RUN:
 kubectl apply -f frontend-deployment.yaml 
 
 
----
+***
 
 ## Page 19
 
@@ -1916,7 +1916,7 @@ RUN:
 kubectl apply -f frontend-service.yaml 
 
 
----
+***
 
 ## Page 20
 
@@ -1957,7 +1957,7 @@ Backend Service:
 Database Service: 
 
 
----
+***
 
 ## Page 21
 
@@ -2091,7 +2091,7 @@ Service(ClusterIP)
 +------------------------------------- +
 
 
----
+***
 
 ## Page 22
 
@@ -2146,7 +2146,7 @@ Kubernetes Architecture Diagram
 kubectl get nodes 
 
 
----
+***
 
 ## Page 23
 
@@ -2216,7 +2216,7 @@ Function
 Real-World Example: Multi-Tier Application Deployment 
 
 
----
+***
 
 ## Page 24
 
@@ -2270,7 +2270,7 @@ matchLabels:
 role: frontend 
 
 
----
+***
 
 ## Page 25
 
@@ -2349,7 +2349,7 @@ PodB
 |
 
 
----
+***
 
 ## Page 26
 
@@ -2364,7 +2364,7 @@ availability and scalability, enabling millions of users to play the game withou
 Real-World Example: High Availability Deployment 
 
 
----
+***
 
 ## Page 27
 
@@ -2413,7 +2413,7 @@ e-linux-amd64
 sudo install minikube-linux-amd64 /usr/local/bin/minikube 
 
 
----
+***
 
 ## Page 28
 
@@ -2462,7 +2462,7 @@ exec -l $SHELL
 gcloud init 
 
 
----
+***
 
 ## Page 29
 
@@ -2517,7 +2517,7 @@ sudo kubeadm join <master-ip>:6443 --token <token> --discovery-token-
 ca-cert-hash sha256:<hash> 
 
 
----
+***
 
 ## Page 30
 
@@ -2667,7 +2667,7 @@ WorkerNode
 |
 
 
----
+***
 
 ## Page 31
 
@@ -2717,7 +2717,7 @@ ports:
 - containerPort: 80 
 
 
----
+***
 
 ## Page 32
 
@@ -2765,7 +2765,7 @@ kubectl apply -f service.yaml
 Services 
 
 
----
+***
 
 ## Page 33
 
@@ -2820,7 +2820,7 @@ database_name: "exampledb"
 ``` 
 
 
----
+***
 
 ## Page 34
 
@@ -2878,7 +2878,7 @@ password: MWYyZDFlMmU2N2Rm # Base64 encoded
 ``` 
 
 
----
+***
 
 ## Page 35
 
@@ -2927,7 +2927,7 @@ ports:
 - containerPort: 80 
 
 
----
+***
 
 ## Page 36
 
@@ -2972,7 +2972,7 @@ helm-3 | bash
 Helm 
 
 
----
+***
 
 ## Page 37
 
@@ -2995,7 +2995,7 @@ Deploying an Application with Helm:
 helm list 
 
 
----
+***
 
 ## Page 38
 
@@ -3065,7 +3065,7 @@ ca_file:
 /var/run/secrets/kubernetes.io/serviceaccount/ca.crt 
 
 
----
+***
 
 ## Page 39
 
@@ -3141,7 +3141,7 @@ Adddatasource
 Prometheus
 
 
----
+***
 
 ## Page 40
 
@@ -3221,7 +3221,7 @@ Diagram:MonitoringSetup
 EFK Stack (Elasticsearch, Fluentd, Kibana) 
 
 
----
+***
 
 ## Page 41
 
@@ -3290,7 +3290,7 @@ hostPath:
 path: /var/lib/docker/containers 
 
 
----
+***
 
 ## Page 42
 
@@ -3353,7 +3353,7 @@ KubernetesCluster
 |
 
 
----
+***
 
 ## Page 43
 
@@ -3422,7 +3422,7 @@ kind: Deployment
 name: my-app 
 
 
----
+***
 
 ## Page 44
 
@@ -3486,7 +3486,7 @@ o
 Real-World Example: Scaling a Web Application 
 
 
----
+***
 
 ## Page 45
 
@@ -3603,7 +3603,7 @@ Define a VPA
 o 
 
 
----
+***
 
 ## Page 46
 
@@ -3666,7 +3666,7 @@ Verify VPA
 o 
 
 
----
+***
 
 ## Page 47
 
@@ -3716,7 +3716,7 @@ Summary
 Manual Scaling 
 
 
----
+***
 
 ## Page 48
 
@@ -3783,7 +3783,7 @@ resources: ["pods"]
 verbs: ["get", "list", "watch"] 
 
 
----
+***
 
 ## Page 49
 
@@ -3870,7 +3870,7 @@ Define a Network Policy
 o 
 
 
----
+***
 
 ## Page 50
 
@@ -3957,7 +3957,7 @@ Use theSecretinaPod
 o 
 
 
----
+***
 
 ## Page 51
 
@@ -4056,7 +4056,7 @@ Define a Pod Security Policy
 o 
 
 
----
+***
 
 ## Page 52
 
@@ -4126,7 +4126,7 @@ Bind thePSPtoaRole
 o 
 
 
----
+***
 
 ## Page 53
 
@@ -4177,7 +4177,7 @@ Integrate Trivy with CI/CD
 o 
 
 
----
+***
 
 ## Page 54
 
@@ -4236,7 +4236,7 @@ o
 o 
 
 
----
+***
 
 ## Page 55
 
@@ -4340,7 +4340,7 @@ Example: Monitoring a Web Application
 Diagram:Prometheusand GrafanaSetup
 
 
----
+***
 
 ## Page 56
 
@@ -4400,7 +4400,7 @@ Setting Up EFK Stack
 Logging with Elasticsearch, Fluentd, and Kibana (EFK) 
 
 
----
+***
 
 ## Page 57
 
@@ -4500,7 +4500,7 @@ o
 Diagram:EFKStackSetup
 
 
----
+***
 
 ## Page 58
 
@@ -4566,7 +4566,7 @@ Setting Up Prometheus Alertmanager
 Alerting with Prometheus Alertmanager 
 
 
----
+***
 
 ## Page 59
 
@@ -4629,7 +4629,7 @@ o
 Example: Alerting on High CPU Usage 
 
 
----
+***
 
 ## Page 60
 
@@ -4643,7 +4643,7 @@ solutions for your Kubernetes environment.
 Summary 
 
 
----
+***
 
 ## Page 61
 
@@ -4724,7 +4724,7 @@ Helm API
 | 
 
 
----
+***
 
 ## Page 62
 
@@ -4789,7 +4789,7 @@ DownloadandInstall Helm:
 o 
 
 
----
+***
 
 ## Page 63
 
@@ -4851,7 +4851,7 @@ values, will generate valid Kubernetes manifest files
 templates/tests/ # A directory containing test files 
 
 
----
+***
 
 ## Page 64
 
@@ -4902,7 +4902,7 @@ tag: latest
 pullPolicy: IfNotPresent 
 
 
----
+***
 
 ## Page 65
 
@@ -4969,7 +4969,7 @@ o
 Diagram: Helm Release Lifecycle 
 
 
----
+***
 
 ## Page 66
 
@@ -5039,7 +5039,7 @@ Best Practices for Helm
  AutomatewithCI/CD
 
 
----
+***
 
 ## Page 67
 
@@ -5095,7 +5095,7 @@ Installing Jenkins on Kubernetes
 Setting Up Jenkins for CI/CD with Kubernetes 
 
 
----
+***
 
 ## Page 68
 
@@ -5168,7 +5168,7 @@ kubectlapply -f k8s/deployment.yaml
 Setting Up a Jenkins Pipeline for Kubernetes 
 
 
----
+***
 
 ## Page 69
 
@@ -5227,7 +5227,7 @@ script:
 - kubectl apply -f k8s/deployment.yaml 
 
 
----
+***
 
 ## Page 70
 
@@ -5301,7 +5301,7 @@ Git Repository |
 | 
 
 
----
+***
 
 ## Page 71
 
@@ -5370,7 +5370,7 @@ o
 ConfigureArgoCD to ManageDeployments
 
 
----
+***
 
 ## Page 72
 
@@ -5438,7 +5438,7 @@ v
 +----------------------+ 
 
 
----
+***
 
 ## Page 73
 
@@ -5507,7 +5507,7 @@ rules:
 resources: ["pods"] 
 
 
----
+***
 
 ## Page 74
 
@@ -5582,7 +5582,7 @@ o
 Diagram:RBAC Workflow
 
 
----
+***
 
 ## Page 75
 
@@ -5669,7 +5669,7 @@ Network Policy |
 | 
 
 
----
+***
 
 ## Page 76
 
@@ -5738,7 +5738,7 @@ password: <base64-encoded-password>
 pod-with-secret.yaml
 
 
----
+***
 
 ## Page 77
 
@@ -5816,7 +5816,7 @@ DefineaPodSecurityPolicy:
 o 
 
 
----
+***
 
 ## Page 78
 
@@ -5889,7 +5889,7 @@ o
 Diagram:PodSecurityPolicyEnforcement 
 
 
----
+***
 
 ## Page 79
 
@@ -5936,7 +5936,7 @@ o
 Create a Namespace: 
 
 
----
+***
 
 ## Page 80
 
@@ -6008,7 +6008,7 @@ type: 'spc_t'
 network-policy.yaml
 
 
----
+***
 
 ## Page 81
 
@@ -6075,7 +6075,7 @@ Deploy the Application
 o 
 
 
----
+***
 
 ## Page 82
 
@@ -6163,7 +6163,7 @@ with Secrets
 +-------------------+ 
 
 
----
+***
 
 ## Page 83
 
@@ -6222,7 +6222,7 @@ Monitoring with Prometheus and Grafana
 Setting Up Prometheus 
 
 
----
+***
 
 ## Page 84
 
@@ -6304,7 +6304,7 @@ Alertmanager
 +-------------------+ 
 
 
----
+***
 
 ## Page 85
 
@@ -6384,7 +6384,7 @@ Dashboards | |
 +------------
 
 
----
+***
 
 ## Page 86
 
@@ -6452,7 +6452,7 @@ high"
 minutes."
 
 
----
+***
 
 ## Page 87
 
@@ -6519,7 +6519,7 @@ Deploy Application with Sidecar Containers for Logging
 o 
 
 
----
+***
 
 ## Page 88
 
@@ -6595,7 +6595,7 @@ Summary
 Diagram:MonitoringandLoggingSetupforE-commerceApplication 
 
 
----
+***
 
 ## Page 89
 
@@ -6674,7 +6674,7 @@ o
 o
 
 
----
+***
 
 ## Page 90
 
@@ -6730,7 +6730,7 @@ o
 o 
 
 
----
+***
 
 ## Page 91
 
@@ -6864,7 +6864,7 @@ COPY . /app
 Dockerfile Example for Backend Service: 
 
 
----
+***
 
 ## Page 92
 
@@ -6920,7 +6920,7 @@ Service Example for Exposing Backend Service:
 Kubernetes Deployment Example for Backend Service: 
 
 
----
+***
 
 ## Page 93
 
@@ -6992,7 +6992,7 @@ Experiment with New Tools
 o
 
 
----
+***
 
 ## Page 94
 
@@ -7008,7 +7008,7 @@ exciting field of containerization and orchestration.
 Summary 
 
 
----
+***
 
 ## Page 95
 

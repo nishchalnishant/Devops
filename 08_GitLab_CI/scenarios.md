@@ -12,7 +12,7 @@
 **Problem:** You have 100 microservices in a monorepo; you don't want a 5000-line `.gitlab-ci.yml`.
 **Fix:** Use a "Trigger Job" that runs a script to generate a YAML file, then uses `trigger:include:artifact` to run the generated pipeline.
 
----
+***
 
 ## Scenario 1: Runner Tag Mismatch
 **Symptom:** Job is stuck in `pending` state with "This job is stuck because the project doesn't have any runners online with any of these tags".
@@ -24,7 +24,7 @@
 **Diagnosis:** The `expire_in` setting for the build job is too short (e.g., 10 mins), and the manual deploy job was triggered after the artifact was deleted.
 **Fix:** Increase `expire_in: 1 week` or use `dependencies:` to ensure the artifact is passed.
 
----
+***
 
 ### Scenario 2: Pipeline Passes but Docker Image Not Pushed — Silent Registry Authentication Failure
 
@@ -72,7 +72,7 @@ build:
     - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/Dockerfile --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
 ```
 
----
+***
 
 ### Scenario 3: GitLab Runner Hangs on Git Clone — Large Repository Timeout
 
@@ -124,7 +124,7 @@ cache:
     - vendor/
 ```
 
----
+***
 
 ### Scenario 4: Downstream Pipeline Trigger Not Firing After Merge
 
@@ -169,7 +169,7 @@ trigger-service-a:
 
 With `strategy: depend`, if the downstream pipeline fails, the trigger job fails — making the problem visible instead of silent.
 
----
+***
 
 ### Scenario 5: Environment-Specific Variables Not Applied — Wrong Scope
 
@@ -218,7 +218,7 @@ deploy-prod:
     DB_URL: "postgresql://prod-host/db"   # job-level override — highest priority
 ```
 
----
+***
 
 ### Scenario 6: GitLab SAST Scanner Floods MRs with Hundreds of False Positives
 
@@ -251,7 +251,7 @@ Use GitLab's `SAST_EXCLUDED_PATHS` and review the SAST ruleset — disable rules
 
 **Process fix:** Configure SAST to block only `Critical` and `High` severity with `allow_failure: false`. Leave `Medium` and `Low` as informational (`allow_failure: true`). Give teams a 30-day window to address existing high-severity findings before enforcing the gate.
 
----
+***
 
 ### Scenario 7: Pipeline Uses `only/except` Rules and Misses Scheduled Pipeline Runs
 
@@ -292,7 +292,7 @@ debug-source:
 
 The variable `$CI_PIPELINE_SOURCE` takes values: `push`, `merge_request_event`, `schedule`, `api`, `trigger`, `pipeline`, `web` — use it explicitly in `rules` conditions for predictable behavior.
 
----
+***
 
 ## Scenario 8: Merge Request Pipeline Runs Twice
 **Symptom:** Every push to a feature branch triggers two pipelines: one for the branch push and one for the MR. Jobs run twice, doubling CI costs and confusing developers about which result to trust.
@@ -333,7 +333,7 @@ default:
 
 **Prevention:** Define `workflow:rules` from project inception. Document the intended pipeline triggers in the repo's `CONTRIBUTING.md`.
 
----
+***
 
 ## Scenario 9: GitLab Runner Out of Disk Space During Docker Builds
 **Symptom:** Builds fail mid-way with `no space left on device` on a self-managed GitLab Runner. The runner host has 200GB disk but `df -h` shows `/` at 98%.
@@ -396,7 +396,7 @@ build:
 
 **Prevention:** Add a Prometheus alert on runner host disk usage >80%. Set `DOCKER_HOST` cache size limits in runner config. Monitor with `node_disk_avail_bytes` on the runner.
 
----
+***
 
 ## Scenario 10: Environment Variables Available in Some Stages But Not Others
 **Symptom:** A CI/CD variable `$DEPLOY_TOKEN` is set in GitLab Settings → CI/CD → Variables. It's available in the `build` stage but `undefined` in the `deploy` stage. Both stages use the same runner.
@@ -440,7 +440,7 @@ Fix: either unprotect the variable, or ensure the deploy job only runs from prot
 
 **Prevention:** After setting any new CI variable, add a temporary job that runs `env | sort` and verify all expected variables appear with correct scoping.
 
----
+***
 
 ## Scenario 11: Child Pipeline Triggered but Parent Reports Success Before Child Finishes
 **Symptom:** A parent pipeline triggers a child pipeline with `trigger:` and immediately marks itself as "passed." The child pipeline fails 10 minutes later, but no alert fires and the deployment proceeds.
@@ -494,7 +494,7 @@ verify-deploy:
 gitlab-ci-lint .gitlab-ci.yml   # built-in syntax check, but doesn't catch missing strategy
 ```
 
----
+***
 
 ## Scenario 12: Container Registry Push Fails with "unauthorized" After Rotating Credentials
 **Symptom:** After rotating the deploy token used to push to the GitLab Container Registry, CI pipelines fail with `unauthorized: authentication required` on `docker push`. The new token was set in CI variables.

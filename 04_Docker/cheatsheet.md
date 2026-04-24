@@ -26,7 +26,7 @@ docker buildx build \
   -t myrepo/myapp:latest .
 ```
 
----
+***
 
 ## Run
 
@@ -76,7 +76,7 @@ docker run --ipc=host nginx                            # share host IPC namespac
 docker run --pid=host nginx                            # share host PID namespace
 ```
 
----
+***
 
 ## Container Lifecycle
 
@@ -109,7 +109,7 @@ docker container prune              # remove all stopped containers (with confir
 docker container prune -f           # remove all stopped containers (no confirmation)
 ```
 
----
+***
 
 ## Exec & Inspect
 
@@ -145,7 +145,7 @@ docker commit <container> myimage:mytag        # create image from container sta
 docker export <container> | gzip > export.tar.gz  # export container rootfs
 ```
 
----
+***
 
 ## Logs
 
@@ -161,7 +161,7 @@ docker logs -t <container>                 # include timestamps
 docker logs 2>&1 <container> | grep ERROR  # stderr+stdout, pipe to grep
 ```
 
----
+***
 
 ## Image Management
 
@@ -195,7 +195,7 @@ docker image inspect myapp:latest                        # full image metadata
 docker manifest inspect nginx:latest                     # inspect multi-platform manifest
 ```
 
----
+***
 
 ## Registry Operations
 
@@ -215,7 +215,7 @@ docker search --filter stars=100 nginx
 docker search --format "table {{.Name}}\t{{.StarCount}}\t{{.Official}}" nginx
 ```
 
----
+***
 
 ## Network Commands
 
@@ -246,7 +246,7 @@ docker network prune                        # remove all unused networks
 docker network prune -f                     # without confirmation
 ```
 
----
+***
 
 ## Volume Commands
 
@@ -266,7 +266,7 @@ docker volume prune -a                      # remove all volumes (including name
 docker volume prune -f                      # without confirmation
 ```
 
----
+***
 
 ## Docker Compose
 
@@ -311,7 +311,7 @@ docker compose config --services            # list service names
 docker compose events                       # real-time events
 ```
 
----
+***
 
 ## System & Cleanup
 
@@ -330,7 +330,7 @@ docker system events --filter type=container --filter event=die
 docker system events --since 1h --until 0m
 ```
 
----
+***
 
 ## Dockerfile Instructions Quick Reference
 
@@ -364,7 +364,7 @@ CMD ["-g", "daemon off;"]
 # → docker run --entrypoint="" <img> bash  → bash (ENTRYPOINT overridden)
 ```
 
----
+***
 
 ## BuildKit Advanced Flags
 
@@ -404,7 +404,7 @@ ssh-add ~/.ssh/id_rsa
 docker build --ssh default .
 ```
 
----
+***
 
 ## Docker Scout (Security Scanning)
 
@@ -419,7 +419,7 @@ docker scout attestation add \
   --predicate sbom.json myapp:latest       # attach SBOM attestation
 ```
 
----
+***
 
 ## Useful One-Liners
 
@@ -475,7 +475,7 @@ docker run --rm --network host --pid host --privileged \
   nicolaka/netshoot tcpdump -i eth0 port 80
 ```
 
----
+***
 
 ## Docker Context (Remote Builds)
 
@@ -497,7 +497,7 @@ docker context use default
 docker context rm remote
 ```
 
----
+***
 
 ## Registry Mirror Setup
 
@@ -560,7 +560,7 @@ Docker Desktop (Linux, Windows, Mac): https://docs.docker.com/desktop/
 Docker container commands:
 
 
----
+***
 
 ## Page 2
 
@@ -602,7 +602,7 @@ Shubham
 TrainWith
 
 
----
+***
 
 ## Page 3
 
@@ -646,7 +646,7 @@ docker system prune -a
 Remove all unused data
 
 
----
+***
 
 ## Page 4
 
@@ -683,7 +683,7 @@ Shubham
 TrainWith
 
 
----
+***
 
 ## Page 5
 
@@ -731,7 +731,7 @@ Shubham
 TrainWith
 
 
----
+***
 
 ## Page 6
 
@@ -783,5 +783,5 @@ Shubham
 TrainWith
 
 
----
+***
 

@@ -151,7 +151,7 @@
 **Diagnosis:** `systemd-oomd` (on modern distros) kills the entire cgroup with the highest memory pressure, not necessarily the largest process.
 **Fix:** Configure `OOMScoreAdjust` in the service file or exclude the cgroup from `systemd-oomd`.
 
----
+***
 
 ## Level 4: Advanced Networking & Storage
 
@@ -203,7 +203,7 @@ echo "32768" > /proc/irq/<irq-num>/smp_affinity
 
 **Prevention:** Set `net.core.rmem_default`, `rmem_max`, and `netdev_max_backlog` in `/etc/sysctl.d/` before the service goes to production. Run `netstat -s` as a standard metric in your monitoring stack.
 
----
+***
 
 ### Scenario 14: Disk I/O Causes Process Stalls — "D State" Processes
 
@@ -242,7 +242,7 @@ echo none > /sys/block/nvme0n1/queue/scheduler
 
 **Fix:** For SSDs, set scheduler to `none`. Increase `nr_requests`. For NFS, increase `nfsd` thread count on the server. For ext4 journal contention, use `nobarrier` (only on batteries-backed storage) or switch to XFS which handles parallel journal commits better.
 
----
+***
 
 ### Scenario 15: Cron Job Causing Midnight CPU Spike
 
@@ -284,7 +284,7 @@ OnCalendar=daily
 RandomizedDelaySec=3600
 ```
 
----
+***
 
 ### Scenario 16: Memory Leak in a Long-Running Shell Script
 
@@ -338,7 +338,7 @@ while true; do
 done
 ```
 
----
+***
 
 ## Level 5: Security & Hardening Scenarios
 
@@ -401,7 +401,7 @@ diff <(sort /etc/cron.d/*) <(sort /var/backup/cron.d.bak)
 find / -perm -4000 -newer /tmp/.marker -ls 2>/dev/null
 ```
 
----
+***
 
 ### Scenario 18: `/var` Partition Full — Service Degradation Cascade
 
@@ -453,7 +453,7 @@ journalctl --vacuum-size=500M
 - Alert at 80% disk usage — never at 95% (recovery is already hard)
 - Separate `/var/log` onto its own partition so a runaway log cannot fill root
 
----
+***
 
 ## Level 6: Performance Tuning Scenarios
 
@@ -517,7 +517,7 @@ ethtool -L eth0 combined $(nproc)
 
 **Result:** With properly tuned buffers, window scaling, BBR, and RSS, 10Gbps should be achievable on a single stream. Multi-stream via `iperf3 -P 4` typically reveals the headroom.
 
----
+***
 
 ### Scenario 20: Runaway `inotify` — "Too Many Open Files" Across the System
 

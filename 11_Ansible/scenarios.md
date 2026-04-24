@@ -12,7 +12,7 @@
 **Problem:** You have an Auto Scaling Group; how do you configure new instances as they spin up?
 **Fix:** Use `ansible-pull` in the UserData. Each instance pulls the latest playbook from Git and runs it locally on itself.
 
----
+***
 
 ## Scenario 1: SSH Fingerprint Verification Failure
 **Symptom:** Ansible fails to connect to 100 new servers with "Host key verification failed".
@@ -32,7 +32,7 @@
 **Diagnosis:** The default `forks=5` means Ansible only talks to 5 nodes at a time.
 **Fix:** Increase forks in `ansible.cfg`: `forks = 50`. Use the `mitogen` strategy for faster execution.
 
----
+***
 
 ### Scenario 4: Idempotency Broken — Role Re-Installs Package on Every Run
 
@@ -88,7 +88,7 @@ handlers:
   notify: Reload nginx
 ```
 
----
+***
 
 ### Scenario 5: Ansible Vault Password Not Available in CI — Pipeline Fails on Encrypted Variables
 
@@ -129,7 +129,7 @@ vault_db_password: "{{ lookup('env', 'DB_PASSWORD') | default(vault_db_password_
 
 The `lookup('env', ...)` reads from the CI environment; the encrypted fallback is used only when the env var is absent (local dev with vault).
 
----
+***
 
 ### Scenario 6: Playbook Runs Successfully on First Host, Fails on All Others — Variable Hoisting Bug
 
@@ -175,7 +175,7 @@ The `lookup('env', ...)` reads from the CI environment; the encrypted fallback i
         db_primary_ip: "{{ hostvars[groups['db_primary'][0]]['db_ip_result']['stdout'] }}"
 ```
 
----
+***
 
 ### Scenario 7: Ansible Handler Not Firing After Task Change — `flush_handlers` Required
 
@@ -221,7 +221,7 @@ handlers:
 
 Handlers are executed in the order they are defined in the handlers section, not the order they were notified. Use `listen` topics to group related handlers and control execution order.
 
----
+***
 
 ### Scenario 8: Ansible Tower / AWX Job Template Runs But Inventory Is Stale
 
@@ -268,7 +268,7 @@ ssh_args = -o ConnectTimeout=5 -o ServerAliveInterval=10 -o ServerAliveCountMax=
 
 With a 5-second connection timeout, unreachable hosts fail fast rather than hanging for minutes.
 
----
+***
 
 ## Scenario 9: Role Dependency Resolution Failure in Ansible Galaxy
 **Symptom:** `ansible-playbook site.yml` fails with `ERROR! the role 'geerlingguy.mysql' was not found`. The role is listed in `requirements.yml` and was installed previously. Other engineers on the team can run the playbook fine.
@@ -333,7 +333,7 @@ cache:
 
 **Prevention:** Commit installed roles to the repo (`roles/` directory, excluding `.git` subdirs) for air-gapped environments or reproducible installs. Use `molecule` in CI to test roles in isolation.
 
----
+***
 
 ## Scenario 10: Ansible Parallelism Causing Race on Shared Resource
 **Symptom:** A playbook that deploys a schema migration to a database runs fine with `--forks 1` but corrupts data when run with the default `--forks 5`. Multiple app servers are in the inventory, and the migration task runs on all of them simultaneously.
@@ -386,7 +386,7 @@ grep -n "migrate\|schema\|flyway\|alembic\|django.*migrate" roles/app/tasks/main
 
 **Prevention:** Mark all tasks that touch shared state (DB, shared filesystem, load balancer registration) with `throttle: 1` or `run_once: true`. Document which plays are safe to run in parallel in a `RUNBOOK.md`.
 
----
+***
 
 ## Scenario 11: Ansible Callback Plugin Breaking CI Output
 **Symptom:** After adding the `community.general.json` callback plugin to format output, the CI pipeline shows all tasks as failed even though the playbook exits 0. The log parser is misreading the JSON output.
@@ -434,7 +434,7 @@ ANSIBLE_STDOUT_CALLBACK=yaml ansible-playbook site.yml 2>&1 | tee playbook.log
 
 **Prevention:** Test callback plugin changes in CI before merging. Add a smoke test job that runs a trivial playbook and asserts the log contains `PLAY RECAP`.
 
----
+***
 
 ## Scenario 12: Tags Not Limiting Execution as Expected
 **Symptom:** Running `ansible-playbook site.yml --tags deploy` still runs tasks tagged `config` and `always`. The deploy takes 20 minutes when it should take 2.

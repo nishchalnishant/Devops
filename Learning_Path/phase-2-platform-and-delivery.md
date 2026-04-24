@@ -76,7 +76,7 @@ Move to Phase 3 only when you can:
 - describe Terraform state, backends, modules, and drift
 - connect cloud architecture decisions to delivery and reliability
 
----
+***
 
 ## Related Resources
 
@@ -88,6 +88,6 @@ Move to Phase 3 only when you can:
 - [Medium Interview Questions](../../07_Interview_Preparation/interview-questions-medium.md)
 - [Platform Engineering for CI/CD](../../02_Version_Control_and_CI_CD/Jenkins_CICD/platform-engineering-for-cicd.md) (for senior depth)
 
----
+***
 
 **Previous:** [Phase 1 - Foundations](phase-1-foundations.md) | **Next:** [Phase 3 - SRE and Operations](phase-3-sre-and-operations.md)

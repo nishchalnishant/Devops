@@ -142,10 +142,10 @@ An ML-BOM (Machine Learning Bill of Materials) extends the software SBOM concept
 4. **Right to explanation:** For automated decisions, provide SHAP-based explanations of what features drove the prediction.
 5. **Data residency:** Ensure training data for EU residents never leaves EU regions. Use region-locked storage and training compute.
 
----
+***
 
 
----
+***
 
 **44. How do you implement a model promotion gate in a CI/CD pipeline?**
 

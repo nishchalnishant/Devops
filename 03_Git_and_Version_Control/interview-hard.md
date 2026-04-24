@@ -20,13 +20,13 @@
 `rerere` (Reuse Recorded Resolution) records how you resolved a merge conflict and automatically applies the same resolution if the same conflict occurs again. Enable with `git config rerere.enabled true`. This is valuable in workflows where a long-running feature branch is regularly rebased onto main — the same conflicts can appear repeatedly, and `rerere` resolves them automatically after the first manual resolution.
 # Git Interview Questions — Easy
 
----
+***
 
 **1. What is Git and why is it used?**
 
 Git is a distributed version control system (DVCS) that tracks changes to files over time. Unlike centralized systems (like SVN), every developer has a full copy of the repository including complete history. It enables collaboration, rollback, branching, and a complete audit trail of every change. DevOps pipelines depend on Git as the source of truth that triggers CI/CD.
 
----
+***
 
 **2. What is the difference between `git init` and `git clone`?**
 
@@ -40,7 +40,7 @@ git clone https://github.com/org/repo.git         # clone from URL
 git clone https://github.com/org/repo.git mydir   # clone into named dir
 ```
 
----
+***
 
 **3. Explain the three areas of Git: working tree, staging area (index), and repository.**
 
@@ -59,7 +59,7 @@ git commit -m "msg"     # writes index snapshot to repository as a commit object
 
 `git diff` shows working tree vs index. `git diff --staged` shows index vs last commit.
 
----
+***
 
 **4. What does `git add` do? What is the difference between `git add .` and `git add -p`?**
 
@@ -75,7 +75,7 @@ git add .                   # stage everything
 git add -p                  # hunk-by-hunk interactive staging
 ```
 
----
+***
 
 **5. What is a commit? What information does it contain?**
 
@@ -93,7 +93,7 @@ git commit -m "feat: add user authentication"
 git show HEAD               # see all commit fields
 ```
 
----
+***
 
 **6. What is `git status` and what does it show?**
 
@@ -109,7 +109,7 @@ git status
 git status -s               # short format: M=modified, A=added, ??=untracked
 ```
 
----
+***
 
 **7. What is the difference between `git push` and `git pull`?**
 
@@ -122,7 +122,7 @@ git pull origin main                # fetch + merge remote main into local main
 git pull --rebase origin main       # fetch + rebase instead of merge
 ```
 
----
+***
 
 **8. What is the difference between `git fetch` and `git pull`?**
 
@@ -142,7 +142,7 @@ git pull origin main        # fetch + merge in one command
 > [!TIP]
 > In automated pipelines and when you want to inspect changes before integrating, prefer `git fetch` + `git merge`/`git rebase` explicitly over `git pull`.
 
----
+***
 
 **9. How do you create and switch to a new branch?**
 
@@ -162,7 +162,7 @@ git switch -c feature/login         # modern syntax
 git checkout -b feature/login origin/feature/login
 ```
 
----
+***
 
 **10. What is a merge conflict and how do you resolve it?**
 
@@ -190,7 +190,7 @@ git add src/auth.py
 git commit                      # complete the merge
 ```
 
----
+***
 
 **11. What is `.gitignore` and how does it work?**
 
@@ -231,7 +231,7 @@ Rules:
 - `!` negates a pattern (re-include something previously ignored)
 - Already-tracked files are **not** ignored even if added to `.gitignore` — use `git rm --cached`
 
----
+***
 
 **12. What is a remote repository? What is `origin`?**
 
@@ -246,7 +246,7 @@ git remote set-url origin <new-url>     # change the URL
 
 Remote-tracking refs like `origin/main` are local read-only copies of what you last fetched from the remote.
 
----
+***
 
 **13. What is the difference between a local branch and a remote-tracking branch?**
 
@@ -261,7 +261,7 @@ git branch -a                           # list local + remote-tracking
 git checkout -b feature/login origin/feature/login
 ```
 
----
+***
 
 **14. What is a Git tag? What is the difference between a lightweight tag and an annotated tag?**
 
@@ -279,7 +279,7 @@ git push origin --tags                      # push all tags to remote
 git push origin v1.0.0                      # push a specific tag
 ```
 
----
+***
 
 **15. What is `HEAD` in Git?**
 
@@ -295,7 +295,7 @@ git checkout main           # reattach HEAD to main branch
 git checkout abc1234        # detach HEAD to a specific commit
 ```
 
----
+***
 
 **16. How do you undo the last commit without losing your changes?**
 
@@ -318,7 +318,7 @@ git revert HEAD             # create a new commit that undoes the last commit
 git revert abc1234          # create a new commit that undoes a specific commit
 ```
 
----
+***
 
 **17. What is `git stash` and when would you use it?**
 
@@ -337,7 +337,7 @@ git stash clear                     # delete all stashes
 **Common scenario:** You're mid-feature when a critical bug comes in on `main`. Stash your work, switch to main, fix and push the bug, come back, and `git stash pop`.
 # Git Interview Questions — Medium
 
----
+***
 
 **1. Explain Git's object model: blob, tree, commit, tag.**
 
@@ -360,7 +360,7 @@ git cat-file -p HEAD:main.py  # content of a blob
 
 Identical content always produces the same SHA-1 — Git deduplicates storage automatically. Two commits touching the same unchanged file share that file's blob object.
 
----
+***
 
 **2. What is `git rebase -i` and how do you use it to clean up commits before a PR?**
 
@@ -388,7 +388,7 @@ Workflow for PR cleanup:
 > [!CAUTION]
 > Interactive rebase rewrites history. Only use it on commits that **haven't been pushed**, or on your own feature branch where you control the force-push. Never on `main`.
 
----
+***
 
 **3. What is `git cherry-pick` and when would you use it?**
 
@@ -409,7 +409,7 @@ git cherry-pick -x abc1234                 # append "cherry-picked from" to mess
 > [!IMPORTANT]
 > Cherry-pick copies the diff, not the commit itself. If the original commit is later included via a merge, Git usually handles it cleanly, but duplicate content can cause conflicts in some cases. Prefer full merges or rebases when moving substantial amounts of work.
 
----
+***
 
 **4. How does `git bisect` work? Walk through an example.**
 
@@ -452,7 +452,7 @@ make build 2>/dev/null || exit 125        # can't test if build fails
 ./test.sh
 ```
 
----
+***
 
 **5. What is the reflog and how do you use it for disaster recovery?**
 
@@ -479,7 +479,7 @@ git reset --hard HEAD@{1}                 # reset current branch to a previous p
 > [!IMPORTANT]
 > Reflog is **local only** — it is never pushed or fetched. If a colleague does the damage, they need to use their own reflog. Also, `git gc` prunes unreachable objects after the reflog expiry (90 days reachable, 30 days unreachable by default).
 
----
+***
 
 **6. Compare GitFlow vs trunk-based development. Which would you choose and why?**
 
@@ -498,7 +498,7 @@ git reset --hard HEAD@{1}                 # reset current branch to a previous p
 
 At scale (Google, Meta), trunk-based development combined with feature flags is the standard. GitFlow "merge Wednesdays" are a well-known scaling failure mode.
 
----
+***
 
 **7. What are Git hooks and how do you share them with your team?**
 
@@ -542,7 +542,7 @@ pre-commit install            # installs hooks into .git/hooks/
 - `commit-msg`: enforce conventional commits format
 - `pre-push`: run tests before pushing (gate quality at the source)
 
----
+***
 
 **8. What is the difference between a monorepo and polyrepo strategy? What tooling does monorepo require?**
 
@@ -570,7 +570,7 @@ done
 - **Nx**: JS/TS `nx affected:test` only tests projects that transitively depend on changed files
 - **Turborepo**: similar to Nx, with remote caching
 
----
+***
 
 **9. What is commit signing and why does it matter for supply chain security?**
 
@@ -593,7 +593,7 @@ git config --global user.signingkey ~/.ssh/id_ed25519.pub
 
 GitHub shows a "Verified" badge on signed commits. Enforce signing via branch protection: Settings → Branches → Require signed commits.
 
----
+***
 
 **10. How do you handle large binary files in Git? What is Git LFS?**
 
@@ -625,7 +625,7 @@ git filter-repo --path path/to/large.bin --invert-paths
 git push --force origin main
 ```
 
----
+***
 
 **11. What is `git submodule` vs `git subtree`? When would you use each?**
 
@@ -654,7 +654,7 @@ git subtree pull --prefix=vendor/lib https://github.com/org/lib.git main --squas
 
 **Use subtree when:** you want to embed third-party code without the operational burden of submodule init/update workflows. Better for libraries you rarely update and don't contribute back to.
 
----
+***
 
 **12. How do you recover commits after an accidental `git reset --hard`?**
 
@@ -683,7 +683,7 @@ ls .git/lost-found/commit/
 git show .git/lost-found/commit/<sha>
 ```
 
----
+***
 
 **13. What is `--force-with-lease` and why is it safer than `--force`?**
 
@@ -701,7 +701,7 @@ git push --force-with-lease=feature/my-feature:<sha> origin feature/my-feature
 
 **Always use `--force-with-lease`** when force-pushing is genuinely necessary (after interactive rebase on your own feature branch). Never force-push to `main` or shared branches.
 
----
+***
 
 **14. What is a merge strategy and what are the common ones?**
 
@@ -723,7 +723,7 @@ git merge -X theirs feature/x              # strategy option: prefer theirs on c
 git merge -X ignore-space-change feature/x  # ignore whitespace in conflict detection
 ```
 
----
+***
 
 **15. How do you enforce a commit message format across a team?**
 

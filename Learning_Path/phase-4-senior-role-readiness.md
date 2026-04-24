@@ -124,7 +124,7 @@ You are senior-ready when you can:
 - discuss reliability, security, governance, and cost in one answer
 - provide examples of ownership, automation, and operational leadership
 
----
+***
 
 ## Related Resources
 
@@ -137,6 +137,6 @@ You are senior-ready when you can:
 - [MLOps Interview Playbook](../../07_Interview_Preparation/mlops-interview-playbook.md) (for ML specialization)
 - [Capstone Projects](capstone-projects.md)
 
----
+***
 
 **Previous:** [Phase 3 - SRE and Operations](phase-3-sre-and-operations.md) | **Next:** [Capstone Projects](capstone-projects.md)

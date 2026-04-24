@@ -68,7 +68,7 @@ A taint on a node repels Pods that don't explicitly tolerate it. A toleration in
 
 It creates a tunnel from your local machine's port to a port on a Pod, allowing local access to a service running inside the cluster without exposing it externally. Used for debugging.
 
----
+***
 
 **Q: What is the role of the kubelet?**
 

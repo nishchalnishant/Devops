@@ -32,5 +32,5 @@ Configure the repository to require squash merges or rebase merges only — disa
 
 Commit signing uses GPG or SSH keys to cryptographically sign commits, proving they came from the stated author. Without signing, anyone can set `git config user.email` to any address and commit as if they were another person. For supply chain security, signed commits are an input to SLSA — you can enforce that only commits from authenticated identities can be merged to protected branches.
 
----
+***
 
