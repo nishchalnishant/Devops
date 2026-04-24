@@ -2,100 +2,209 @@
 
 * [DevOps Interview Handbook](README.md)
 
-* 01 Linux and Scripting
-  * [Interview Questions](01_Linux_and_Scripting/interview.md)
-  * [Linux Cheat Sheet](01_Linux_and_Scripting/CheatSheet_Linux.md)
-  * [Linux Notes](01_Linux_and_Scripting/Notes_Linux.md)
-  * [Shell Scripting Notes](01_Linux_and_Scripting/Notes_Shell_Scripting.md)
-  * [Shell Scripting for DevOps](01_Linux_and_Scripting/shell_scripting.md)
-  * [Advanced Linux Performance & Hardening](01_Linux_and_Scripting/advanced-linux-performance-and-hardening.md)
-  * [Engineering Automation at Scale](01_Linux_and_Scripting/engineering-automation-at-scale.md)
+* 1 Linux and Scripting
+  * [Overview](01_Linux_and_Scripting/README.md)
+  * Detailed Notes
+    * [Advanced Linux](01_Linux_and_Scripting/notes/advanced-linux.md)
+    * [Fundamentals](01_Linux_and_Scripting/notes/fundamentals.md)
+    * [Processes And Memory](01_Linux_and_Scripting/notes/processes-and-memory.md)
+    * [Shell Scripting](01_Linux_and_Scripting/notes/shell-scripting.md)
+  * Interview Questions
+    * [Easy](01_Linux_and_Scripting/interview-easy.md)
+    * [Medium](01_Linux_and_Scripting/interview-medium.md)
+    * [Hard](01_Linux_and_Scripting/interview-hard.md)
+  * [Cheatsheet](01_Linux_and_Scripting/cheatsheet.md)
+  * [Scenarios & Troubleshooting](01_Linux_and_Scripting/scenarios.md)
 
-* 02 Networking
-  * [Interview Questions](02_Networking/interview.md)
-  * [Networking Cheat Sheet](02_Networking/CheatSheet_Networking.md)
-  * [Networking Notes](02_Networking/Notes_Networking.md)
-  * [Networking Notes 1](02_Networking/Notes_Networking_1.md)
-  * [Networking for DevOps](02_Networking/networking_for_devops.md)
-  * [Enterprise Networking & Protocols](02_Networking/enterprise-networking-and-protocols.md)
+* 2 Networking
+  * [Overview](02_Networking/README.md)
+  * Detailed Notes
+    * [Advanced Networking](02_Networking/notes/advanced-networking.md)
+    * [Core Fundamentals](02_Networking/notes/core-fundamentals.md)
+    * [Protocols](02_Networking/notes/protocols.md)
+    * [Routing And Topologies](02_Networking/notes/routing-and-topologies.md)
+  * Interview Questions
+    * [Easy](02_Networking/interview-easy.md)
+    * [Medium](02_Networking/interview-medium.md)
+    * [Hard](02_Networking/interview-hard.md)
+  * [Cheatsheet](02_Networking/cheatsheet.md)
+  * [Scenarios & Troubleshooting](02_Networking/scenarios.md)
 
-* 03 Git and Version Control
-  * [Interview Questions](03_Git_and_Version_Control/interview.md)
-  * [Git & GitHub Cheat Sheet](03_Git_and_Version_Control/CheatSheet_Git_GitHub.md)
-  * [Git & GitHub Notes](03_Git_and_Version_Control/Notes_Git_GitHub.md)
-  * [Advanced Git & Monorepos](03_Git_and_Version_Control/advanced-git-workflows-and-monorepos.md)
+* 3 Git and Version Control
+  * [Overview](03_Git_and_Version_Control/README.md)
+  * Detailed Notes
+    * [Notes_Git_Github](03_Git_and_Version_Control/notes/Notes_Git_GitHub.md)
+    * [Advanced Git Workflows And Monorepos](03_Git_and_Version_Control/notes/advanced-git-workflows-and-monorepos.md)
+    * [Notes](03_Git_and_Version_Control/notes/notes.md)
+  * Interview Questions
+    * [Easy](03_Git_and_Version_Control/interview-easy.md)
+    * [Medium](03_Git_and_Version_Control/interview-medium.md)
+    * [Hard](03_Git_and_Version_Control/interview-hard.md)
+  * [Cheatsheet](03_Git_and_Version_Control/cheatsheet.md)
+  * [Scenarios & Troubleshooting](03_Git_and_Version_Control/scenarios.md)
 
-* 04 Docker
-  * [Interview Questions](04_Docker/interview.md)
-  * [Docker Cheat Sheet](04_Docker/CheatSheet_Docker.md)
-  * [Docker Networking Notes](04_Docker/Notes_Docker_Networking.md)
-  * [Docker Short Notes](04_Docker/Notes_TWS_Docker.md)
-  * [Container Runtimes & Security](04_Docker/container-runtimes-and-security.md)
+* 4 Docker
+  * [Overview](04_Docker/README.md)
+  * Detailed Notes
+    * [Notes_Docker_Networking](04_Docker/notes/Notes_Docker_Networking.md)
+    * [Notes_Tws_Docker](04_Docker/notes/Notes_TWS_Docker.md)
+    * [Container Runtimes And Security](04_Docker/notes/container-runtimes-and-security.md)
+    * [Notes](04_Docker/notes/notes.md)
+  * Interview Questions
+    * [Easy](04_Docker/interview-easy.md)
+    * [Medium](04_Docker/interview-medium.md)
+    * [Hard](04_Docker/interview-hard.md)
+  * [Cheatsheet](04_Docker/cheatsheet.md)
+  * [Scenarios & Troubleshooting](04_Docker/scenarios.md)
 
-* 05 Kubernetes
-  * [Interview Questions](05_Kubernetes/interview.md)
-  * [Kubernetes Cheat Sheet](05_Kubernetes/k8_interview_cheat_sheet.md)
-  * [Cluster Health Checklist](05_Kubernetes/cluster_health_checklist.md)
-  * [Enterprise Kubernetes Architecture](05_Kubernetes/enterprise-kubernetes-architecture.md)
-  * [Advanced K8s Networking & Security](05_Kubernetes/advanced-networking-and-security.md)
-  * [Kubernetes Runbook](05_Kubernetes/kubernetes-runbook.md)
-  * [K8s Scenario-Based Questions](05_Kubernetes/kubernetes_scenario_based_questions.md)
-  * [K8s Troubleshooting Interview](05_Kubernetes/k8_troubleshooting_interview.md)
+* 5 Kubernetes
+  * [Overview](05_Kubernetes/README.md)
+  * Detailed Notes
+    * [Containers Orchestration Readme](05_Kubernetes/notes/containers-orchestration-README.md)
+    * [Enterprise Kubernetes Architecture](05_Kubernetes/notes/enterprise-kubernetes-architecture.md)
+    * [Notes](05_Kubernetes/notes/notes.md)
+  * Interview Questions
+    * [Easy](05_Kubernetes/interview-easy.md)
+    * [Medium](05_Kubernetes/interview-medium.md)
+    * [Hard](05_Kubernetes/interview-hard.md)
+  * [Cheatsheet](05_Kubernetes/cheatsheet.md)
+  * [Scenarios & Troubleshooting](05_Kubernetes/scenarios.md)
 
-* 06 Jenkins
-  * [Interview Questions](06_Jenkins/interview.md)
-  * [Jenkins Cheat Sheet](06_Jenkins/CheatSheet_Jenkins.md)
-  * [Jenkins Notes](06_Jenkins/Notes_Jenkins.md)
-  * [End-to-End CI/CD Pipeline](06_Jenkins/end-to-end-ci-cd-pipeline.md)
-  * [Platform Engineering for CI/CD](06_Jenkins/platform-engineering-for-cicd.md)
-  * [DevOps Interview Playbook](06_Jenkins/devops-interview-playbook.md)
+* 6 Jenkins
+  * [Overview](06_Jenkins/README.md)
+  * Detailed Notes
+    * [Notes_Jenkins](06_Jenkins/notes/Notes_Jenkins.md)
+    * [Notes](06_Jenkins/notes/notes.md)
+    * [Platform Engineering For Cicd](06_Jenkins/notes/platform-engineering-for-cicd.md)
+  * Interview Questions
+    * [Easy](06_Jenkins/interview-easy.md)
+    * [Medium](06_Jenkins/interview-medium.md)
+    * [Hard](06_Jenkins/interview-hard.md)
+  * [Cheatsheet](06_Jenkins/cheatsheet.md)
+  * [Scenarios & Troubleshooting](06_Jenkins/scenarios.md)
 
-* 07 GitHub Actions
-  * [Interview Questions](07_GitHub_Actions/interview.md)
+* 7 GitHub Actions
+  * [Overview](07_GitHub_Actions/README.md)
+  * Detailed Notes
+    * [Notes](07_GitHub_Actions/notes/notes.md)
+  * Interview Questions
+    * [Easy](07_GitHub_Actions/interview-easy.md)
+    * [Medium](07_GitHub_Actions/interview-medium.md)
+    * [Hard](07_GitHub_Actions/interview-hard.md)
+  * [Cheatsheet](07_GitHub_Actions/cheatsheet.md)
+  * [Scenarios & Troubleshooting](07_GitHub_Actions/scenarios.md)
 
-* 08 GitLab CI
-  * [Interview Questions](08_GitLab_CI/interview.md)
-  * [GitLab Cheat Sheet](08_GitLab_CI/CheatSheet_GitLab.md)
+* 8 GitLab CI
+  * [Overview](08_GitLab_CI/README.md)
+  * Detailed Notes
+    * [Notes](08_GitLab_CI/notes/notes.md)
+  * Interview Questions
+    * [Easy](08_GitLab_CI/interview-easy.md)
+    * [Medium](08_GitLab_CI/interview-medium.md)
+    * [Hard](08_GitLab_CI/interview-hard.md)
+  * [Cheatsheet](08_GitLab_CI/cheatsheet.md)
+  * [Scenarios & Troubleshooting](08_GitLab_CI/scenarios.md)
 
-* 09 ArgoCD and GitOps
-  * [Interview Questions](09_ArgoCD_and_GitOps/interview.md)
-  * [Progressive Delivery & GitOps at Scale](09_ArgoCD_and_GitOps/progressive-delivery-and-gitops-at-scale.md)
-  * [GitOps at Scale & FinOps](09_ArgoCD_and_GitOps/gitops-at-scale-and-finops.md)
+* 9 ArgoCD and GitOps
+  * [Overview](09_ArgoCD_and_GitOps/README.md)
+  * Detailed Notes
+    * [Progressive Delivery And Gitops At Scale](09_ArgoCD_and_GitOps/notes/progressive-delivery-and-gitops-at-scale.md)
+  * Interview Questions
+    * [Easy](09_ArgoCD_and_GitOps/interview-easy.md)
+    * [Medium](09_ArgoCD_and_GitOps/interview-medium.md)
+    * [Hard](09_ArgoCD_and_GitOps/interview-hard.md)
+  * [Cheatsheet](09_ArgoCD_and_GitOps/cheatsheet.md)
+  * [Scenarios & Troubleshooting](09_ArgoCD_and_GitOps/scenarios.md)
 
 * 10 Terraform
-  * [Interview Questions](10_Terraform/interview.md)
-  * [Advanced Terraform Patterns](10_Terraform/advanced-terraform-patterns.md)
-  * [IaC Policy & GitOps](10_Terraform/policy-and-gitops.md)
+  * [Overview](10_Terraform/README.md)
+  * Detailed Notes
+    * [Notes](10_Terraform/notes/notes.md)
+  * Interview Questions
+    * [Easy](10_Terraform/interview-easy.md)
+    * [Medium](10_Terraform/interview-medium.md)
+    * [Hard](10_Terraform/interview-hard.md)
+  * [Cheatsheet](10_Terraform/cheatsheet.md)
+  * [Scenarios & Troubleshooting](10_Terraform/scenarios.md)
 
 * 11 Ansible
-  * [Interview Questions](11_Ansible/interview.md)
+  * [Overview](11_Ansible/README.md)
+  * Detailed Notes
+    * [Notes](11_Ansible/notes/notes.md)
+  * Interview Questions
+    * [Easy](11_Ansible/interview-easy.md)
+    * [Medium](11_Ansible/interview-medium.md)
+    * [Hard](11_Ansible/interview-hard.md)
+  * [Cheatsheet](11_Ansible/cheatsheet.md)
+  * [Scenarios & Troubleshooting](11_Ansible/scenarios.md)
 
 * 12 Azure
-  * [Interview Questions](12_Azure/interview.md)
+  * [Overview](12_Azure/README.md)
+  * Detailed Notes
+    * [Azure_Cloud](12_Azure/notes/azure_cloud.md)
+  * Interview Questions
+    * [Easy](12_Azure/interview-easy.md)
+    * [Medium](12_Azure/interview-medium.md)
+    * [Hard](12_Azure/interview-hard.md)
+  * [Cheatsheet](12_Azure/cheatsheet.md)
+  * [Scenarios & Troubleshooting](12_Azure/scenarios.md)
 
 * 13 AWS
-  * [Interview Questions](13_AWS/interview.md)
+  * [Overview](13_AWS/README.md)
+  * Detailed Notes
+    * [Notes](13_AWS/notes/notes.md)
+  * Interview Questions
+    * [Easy](13_AWS/interview-easy.md)
+    * [Medium](13_AWS/interview-medium.md)
+    * [Hard](13_AWS/interview-hard.md)
+  * [Cheatsheet](13_AWS/cheatsheet.md)
+  * [Scenarios & Troubleshooting](13_AWS/scenarios.md)
 
 * 14 DevSecOps
-  * [Interview Questions](14_DevSecOps/interview.md)
+  * [Overview](14_DevSecOps/README.md)
+  * Detailed Notes
+    * [Notes](14_DevSecOps/notes/notes.md)
+    * [Supply Chain Security And Slsa](14_DevSecOps/notes/supply-chain-security-and-slsa.md)
+  * Interview Questions
+    * [Easy](14_DevSecOps/interview-easy.md)
+    * [Medium](14_DevSecOps/interview-medium.md)
+    * [Hard](14_DevSecOps/interview-hard.md)
+  * [Cheatsheet](14_DevSecOps/cheatsheet.md)
+  * [Scenarios & Troubleshooting](14_DevSecOps/scenarios.md)
 
 * 15 Observability and SRE
-  * [Interview Questions](15_Observability_and_SRE/interview.md)
+  * [Overview](15_Observability_and_SRE/README.md)
+  * Detailed Notes
+    * [Notes](15_Observability_and_SRE/notes/notes.md)
+    * [Troubleshooting_Guide](15_Observability_and_SRE/notes/troubleshooting_guide.md)
+  * Interview Questions
+    * [Easy](15_Observability_and_SRE/interview-easy.md)
+    * [Medium](15_Observability_and_SRE/interview-medium.md)
+    * [Hard](15_Observability_and_SRE/interview-hard.md)
+  * [Cheatsheet](15_Observability_and_SRE/cheatsheet.md)
+  * [Scenarios & Troubleshooting](15_Observability_and_SRE/scenarios.md)
 
 * 16 Platform Engineering and FinOps
-  * [Interview Questions](16_Platform_Engineering_and_FinOps/interview.md)
+  * [Overview](16_Platform_Engineering_and_FinOps/README.md)
+  * Detailed Notes
+    * [Notes](16_Platform_Engineering_and_FinOps/notes/notes.md)
+  * Interview Questions
+    * [Easy](16_Platform_Engineering_and_FinOps/interview-easy.md)
+    * [Medium](16_Platform_Engineering_and_FinOps/interview-medium.md)
+    * [Hard](16_Platform_Engineering_and_FinOps/interview-hard.md)
+  * [Cheatsheet](16_Platform_Engineering_and_FinOps/cheatsheet.md)
+  * [Scenarios & Troubleshooting](16_Platform_Engineering_and_FinOps/scenarios.md)
 
 * 17 MLOps
-  * [Interview Questions](17_MLOps/interview.md)
-  * [MLOps Overview](17_MLOps/MLOps.md)
-  * [Feature Stores & CT Pipelines](17_MLOps/mlops-feature-stores-and-pipelines.md)
-  * [LLMOps & Advanced Model Serving](17_MLOps/mlops-llmops-and-advanced-serving.md)
-  * [MLOps Interview Playbook](17_MLOps/mlops-interview-playbook.md)
-  * [MLOps Scenario Drills](17_MLOps/mlops-scenario-based-interview-drills.md)
-
-* Learning Path
-  * [Phase 1 - Foundations](Learning_Path/phase-1-foundations.md)
-  * [Phase 2 - Platform and Delivery Core](Learning_Path/phase-2-platform-and-delivery.md)
-  * [Phase 3 - SRE and Operations](Learning_Path/phase-3-sre-and-operations.md)
-  * [Phase 4 - Senior Role Readiness](Learning_Path/phase-4-senior-role-readiness.md)
-  * [Capstone Projects](Learning_Path/capstone-projects.md)
+  * [Overview](17_MLOps/README.md)
+  * Detailed Notes
+    * [Mlops](17_MLOps/notes/MLOps.md)
+    * [Mlops Feature Stores And Pipelines](17_MLOps/notes/mlops-feature-stores-and-pipelines.md)
+    * [Mlops Llmops And Advanced Serving](17_MLOps/notes/mlops-llmops-and-advanced-serving.md)
+    * [Notes](17_MLOps/notes/notes.md)
+  * Interview Questions
+    * [Easy](17_MLOps/interview-easy.md)
+    * [Medium](17_MLOps/interview-medium.md)
+    * [Hard](17_MLOps/interview-hard.md)
+  * [Cheatsheet](17_MLOps/cheatsheet.md)
+  * [Scenarios & Troubleshooting](17_MLOps/scenarios.md)
