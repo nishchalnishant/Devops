@@ -108,6 +108,7 @@
     * [Medium](07_GitHub_Actions/interview-medium.md)
     * [Hard](07_GitHub_Actions/interview-hard.md)
   * [Cheatsheet](07_GitHub_Actions/cheatsheet.md)
+  * [Tips & Tricks](07_GitHub_Actions/tips-and-tricks.md)
   * [Scenarios & Troubleshooting](07_GitHub_Actions/scenarios.md)
 
 * 8 GitLab CI
@@ -145,6 +146,7 @@
     * [Medium](10_Terraform/interview-medium.md)
     * [Hard](10_Terraform/interview-hard.md)
   * [Cheatsheet](10_Terraform/cheatsheet.md)
+  * [Tips & Tricks](10_Terraform/tips-and-tricks.md)
   * [Scenarios & Troubleshooting](10_Terraform/scenarios.md)
 
 * 11 Ansible
@@ -184,6 +186,7 @@
     * [Medium](13_AWS/interview-medium.md)
     * [Hard](13_AWS/interview-hard.md)
   * [Cheatsheet](13_AWS/cheatsheet.md)
+  * [Tips & Tricks](13_AWS/tips-and-tricks.md)
   * [Scenarios & Troubleshooting](13_AWS/scenarios.md)
 
 * 14 DevSecOps
@@ -198,6 +201,7 @@
     * [Medium](14_DevSecOps/interview-medium.md)
     * [Hard](14_DevSecOps/interview-hard.md)
   * [Cheatsheet](14_DevSecOps/cheatsheet.md)
+  * [Tips & Tricks](14_DevSecOps/tips-and-tricks.md)
   * [Scenarios & Troubleshooting](14_DevSecOps/scenarios.md)
 
 * 15 Observability and SRE
@@ -207,11 +211,14 @@
     * [Troubleshooting Guide](15_Observability_and_SRE/notes/troubleshooting_guide.md)
     * [Prometheus & Alerting](15_Observability_and_SRE/notes/prometheus-and-alerting.md)
     * [Distributed Tracing & OpenTelemetry](15_Observability_and_SRE/notes/distributed-tracing.md)
+    * [Chaos Engineering & Resilience Testing](15_Observability_and_SRE/notes/chaos-engineering.md)
+    * [Incident Management & On-Call](15_Observability_and_SRE/notes/incident-management.md)
   * Interview Questions
     * [Easy](15_Observability_and_SRE/interview-easy.md)
     * [Medium](15_Observability_and_SRE/interview-medium.md)
     * [Hard](15_Observability_and_SRE/interview-hard.md)
   * [Cheatsheet](15_Observability_and_SRE/cheatsheet.md)
+  * [Tips & Tricks](15_Observability_and_SRE/tips-and-tricks.md)
   * [Scenarios & Troubleshooting](15_Observability_and_SRE/scenarios.md)
 
 * 16 Platform Engineering and FinOps
@@ -241,4 +248,20 @@
     * [Medium](17_MLOps/interview-medium.md)
     * [Hard](17_MLOps/interview-hard.md)
   * [Cheatsheet](17_MLOps/cheatsheet.md)
+  * [Tips & Tricks](17_MLOps/tips-and-tricks.md)
   * [Scenarios & Troubleshooting](17_MLOps/scenarios.md)
+
+* 18 Helm
+  * [Overview](18_Helm/README.md)
+  * Detailed Notes
+    * [Helm Fundamentals](18_Helm/notes/helm-fundamentals.md)
+  * Interview Questions
+    * [Easy](18_Helm/interview-easy.md)
+    * [Medium](18_Helm/interview-medium.md)
+    * [Hard](18_Helm/interview-hard.md)
+  * [Cheatsheet](18_Helm/cheatsheet.md)
+  * [Scenarios & Troubleshooting](18_Helm/scenarios.md)
+
+* Cross-Cutting Resources
+  * [System Design Problems](system-design.md)
+  * [Behavioral & Leadership Interview](behavioral.md)
