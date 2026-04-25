@@ -1,5 +1,37 @@
 # GitLab CI/CD — Deep Dive Notes
 
+## Why GitLab CI/CD Exists
+
+GitLab CI/CD was one of the first integrated CI/CD systems in a DevOps platform. Unlike Jenkins (external) or GitHub Actions (newer), GitLab CI has been part of the platform since 2016, making it mature and deeply integrated.
+
+**Key Advantages:**
+
+1. **Single platform:** Code, CI/CD, container registry, and deployment in one system
+2. **Powerful DAG execution:** The `needs:` keyword allows complex dependency graphs beyond simple stages
+3. **Auto DevOps:** Opinionated pipelines that work out of the box for common frameworks
+4. **Review Apps:** Automatic ephemeral environments for every merge request
+5. **Security scanning:** Built-in SAST, DAST, dependency scanning, and container scanning
+
+**The Architecture:**
+
+```
+Developer pushes code → GitLab creates pipeline → Jobs queued → Runner polls → Job claimed → Job executed → Artifacts uploaded → Status reported
+```
+
+**Runner Types:**
+- **Shared runners:** GitLab-managed, available to all projects, billed on GitLab.com
+- **Group runners:** Shared within a group hierarchy
+- **Project runners:** Dedicated to a single project
+
+**Executor Types:**
+- **Docker:** Most common — each job runs in a fresh container
+- **Shell:** Runs directly on the runner host (faster, but less isolated)
+- **Kubernetes:** Each job runs in a Kubernetes pod (ephemeral, scalable)
+
+This document covers pipeline internals, advanced configuration, and enterprise patterns.
+
+***
+
 ## Pipeline Architecture Internals
 
 GitLab CI pipelines are defined in `.gitlab-ci.yml` and executed by Runners via a polling mechanism:

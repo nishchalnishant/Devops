@@ -1,5 +1,27 @@
 # Advanced Git Workflows & Monorepos
 
+## Why Understanding Git Internals Matters
+
+Most developers use Git as a black box: `git add`, `git commit`, `git push`. But when things go wrong — corrupted repos, massive merge conflicts, bisecting production issues, or managing monorepos at scale — you need to understand what's happening under the hood.
+
+**Git is not a delta-diff system** (like SVN). It's a **content-addressable key-value store** with a version control layer on top:
+
+```
+Every piece of data = SHA-1 hash of its content
+Store = .git/objects/ directory (or packed into .pack files)
+Lookup = hash → content (not filename → content)
+```
+
+**Why this matters:**
+- **Deduplication:** Identical files share the same blob object — saves space
+- **Integrity:** Changing any content changes the SHA — tampering is detectable
+- **Speed:** Hash-based lookups are O(1), not O(n)
+- **Immutability:** Objects never change; "rewriting history" creates new objects
+
+This document covers advanced workflows that leverage Git's internal architecture for enterprise-scale development.
+
+***
+
 ## Git Internals — Object Model
 
 ```

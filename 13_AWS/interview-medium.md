@@ -1,37 +1,85 @@
+---
+description: Medium-difficulty interview questions for AWS IAM, networking, EKS, Lambda, and cost management.
+---
+
 ## Medium
 
-**9. How does IRSA (IAM Roles for Service Accounts) work in EKS?**
+**13. What is IAM Policy Evaluation Logic and what happens when multiple policies conflict?**
 
-IRSA lets Kubernetes pods assume IAM Roles without static credentials. EKS creates an OIDC identity provider for the cluster. You annotate a Kubernetes ServiceAccount with the IAM Role ARN. When the pod starts, the pod receives a projected service account token that the IAM STS service validates against the cluster's OIDC provider, issuing temporary AWS credentials. Credentials are scoped to the pod and rotate automatically — no access keys stored anywhere.
+AWS IAM evaluates policies in this order:
+1. **Explicit Deny** — if any policy (identity-based, resource-based, SCP, permissions boundary) explicitly denies the action, it is denied. Period.
+2. **Explicit Allow** — if no explicit deny, any explicit allow grants access.
+3. **Implicit Deny (default)** — if there's neither an allow nor a deny, access is denied.
 
-**10. What is the difference between an ALB and an NLB?**
+SCPs (Service Control Policies) act as a ceiling — even if an IAM policy grants access, an SCP that doesn't allow the action prevents it. Permissions boundaries work the same way: an identity cannot exceed its boundary even with an explicit allow.
 
-- **ALB (Application Load Balancer):** Layer 7 — understands HTTP/HTTPS. Routes based on path, hostname, headers, query strings. Supports WebSockets. The right choice for microservices and container workloads.
-- **NLB (Network Load Balancer):** Layer 4 — routes TCP/UDP by IP and port. Extremely low latency and handles millions of requests per second. Used for non-HTTP traffic or when preserving client IPs is required.
+**14. What is IRSA (IAM Roles for Service Accounts) in EKS?**
 
-**11. How do you manage secrets in AWS-native pipelines?**
+IRSA allows Kubernetes pods to assume IAM roles without needing to store access keys anywhere. It works via OIDC federation:
 
-Use AWS Secrets Manager or AWS Systems Manager Parameter Store (SecureString type). CI/CD pipelines retrieve secrets at runtime using the AWS SDK or CLI with an IAM Role — no secrets stored in code or environment variables. For cross-account access, a resource-based policy on the secret allows a specific IAM Role from another account. Secrets Manager supports automatic rotation for RDS, Redshift, and custom rotation Lambdas.
+1. EKS exposes an OIDC provider URL.
+2. AWS IAM is configured to trust that OIDC provider.
+3. Each Kubernetes ServiceAccount is annotated with an IAM role ARN.
+4. When a pod starts, the EKS token webhook injects a projected service account token into the pod.
+5. The AWS SDK calls `sts:AssumeRoleWithWebIdentity` using this token to get temporary credentials.
 
-**12. What is AWS CDK and how does it differ from CloudFormation?**
+The IAM role's trust policy restricts which namespace and service account name can assume it — preventing lateral movement between services.
 
-CloudFormation uses JSON/YAML templates — declarative but verbose and limited in abstraction. AWS CDK (Cloud Development Kit) lets you define infrastructure using real programming languages (TypeScript, Python, Go, Java). CDK synthesizes to CloudFormation, so it benefits from CloudFormation's deployment reliability while enabling reusable constructs, loops, conditions, and unit tests. CDK is preferred for complex infrastructure that benefits from abstraction and testing.
+**15. Explain VPC peering vs Transit Gateway. When do you use each?**
 
-**13. What is Karpenter and how does it improve on the Cluster Autoscaler?**
+**VPC Peering:** Direct one-to-one connection between two VPCs. Traffic stays on the AWS backbone (no internet). Non-transitive — if VPC A is peered with VPC B, and B is peered with C, A cannot reach C. CIDR ranges must not overlap. Good for 2-5 VPCs.
 
-The Cluster Autoscaler works with pre-defined Auto Scaling Groups and can only scale within the instance types configured in those groups. Karpenter provisions nodes directly via the EC2 Fleet API — it picks the optimal instance type for the workload (based on pod resource requests) from any available family, in any AZ, including Spot. Karpenter also consolidates nodes actively, bin-packing workloads to minimize node count. This reduces cost and improves scaling speed.
+**Transit Gateway (TGW):** A hub-and-spoke network transit hub that connects VPCs, VPNs, and Direct Connect. Fully transitive — A can reach C via the TGW. Supports thousands of VPCs. Supports inter-region peering. Required for large-scale multi-VPC architectures. More expensive but necessary for scale.
 
-**14. What is ECS Fargate and when would you choose it over EC2 launch type?**
+**16. What is AWS Systems Manager Session Manager and why is it preferred over SSH?**
 
-Fargate is serverless compute for ECS — AWS manages the underlying hosts, OS patching, and capacity. You define CPU/memory at the task level and pay per second of task execution. Choose Fargate when: you don't want to manage EC2 infrastructure, workloads are variable or bursty, or security isolation per task is required (each Fargate task runs in its own micro-VM). Choose EC2 launch type when you need specific instance types, GPU access, or very high-throughput workloads where EC2 unit economics are better.
+Session Manager provides a browser or CLI-based shell to EC2 instances without opening inbound port 22. The SSM Agent running on the instance initiates an outbound connection to the Systems Manager service — no inbound firewall rules needed. Benefits: no SSH key management, full session logging to CloudWatch/S3, access controlled via IAM (not server-side authorized_keys), and works even in private subnets with no internet access (via VPC endpoints).
 
-**15. How do you implement least-privilege access for a CI/CD pipeline deploying to AWS?**
+**17. What is AWS Lambda's execution model and what are cold start considerations?**
 
-Use OIDC federation: configure the CI provider (GitHub Actions, GitLab CI) as an OIDC provider in AWS IAM. Create an IAM Role with a trust policy that restricts assumption to the specific repository and branch (via `sub` claim matching). The Role's permission policy grants only the exact permissions the deploy job needs — e.g., `ecr:PutImage` on a specific ECR repo and `ecs:UpdateService` on a specific cluster. No static access keys are stored in the CI system.
+Lambda functions run in isolated microVMs (Firecracker). On first invocation (or after a period of inactivity), Lambda provisions a new execution environment — this initialization takes 100ms-1s+ depending on runtime and package size. This is a "cold start." Subsequent invocations reuse the warm environment.
 
-**16. What is AWS Systems Manager Session Manager and why use it instead of SSH?**
+Mitigations:
+- Use Provisioned Concurrency to pre-warm N instances continuously (costs money).
+- Use ARM64 (`graviton2`) architecture — faster cold starts and cheaper.
+- Minimize deployment package size — `node` starts faster than `python` which is faster than JVM.
+- Move global initializations outside the handler (DB connections, SDK clients) — they persist across warm invocations.
 
-Session Manager provides shell access to EC2 instances through the AWS console or CLI without opening port 22, without managing SSH keys, and without a bastion host. All sessions are logged to CloudWatch and S3 for audit. IAM controls who can start sessions and on which instances. It's the preferred access method for production instances where direct SSH access creates audit and credential management overhead.
+**18. What is the difference between ECS and EKS for container orchestration on AWS?**
 
-***
+| Aspect | ECS | EKS |
+|:---|:---|:---|
+| **Control plane** | AWS-managed, proprietary | AWS-managed Kubernetes |
+| **Learning curve** | Lower | Higher (requires K8s knowledge) |
+| **Lock-in** | AWS-specific | Portable (standard K8s) |
+| **Networking** | awsvpc mode = one ENI per task | VPC CNI = one IP per pod |
+| **Scheduling** | Task definitions, Services | Pods, Deployments |
+| **Ecosystem** | AWS-only integrations | Full K8s ecosystem |
+| **Cost** | Free control plane | $0.10/hr per cluster |
 
+Choose ECS if: simple containerization, team is AWS-native, minimal K8s experience. Choose EKS if: need portability, using K8s ecosystem tools (Helm, Argo, Istio), or existing K8s expertise.
+
+**19. What are AWS Service Control Policies (SCPs) and how are they different from IAM policies?**
+
+SCPs are policies attached to AWS Organizations OUs or accounts that define the maximum permissions available. They don't grant permissions — they restrict what can be granted. Even account root users cannot exceed an SCP.
+
+Common SCP use cases:
+- Deny creation of resources outside specific regions: `"Condition": {"StringNotEquals": {"aws:RequestedRegion": ["us-east-1", "eu-west-1"]}}`
+- Deny deletion of CloudTrail logs: `"Action": "cloudtrail:DeleteTrail", "Effect": "Deny"`
+- Require tags on resource creation
+- Prevent IAM modification by non-privileged roles
+
+**20. What is AWS ALB vs NLB and when do you use each?**
+
+**Application Load Balancer (ALB):** Layer 7 (HTTP/HTTPS). Content-based routing: route by URL path, HTTP header, query string, or host header. Supports WebSockets, gRPC, and HTTP/2. Terminates SSL. Required for Kubernetes Ingress-style routing.
+
+**Network Load Balancer (NLB):** Layer 4 (TCP/UDP/TLS). Extremely low latency, static IP per AZ, preserves source IP. Handles millions of requests per second. Cannot route by HTTP content. Use NLB for: TCP/UDP protocols, static IPs for whitelisting, gaming, IoT, VPN endpoints, or when performance is critical.
+
+**21. How does AWS Auto Scaling decide when to scale?**
+
+Auto Scaling policies:
+- **Target tracking (recommended):** Specify a target metric value (e.g., "keep CPU at 60%"). ASG automatically adds/removes instances to maintain the target.
+- **Step scaling:** Define alarms at multiple thresholds with different scaling responses (e.g., +2 instances at 70%, +5 instances at 90%).
+- **Scheduled scaling:** Scale at specific times (pre-scale for known traffic spikes).
+
+Scale-in protection: mark specific instances as protected to prevent scale-in (useful for instances doing long-running jobs). Cooldown period prevents scaling too rapidly — default 300 seconds between scale events.

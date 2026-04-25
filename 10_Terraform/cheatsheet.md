@@ -348,3 +348,170 @@ terraform apply plan.tfplan
 | Workspace ≠ environment isolation | Shares backend config and code — use separate state paths for strict isolation |
 | Provider aliases needed for multi-region | `provider "aws" { alias = "us_west"; region = "us-west-2" }` |
 | `terraform import` doesn't generate config | Only populates state — you must write the config manually (or use `import` block in 1.5+) |
+
+***
+
+## Data Sources
+
+```hcl
+# Fetch existing resources (read-only)
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"]   # Canonical
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+}
+
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+# Reference
+resource "aws_instance" "web" {
+  ami               = data.aws_ami.ubuntu.id
+  availability_zone = data.aws_availability_zones.available.names[0]
+  # ...
+}
+
+output "account_id" {
+  value = data.aws_caller_identity.current.account_id
+}
+```
+
+***
+
+## Check Blocks (Terraform >= 1.5)
+
+```hcl
+# Validate post-apply conditions
+check "health_check" {
+  data "http" "my_service" {
+    url = "https://${aws_lb.main.dns_name}/health"
+  }
+  assert {
+    condition     = data.http.my_service.status_code == 200
+    error_message = "Service health check failed after deployment"
+  }
+}
+```
+
+***
+
+## Preconditions & Postconditions
+
+```hcl
+resource "aws_instance" "web" {
+  lifecycle {
+    precondition {
+      condition     = var.instance_type != "t2.micro"
+      error_message = "t2.micro is not allowed in production."
+    }
+
+    postcondition {
+      condition     = self.public_ip != ""
+      error_message = "Instance must have a public IP."
+    }
+  }
+}
+```
+
+***
+
+## Terragrunt Quick Reference
+
+```bash
+# Common commands (mirrors terraform)
+terragrunt init
+terragrunt plan
+terragrunt apply
+terragrunt destroy
+
+# Run across all modules
+terragrunt run-all plan
+terragrunt run-all apply --terragrunt-include-dir "production/**"
+terragrunt run-all output
+
+# Run in specific directory
+terragrunt plan --terragrunt-working-dir production/vpc/
+```
+
+```hcl
+# Root terragrunt.hcl
+generate "provider" {
+  path      = "provider.tf"
+  if_exists = "overwrite"
+  contents  = <<EOF
+provider "aws" {
+  region = "us-east-1"
+}
+EOF
+}
+
+remote_state {
+  backend = "s3"
+  config = {
+    bucket = "my-tf-state-${get_aws_account_id()}"
+    key    = "${path_relative_to_include()}/terraform.tfstate"
+    region = "us-east-1"
+    encrypt = true
+    dynamodb_table = "terraform-locks"
+  }
+  generate = {
+    path      = "backend.tf"
+    if_exists = "overwrite"
+  }
+}
+```
+
+***
+
+## Linting & Security Scanning
+
+```bash
+# tflint — linting and provider-specific rules
+tflint --init
+tflint                                   # Lint current directory
+tflint --recursive                       # Lint all modules
+
+# trivy — IaC security scanning
+trivy config ./                          # Scan Terraform configs
+trivy config --severity HIGH,CRITICAL ./ # Only critical
+
+# checkov — CIS benchmark + best practices
+checkov -d .                             # Scan directory
+checkov -d . --framework terraform
+checkov -d . --check CKV_AWS_20         # Run specific check
+checkov -d . --skip-check CKV_AWS_50    # Skip specific check
+checkov -d . -o json > checkov.json      # JSON output
+
+# terrascan
+terrascan scan -t aws -i terraform
+
+# infracost — cost estimation
+infracost breakdown --path .             # Show cost breakdown
+infracost diff --path . --compare-to previous-plan.json  # Cost diff
+```
+
+***
+
+## Common Errors & Fixes
+
+| Error | Cause | Fix |
+|:---|:---|:---|
+| `Error acquiring state lock` | Previous run crashed | `terraform force-unlock <LOCK_ID>` |
+| `Backend initialization required` | Backend config changed | `terraform init -reconfigure` |
+| `Resource already exists` | Resource not in state | `terraform import resource.name <id>` |
+| `Cycle detected` | Circular dependencies | Find and break the dependency cycle |
+| `Provider produced invalid plan` | Provider bug | Upgrade provider or use `ignore_changes` |
+| `Context deadline exceeded` | Slow provider API | Increase timeout in resource config |
+| `No changes but state is not empty` | Drift not refreshed | `terraform plan -refresh-only` |
+| `Error: Reference to undeclared input variable` | Missing variable | Add `variable "name" {}` block |

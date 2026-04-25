@@ -1,5 +1,36 @@
 # Container Runtimes & Security
 
+## The Container Runtime Landscape
+
+For most of Docker's history, "Docker" meant one thing: the Docker daemon (`dockerd`) that built and ran containers. But Kubernetes needed a standardized interface, and security requirements demanded new isolation models.
+
+**The Modern Runtime Stack:**
+
+```
+Application Layer (what you interact with):
+  docker CLI | nerdctl | crictl | kubectl
+       │
+       ▼
+High-Level Runtime (manages images, containers):
+  containerd | CRI-O | Docker Engine
+       │
+       ▼
+Low-Level Runtime (creates namespaces, cgroups):
+  runc | crun | Kata Containers | gVisor
+       │
+       ▼
+Linux Kernel (namespaces, cgroups, seccomp, AppArmor)
+```
+
+**Why the split matters:**
+- **Kubernetes doesn't need Docker** — it only needs a CRI-compatible runtime (containerd, CRI-O)
+- **Security runtimes** (gVisor, Kata) swap in at the low level without changing your workflow
+- **Debugging** requires knowing which layer is responsible: image issues (high-level) vs. isolation issues (low-level)
+
+This document covers runtime architecture, security hardening, and supply chain security for containerized workloads.
+
+***
+
 ## Container Runtime Architecture
 
 ```

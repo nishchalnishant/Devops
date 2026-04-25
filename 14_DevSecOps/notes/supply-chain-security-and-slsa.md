@@ -1,5 +1,37 @@
 # Supply Chain Security & SLSA
 
+## The Software Supply Chain Problem
+
+Modern software is built from dozens or hundreds of open-source dependencies. Each dependency is a potential attack vector:
+
+**Real-World Supply Chain Attacks:**
+- **SolarWinds (2020):** Build system compromised, malicious code injected into Orion updates → 18,000+ organizations affected
+- **CodeCov (2021):** CI/CD script modified, credentials stolen from build environment
+- **Log4Shell (2021):** Single dependency in deep transitive chain → global vulnerability
+- **XZ Utils (2024):** Backdoor inserted into compression library used by SSH
+
+**The Attack Surface:**
+```
+Developer Code → Dependencies → Build System → CI/CD Pipeline → Registry → Production
+     │              │              │              │              │         │
+     │              │              │              │              │         └─ Runtime attacks
+     │              │              │              │              └─ Registry poisoning
+     │              │              │              └─ Credential theft, malicious steps
+     │              │              └─ Compromised build server, injected code
+     │              └─ Typosquatting, vulnerable versions
+     └─ Insider threats, compromised accounts
+```
+
+**Supply Chain Security Goals:**
+1. **Integrity:** Ensure code hasn't been tampered with from commit to deployment
+2. **Provenance:** Know exactly what built the software, when, and from which source
+3. **Verification:** Cryptographically verify artifacts before deployment
+4. **Transparency:** Public audit logs of all builds and attestations
+
+SLSA (Supply-chain Levels for Software Artifacts) and Sigstore provide the frameworks and tools to achieve these goals.
+
+***
+
 ## SLSA Framework — Technical Requirements
 
 ```

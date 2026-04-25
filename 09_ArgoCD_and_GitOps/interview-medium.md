@@ -1,3 +1,7 @@
+---
+description: Medium-difficulty interview questions for ArgoCD, GitOps, and progressive delivery.
+---
+
 ## Medium
 
 **7. What is an ArgoCD ApplicationSet and when would you use it?**
@@ -36,5 +40,27 @@ Blue-green is binary: 0% or 100% traffic on the new version. Progressive deliver
 
 Kustomize applies patch overlays to a base set of Kubernetes YAML files without templating. It uses `kustomization.yaml` to reference a base and layer environment-specific patches on top. Helm is a full package manager with Go templating, versioned charts, and a release lifecycle (`install`, `upgrade`, `rollback`). Kustomize is lighter and better for simple per-environment customization; Helm is better for distributing complex applications with many configurable parameters.
 
-***
+**13. How do you handle RBAC and multi-tenancy in ArgoCD?**
 
+ArgoCD Projects (`AppProject`) define RBAC boundaries for teams:
+- **Source repos:** Which Git repositories a project can deploy from.
+- **Destination clusters/namespaces:** Which clusters and namespaces the project can deploy to.
+- **Cluster resource whitelist:** Which cluster-scoped resources (CRDs, ClusterRoles) are allowed.
+
+Combined with ArgoCD RBAC (`argocd-rbac-cm` ConfigMap), roles like `admin`, `readonly`, or `deploy-only` are assigned to SSO groups. A team can only see and sync their own project's applications.
+
+**14. How does ArgoCD handle Helm chart deployments?**
+
+ArgoCD can deploy Helm charts directly — it renders the chart with `helm template` (not `helm install`) and applies the resulting YAML. This means: ArgoCD owns the lifecycle (not Helm), release secrets are not created in the cluster, and upgrades go through ArgoCD's sync process. To pass values, use the `helm.values` or `helm.parameters` fields in the Application spec, or reference a `values.yaml` override file in a separate Git path.
+
+**15. What are the pros and cons of storing Helm values files in the same repo vs a separate config repo?**
+
+**Monorepo (chart + values together):**
+- Pro: Single PR changes both code and config simultaneously, easy traceability
+- Con: Application developers need access to deploy config; hard to separate concerns at scale
+
+**Separate config repo:**
+- Pro: Clear separation of concerns — chart authors and ops team manage different repos; deploy config changes don't trigger a full rebuild
+- Con: Tracing a feature from code to deployment requires cross-repo lookups
+
+Most mature orgs use separate repos: `app-code` triggers image builds, the image tag is pinned in `app-config` repo, ArgoCD watches `app-config`.

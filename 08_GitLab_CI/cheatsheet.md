@@ -1,281 +1,435 @@
-# Content from CheatSheet_GitLab.pdf
+# GitLab CI/CD Cheatsheet
 
-## Page 1
-
-Shubham
-TrainWith
-GitLab_CheatSheet
-Cheatsheet for DevOps Engineers
-Repositories:
-Command
-Description
-git fetch <remote>
-Fetch changes from the remote but do not update
-tracking branches.
-git fetch --prune <remote>
-Delete remote refs removed from the remote repository.
-git remote -v
-List all remote repositories
-git remote set-url origin <new-
-repository>
-git remote set-url origin <new-repository>
-Synchronizing Repositories:
-Command
-Description
-git init
-Initialize a new repository
-git clone <repository>
-Clone a repository to your local machine.
-git remote add origin <repository>
-Add a remote repository.
-git push -u origin <branch>
-Push changes to a branch.
-git pull
-Pull changes from a remote repository.
-git status
-Check the status of your local repository.
-git log
-View commit history.
-Shubham
-TrainWith
-
+Quick reference for `.gitlab-ci.yml`, runner commands, CI/CD patterns, and GitLab API.
 
 ***
 
-## Page 2
+## `.gitlab-ci.yml` Structure
 
-Command
-Description
-git branch
-List all branches
-git branch -a
-Show all branches (including remote).
-git branch <branch>
-Create a new branch.
-git checkout <branch>
-Switch to a different branch.
-git merge <branch>
-Merge a branch into the current branch.
-git branch -d <branch>
-Delete a branch.
-git branch -m <old-branch> <new-branch>
-Rename a branch.
-Shubham
-TrainWith
-Branches:
-Commits:
-Command
-Description
-git add <file>
-Add a file to the staging area.
-git commit -m "<message>"
-Commit changes with a message.
-git commit --amend
-Amend the last commit.
-git reset <file>
-Unstage a file.
-git reset --hard
-Discard all changes.
-git diff <file>
-Show changes between commits.
-git diff --staged <file>
-Show changes between the staging area and the
-repository.
-git blame <file>
-Show who made changes to a file.
-Shubham
-TrainWith
+```yaml
+# Global defaults (applied to all jobs unless overridden)
+default:
+  image: alpine:3.18
+  before_script:
+    - echo "Starting job..."
+  retry: 2
+  timeout: 30 minutes
+  interruptible: true           # Allow newer pipeline to cancel this one
 
+variables:
+  DEPLOY_ENV: production
+  FF_USE_FASTZIP: "true"        # Feature flags
+  GIT_DEPTH: "10"               # Shallow clone (faster)
 
-***
-
-## Page 3
-
-Tagging Commits:
-Command
-Description
-git tag
-List all tags.
-git tag <name> <commit sha>
-Create a tag for a specific commit.
-git tag -a <name> <commit sha>
-Create an annotated tag.
-git tag -d <name>
-Remove a tag from the local repository.
-Stashing Changes:
-Command
-Description
-git stash
-Stash current changes.
-git stash pop
-Apply and clear the latest stash
-git stash apply
-Apply stashed changes without clearing them.
-git stash drop
-Delete a specific stash.
-Merge Requests:
-Command
-Description
-git merge --no-ff <branch>
-Merge with a new commit.
-git cherry-pick <commit>
-Apply a specific commit to the current branch.
-git rebase <branch>
-Rebase the current branch onto another.
-git rebase -i <commit>
-Interactive rebase.
-Shubham
-TrainWith
-
-
-***
-
-## Page 4
-
-Issues:
-Command
-Description
-git commit -m "Fixes #<issue-number>"
-Link a commit to an issue.
-git commit -m "Closes #<issue-number>"
-Close an issue with a commit.
-git commit -m "Refs #<issue-number>"
-Reference an issue with a commit.
-git issue list
-List all issues
-git issue show <issue-number>
-Show details of an issue
-git issue create
-Create a new issue
-git issue edit <issue-number>
-Edit an issue
-git issue close <issue-number>
-Close an issue
-Wiki Management:
-Command
-Description
-git wiki list
-List all wiki pages.
-git wiki create <page>
-Create a new wiki page.
-git wiki edit <page>
-Edit a wiki page.
-git wiki delete <page>
-Delete a wiki page.
-git wiki show <page>
-Show the contents of a wiki page
-Shubham
-TrainWith
-
-
-***
-
-## Page 5
-
-CI/CD:
-Command
-Description
-.gitlab-ci.yml
-Configuration file for CI/CD.
-gitlab-runner register
-Register a runner.
-gitlab-runner run
-Run a runner.
-gitlab-runner exec
-Execute a job locally.
-gitlab-runner verify
-Verify runner configuration.
-gitlab-runner uninstall
-Uninstall a runner.
-gitlab-runner list
-List all runners
-Groups:
-Command
-Description
-git group list
-List all groups
-git group show <group>
-Show details of a group
-git group create <group> 
-Create a new group
-git group edit <group>
-Edit a group
-git group delete <group>
- Delete a group
-Shubham
-TrainWith
-
-
-***
-
-## Page 6
-
-Settings:
-Command
-Description
-git config --global user.name "<name>"
-Set your name
-git config --global user.email "<email>" 
-Set your email
-git config --global core.editor "<editor>" 
-Set your default editor
-git config --global color.ui true
-Enable colored output
-git config --global alias.<alias-name> "<command>"
-Create an alias for a command
-Best Practices:
-Shubham
-TrainWith
-Use meaningful branch names (e.g., feature/login, bugfix/payment-issue).
-1.
-Write concise and descriptive commit messages.
-2.
-Regularly pull from the main branch to avoid merge conflicts.
-3.
-Use ‘.gitignore’ to manage ignored files efficiently.
-4.
-Leverage CI/CD pipelines for automated testing and deployment.
-5.
-
-
-***
-
-## Page 7
-
-Shubham
-TrainWith
 stages:
   - build
   - test
+  - security
   - deploy
-build:
-  stage: build
-  script:
-    - echo "Building the application..."
-unit_test:
-  stage: test
-  script:
-    - echo "Running unit tests..."
-deploy:
-  stage: deploy
-  script:
-    - echo "Deploying the application..."
-Example: .gitlab-ci.yml File
-Common Errors and Troubleshooting:
-Authentication Error:
-1.
-Ensure SSH keys or access tokens are correctly configured.
-Merge Conflicts:
-2.
-Use git merge --abort to cancel a merge.
-Resolve conflicts manually, then git add and git commit.
-Detached HEAD:
-3.
-Use git checkout <branch> to return to a branch.
-Security and Permissions:
-Set up personal access tokens for secure authentication.
-Use role-based access control (RBAC) for managing team permissions.
-
+```
 
 ***
 
+## Job Keywords Reference
+
+```yaml
+my-job:
+  stage: test
+  image: python:3.11-slim
+
+  # Trigger conditions
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: always
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+    - when: never                 # Skip in all other cases
+
+  # OR use only/except (older, simpler)
+  # only: [main, merge_requests]
+  # except: [schedules]
+
+  # Environment variables
+  variables:
+    PYTEST_OPTS: "--tb=short -v"
+
+  # Dependencies (don't download artifacts from these jobs)
+  needs: []                       # Run immediately, don't wait for stages
+
+  # OR with artifacts
+  needs:
+    - job: build
+      artifacts: true
+
+  # Script phases
+  before_script:
+    - pip install -r requirements.txt
+  script:
+    - pytest $PYTEST_OPTS src/
+  after_script:
+    - echo "Always runs, even on failure"
+
+  # Artifacts
+  artifacts:
+    paths:
+      - dist/
+      - coverage.xml
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+      junit: test-results.xml     # Shows test results in MR UI
+    expire_in: 7 days
+    when: always                  # always | on_success | on_failure
+
+  # Caching
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - .pip-cache/
+    policy: pull-push             # pull = download only, push = upload only
+
+  # Services (sidecar containers)
+  services:
+    - postgres:15
+    - redis:7-alpine
+
+  # Manual approval
+  when: manual
+  allow_failure: false            # Block next stage if not approved
+
+  # Retry on failure
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
+  # Resource limits
+  timeout: 10 minutes
+  tags:
+    - docker
+    - production                  # Target specific runners
+```
+
+***
+
+## DAG Pipelines (`needs:`)
+
+```yaml
+# Without DAG: all test jobs must finish before any deploy job
+# With DAG: deploy-frontend starts as soon as test-frontend finishes
+
+build-frontend:
+  stage: build
+  script: npm run build
+
+build-backend:
+  stage: build
+  script: go build ./...
+
+test-frontend:
+  stage: test
+  needs: [build-frontend]         # Only waits for frontend build
+
+test-backend:
+  stage: test
+  needs: [build-backend]          # Only waits for backend build
+
+deploy-frontend:
+  stage: deploy
+  needs: [test-frontend]          # Skips waiting for backend test!
+  script: kubectl apply -f frontend/
+
+deploy-backend:
+  stage: deploy
+  needs: [test-backend, deploy-frontend]  # Waits for both
+```
+
+***
+
+## Rules — Conditional Execution
+
+```yaml
+# Common rule patterns
+rules:
+  # Run on pushes to main only
+  - if: $CI_COMMIT_BRANCH == "main"
+
+  # Run on MRs only
+  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+  # Run on schedule only
+  - if: $CI_PIPELINE_SOURCE == "schedule"
+
+  # Run on tags only (e.g. v1.2.3)
+  - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+
+  # Skip if commit message contains [skip ci]
+  - if: $CI_COMMIT_MESSAGE =~ /\[skip ci\]/
+    when: never
+
+  # Run only if specific files changed
+  - changes:
+      - src/**/*
+      - requirements.txt
+
+  # Combine conditions
+  - if: $CI_COMMIT_BRANCH == "main"
+    changes:
+      - Dockerfile
+    when: manual                  # Only manual trigger if Dockerfile changed on main
+```
+
+***
+
+## Environments & Deployments
+
+```yaml
+deploy-staging:
+  stage: deploy
+  environment:
+    name: staging
+    url: https://staging.myapp.com
+    on_stop: stop-staging          # Job to run when env is stopped
+  script:
+    - ./deploy.sh staging
+
+stop-staging:
+  stage: deploy
+  environment:
+    name: staging
+    action: stop
+  when: manual
+  script:
+    - ./teardown.sh staging
+
+deploy-production:
+  stage: deploy
+  environment:
+    name: production
+    url: https://myapp.com
+    deployment_tier: production    # Tracked in GitLab DORA metrics
+  script:
+    - ./deploy.sh production
+  when: manual                     # Manual approval gate
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+```
+
+***
+
+## Includes — DRY Pipelines
+
+```yaml
+# Include shared templates
+include:
+  # From same repo
+  - local: '.gitlab/ci/test.yml'
+  - local: '.gitlab/ci/docker.yml'
+
+  # From another repo (component)
+  - project: 'org/platform/ci-templates'
+    ref: 'v1.0'
+    file: '/templates/security-scan.yml'
+
+  # From GitLab template library
+  - template: 'Security/SAST.gitlab-ci.yml'
+  - template: 'Jobs/DAST.gitlab-ci.yml'
+
+  # Remote URL
+  - remote: 'https://example.com/ci/template.yml'
+```
+
+***
+
+## Cache vs Artifacts
+
+| | Cache | Artifacts |
+|:---|:---|:---|
+| **Purpose** | Speed up builds (deps, compiled files) | Pass files between jobs |
+| **Scope** | Per-runner, per-project | Per-pipeline, then archived |
+| **Storage** | Runner-local or distributed | GitLab server |
+| **Cross-pipeline** | Yes | No (by default) |
+| **Key** | Configurable (`$CI_COMMIT_REF_SLUG`) | Per-job |
+
+```yaml
+# Optimal cache setup for Python
+cache:
+  key:
+    files:
+      - requirements.txt          # Bust cache only when requirements change
+  paths:
+    - .pip-cache/
+  policy: pull-push
+
+# Then in script:
+script:
+  - pip install --cache-dir .pip-cache -r requirements.txt
+```
+
+***
+
+## GitLab Runner Commands
+
+```bash
+# Installation (Linux)
+curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | sudo bash
+sudo apt-get install gitlab-runner
+
+# Registration
+gitlab-runner register                                    # Interactive
+gitlab-runner register \
+  --non-interactive \
+  --url https://gitlab.com \
+  --registration-token $RUNNER_TOKEN \
+  --executor docker \
+  --docker-image alpine:latest \
+  --tag-list "docker,production" \
+  --description "my-runner"
+
+# Management
+gitlab-runner list                                        # List registered runners
+gitlab-runner status                                      # Runner service status
+gitlab-runner start / stop / restart
+gitlab-runner verify                                      # Verify connectivity
+
+# Run job locally (debugging)
+gitlab-runner exec docker my-job-name                    # Run specific job locally
+
+# Config file location
+cat /etc/gitlab-runner/config.toml
+
+# Force runner to update
+gitlab-runner stop && gitlab-runner start
+```
+
+***
+
+## Predefined CI/CD Variables
+
+```bash
+CI_COMMIT_SHA           # Full commit SHA
+CI_COMMIT_SHORT_SHA     # First 8 chars
+CI_COMMIT_BRANCH        # Branch name (not set for tags)
+CI_COMMIT_TAG           # Tag name (only set on tag pipelines)
+CI_COMMIT_MESSAGE       # Commit message
+CI_COMMIT_AUTHOR        # Author name <email>
+
+CI_PIPELINE_ID          # Unique pipeline ID
+CI_PIPELINE_SOURCE      # push | merge_request_event | schedule | web
+CI_JOB_ID               # Unique job ID
+CI_JOB_NAME             # Job name (e.g. "test")
+CI_JOB_STAGE            # Stage name (e.g. "test")
+CI_JOB_TOKEN            # Token for GitLab API (scoped to job)
+
+CI_PROJECT_ID           # GitLab project ID
+CI_PROJECT_NAME         # Project name
+CI_PROJECT_PATH         # namespace/project-name
+CI_PROJECT_URL          # https://gitlab.com/namespace/project
+CI_DEFAULT_BRANCH       # "main"
+
+CI_REGISTRY             # registry.gitlab.com
+CI_REGISTRY_IMAGE       # Full image path (registry.gitlab.com/namespace/project)
+CI_REGISTRY_USER        # Login for GitLab Container Registry
+CI_REGISTRY_PASSWORD    # Password (=CI_JOB_TOKEN)
+
+GITLAB_USER_EMAIL       # Email of user who triggered the pipeline
+GITLAB_USER_NAME        # Name of user who triggered
+```
+
+***
+
+## Container Registry (Built-in)
+
+```yaml
+build-and-push:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .
+    - docker build -t $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker push $CI_REGISTRY_IMAGE:latest
+```
+
+***
+
+## Security Scanning (Auto DevOps Templates)
+
+```yaml
+include:
+  - template: Security/SAST.gitlab-ci.yml       # Static analysis
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - template: Security/Container-Scanning.gitlab-ci.yml
+  - template: Security/DAST.gitlab-ci.yml
+
+variables:
+  SAST_EXCLUDED_PATHS: "tests, vendor"
+  DS_EXCLUDED_PATHS: "tests"
+  DAST_WEBSITE: https://staging.myapp.com
+  CS_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+```
+
+***
+
+## Multi-Project Pipelines
+
+```yaml
+# Trigger a pipeline in another project
+trigger-deploy:
+  stage: deploy
+  trigger:
+    project: org/platform/deploy-repo
+    branch: main
+    strategy: depend              # Wait for triggered pipeline to finish
+  variables:
+    IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+    ENVIRONMENT: production
+```
+
+***
+
+## GitLab API Quick Reference
+
+```bash
+GITLAB_URL="https://gitlab.com"
+TOKEN="$GITLAB_TOKEN"
+PROJECT_ID="123"
+
+# Pipelines
+curl "$GITLAB_URL/api/v4/projects/$PROJECT_ID/pipelines" -H "PRIVATE-TOKEN: $TOKEN"
+
+# Trigger pipeline
+curl -X POST "$GITLAB_URL/api/v4/projects/$PROJECT_ID/pipeline" \
+  -H "PRIVATE-TOKEN: $TOKEN" \
+  -F "ref=main" \
+  -F "variables[DEPLOY_ENV]=production"
+
+# Cancel pipeline
+curl -X POST "$GITLAB_URL/api/v4/projects/$PROJECT_ID/pipelines/456/cancel" \
+  -H "PRIVATE-TOKEN: $TOKEN"
+
+# List MRs
+curl "$GITLAB_URL/api/v4/projects/$PROJECT_ID/merge_requests?state=opened" \
+  -H "PRIVATE-TOKEN: $TOKEN" | jq '.[].title'
+
+# Create MR
+curl -X POST "$GITLAB_URL/api/v4/projects/$PROJECT_ID/merge_requests" \
+  -H "PRIVATE-TOKEN: $TOKEN" \
+  -d "source_branch=feature/my-feature&target_branch=main&title=My Feature"
+
+# Get project variables
+curl "$GITLAB_URL/api/v4/projects/$PROJECT_ID/variables" -H "PRIVATE-TOKEN: $TOKEN"
+
+# Create/update variable
+curl -X POST "$GITLAB_URL/api/v4/projects/$PROJECT_ID/variables" \
+  -H "PRIVATE-TOKEN: $TOKEN" \
+  -F "key=MY_VAR" -F "value=my-value" -F "protected=true" -F "masked=true"
+```

@@ -228,3 +228,199 @@ ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
 - **`workflow_run` and `pull_request_target`** — run with base repo permissions; dangerous if checkout + run untrusted code
 - **Cache key collision** — use `hashFiles` to bust cache on lockfile changes
 - **`fail-fast: true` (default)** — cancels other matrix jobs on first failure; set `false` to see all results
+
+***
+
+## OIDC — Keyless Cloud Auth
+
+```yaml
+# AWS — no stored access keys needed
+permissions:
+  id-token: write
+  contents: read
+
+steps:
+  - uses: aws-actions/configure-aws-credentials@v4
+    with:
+      role-to-assume: arn:aws:iam::123456789:role/github-actions-role
+      aws-region: us-east-1
+      # Trust policy must match: repo:ORG/REPO:ref:refs/heads/main
+
+  - run: aws s3 ls   # Authenticated!
+
+# Azure — federated identity
+  - uses: azure/login@v2
+    with:
+      client-id: ${{ secrets.AZURE_CLIENT_ID }}
+      tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+      subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+# GCP
+  - uses: google-github-actions/auth@v2
+    with:
+      workload_identity_provider: projects/123/locations/global/workloadIdentityPools/pool/providers/github
+      service_account: my-sa@project.iam.gserviceaccount.com
+```
+
+***
+
+## Concurrency — Cancel Stale Runs
+
+```yaml
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Per-environment — don't cancel production deploys
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+```
+
+***
+
+## Composite Action (Reusable Step Group)
+
+```yaml
+# .github/actions/setup-app/action.yml
+name: 'Setup Application'
+description: 'Install deps, configure env'
+inputs:
+  node-version:
+    default: '20'
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+    - run: npm ci
+      shell: bash
+    - run: cp .env.example .env
+      shell: bash
+
+# Usage in any workflow:
+# - uses: ./.github/actions/setup-app
+#   with:
+#     node-version: '22'
+```
+
+***
+
+## Debugging
+
+```bash
+# Enable debug logging — add repository secret:
+ACTIONS_STEP_DEBUG=true
+ACTIONS_RUNNER_DEBUG=true
+
+# Print all contexts
+- run: echo '${{ toJSON(github) }}'
+- run: echo '${{ toJSON(env) }}'
+- run: echo '${{ toJSON(secrets) }}'   # Shows *** for secret values
+
+# tmate — SSH into a stuck runner
+- uses: mxschmitt/action-tmate@v3
+  if: failure()   # Only on failure
+  with:
+    limit-access-to-actor: true
+```
+
+***
+
+## GitHub CLI (`gh`) in Workflows
+
+```yaml
+# GITHUB_TOKEN is auto-available
+env:
+  GH_TOKEN: ${{ github.token }}
+
+steps:
+  # Comment on PR
+  - run: gh pr comment ${{ github.event.number }} --body "Deployed to staging ✅"
+
+  # Create release
+  - run: gh release create v${{ github.run_number }} dist/* --title "Release ${{ github.run_number }}"
+
+  # Check PR labels
+  - run: gh pr view ${{ github.event.number }} --json labels --jq '.labels[].name'
+
+  # Trigger another workflow
+  - run: gh workflow run deploy.yml -f environment=production
+
+  # Download artifact from another run
+  - run: gh run download ${{ github.event.workflow_run.id }} --name dist
+```
+
+***
+
+## Security Hardening Patterns
+
+```yaml
+# 1. Pin actions to commit SHA
+- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+# 2. Minimal permissions per job
+jobs:
+  build:
+    permissions:
+      contents: read
+      packages: write
+
+# 3. Prevent script injection — use env vars
+- name: Safe input handling
+  env:
+    PR_TITLE: ${{ github.event.pull_request.title }}
+  run: echo "$PR_TITLE"   # NOT: echo "${{ github.event.pull_request.title }}"
+
+# 4. Restrict who can trigger workflow_dispatch
+on:
+  workflow_dispatch:
+    # Additional restriction via branch protection rules in GitHub settings
+
+# 5. Audit third-party actions before use
+# Check: does the action request more permissions than needed?
+# Check: is it pinned to a tag or SHA?
+# Tool: zizmor (GitHub Actions static analyzer)
+# pip install zizmor && zizmor .github/workflows/
+```
+
+***
+
+## Useful One-Liners
+
+```yaml
+# Short git SHA (first 8 chars)
+IMAGE_TAG: sha-${{ github.sha[:8] }}    # expression syntax
+# OR in shell:
+- run: echo "TAG=sha-${GITHUB_SHA::8}" >> $GITHUB_ENV
+
+# Detect if files changed (to skip unnecessary jobs)
+- uses: dorny/paths-filter@v3
+  id: changes
+  with:
+    filters: |
+      backend:
+        - 'src/**'
+        - 'requirements.txt'
+- run: ./test.sh
+  if: steps.changes.outputs.backend == 'true'
+
+# Get PR number in push event (from merge commit)
+- run: |
+    PR_NUMBER=$(gh pr list --state merged --search "$GITHUB_SHA" --json number --jq '.[0].number')
+    echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+  env:
+    GH_TOKEN: ${{ github.token }}
+
+# Notify Slack on failure
+- uses: slackapi/slack-github-action@v1
+  if: failure()
+  with:
+    payload: |
+      {"text": "❌ *${{ github.workflow }}* failed on `${{ github.ref_name }}` — <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}
+  env:
+    SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+```

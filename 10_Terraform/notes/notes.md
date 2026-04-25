@@ -1,5 +1,33 @@
 # Terraform — Deep Dive Notes
 
+## Why Terraform Internals Matter
+
+Terraform is the industry standard for Infrastructure as Code (IaC). But when things go wrong — state file corruption, provider bugs, drift detection failures, or massive plan times — you need to understand what's happening under the hood.
+
+**The Terraform Architecture:**
+
+```
+Terraform Core (the binary)
+    │
+    ├── Configuration Parser (HCL → internal representation)
+    ├── State Manager (reads/writes terraform.tfstate)
+    └── Provider Broker (spawns provider gRPC processes)
+            │
+            ├── AWS Provider (gRPC plugin)
+            ├── Kubernetes Provider (gRPC plugin)
+            └── ... other providers
+```
+
+**Key Concepts:**
+- **State is the source of truth** — Terraform trusts its state file over the cloud API
+- **Providers are plugins** — each provider is a separate binary communicating via gRPC
+- **Graph-based execution** — Terraform builds a dependency graph and executes resources in parallel where possible
+- **Drift detection** — `terraform plan` reads actual state from cloud APIs and compares to stored state
+
+This document covers state management, provider internals, and advanced patterns for enterprise Terraform deployments.
+
+***
+
 ## State Internals
 
 Terraform state is a JSON document that maps each `resource "type" "name"` block to a real-world object via its provider-assigned ID plus all current attributes.

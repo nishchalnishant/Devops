@@ -1,3 +1,7 @@
+---
+description: Easy interview questions for DevSecOps, security scanning, and application security fundamentals.
+---
+
 ## Easy
 
 **1. What is DevSecOps?**
@@ -29,5 +33,22 @@ A Kubernetes Secret stores sensitive data as base64-encoded values in etcd. Base
 
 Image signing cryptographically attests that a container image was produced by a trusted source and has not been tampered with since. Tools like Cosign (Sigstore) sign images and attach the signature to an OCI registry. Admission controllers (Kyverno, Gatekeeper) can reject unsigned or unverified images, preventing supply chain attacks where a rogue image is substituted.
 
-***
+**8. What is SCA (Software Composition Analysis)?**
 
+SCA analyzes your application's third-party dependencies (npm packages, pip packages, Maven JARs) and matches them against known vulnerability databases (NVD, OSV). Tools: Snyk, OWASP Dependency-Check, `pip-audit`, `npm audit`. SCA differs from SAST in that it looks at your dependencies, not your own code.
+
+**9. What is secret scanning in the context of source code?**
+
+Secret scanning searches source code, commit history, and CI logs for accidentally committed credentials — API keys, AWS access keys, database passwords, private keys. Tools like Gitleaks and GitHub's native secret scanning can be run as pre-commit hooks, in CI, and as a continuous monitoring background scan on the repository. GitHub Secret Scanning with push protection blocks the push at the server level if a known secret pattern is detected.
+
+**10. What is CVSS and how is it used to prioritize vulnerabilities?**
+
+CVSS (Common Vulnerability Scoring System) is a numerical score (0-10) measuring vulnerability severity based on factors like: exploitability, attack vector (network vs local), required privileges, and impact on confidentiality/integrity/availability. Categories: None (0), Low (0.1–3.9), Medium (4.0–6.9), High (7.0–8.9), Critical (9.0–10.0). Use CVSS as a starting point but consider context: a Critical CVE in a library that's not actually reachable from your code path is lower risk than a High CVE that's directly exploitable.
+
+**11. What is the difference between a vulnerability and an exploit?**
+
+A **vulnerability** is a weakness in software (a bug, misconfiguration, or design flaw). An **exploit** is a working method of taking advantage of that vulnerability. Not all vulnerabilities have public exploits — a High CVE without a known exploit has lower immediate risk than a Medium CVE with an active exploit in the wild. Tools like EPSS (Exploit Prediction Scoring System) estimate the probability that a CVE will be exploited in the next 30 days, helping prioritize remediation.
+
+**12. What is a network security group / firewall and why is egress filtering important?**
+
+Network security groups (AWS: Security Groups; Azure: NSGs) are stateful firewalls controlling inbound and outbound traffic. Most teams configure inbound rules carefully but leave egress wide open. Egress filtering matters because: compromised containers or servers may attempt to exfiltrate data or phone home to attacker-controlled servers. Restricting outbound connections to known good destinations (package registries, APIs) limits the blast radius of a compromise. In Kubernetes, NetworkPolicy egress rules enforce pod-level egress restrictions.

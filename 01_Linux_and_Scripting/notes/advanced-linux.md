@@ -2,6 +2,23 @@
 description: Advanced Linux performance profiling, boot process, and kernel internals for senior engineers.
 ---
 
+# Advanced Linux — Senior Engineer Deep Dive
+
+## Why This Matters for DevOps/SRE
+
+At the senior level, you're not just running commands — you're diagnosing why a $50,000/month production cluster is experiencing latency spikes, why pods are being OOMKilled despite "plenty of memory," or why a server won't boot after a kernel update.
+
+**The Senior Engineer's Toolkit:**
+
+1. **Performance Profiling:** Moving beyond `top` to eBPF-based tracing that shows kernel-level behavior
+2. **Kernel Tuning:** Default Linux settings are for general-purpose use — high-scale workloads need custom tuning
+3. **Boot Troubleshooting:** When a server won't boot, you need to understand each stage to diagnose and recover
+4. **Resource Exhaustion:** Understanding inode exhaustion, file descriptor leaks, and socket exhaustion before they cause outages
+
+This document covers the advanced concepts that separate senior engineers from juniors.
+
+***
+
 ## 4. The Linux Boot Process (Mastery Hub)
 
 Understanding the boot process is critical for troubleshooting "Kernel Panic" or "Init" failures.

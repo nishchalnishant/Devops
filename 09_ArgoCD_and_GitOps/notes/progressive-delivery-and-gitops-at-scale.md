@@ -1,5 +1,59 @@
 # Progressive Delivery & GitOps at Scale
 
+## What is GitOps and Why Does It Matter?
+
+**GitOps** is an operational framework that uses Git as the single source of truth for infrastructure and application configuration. It extends Infrastructure as Code (IaC) principles to the entire software delivery lifecycle.
+
+**The Four Principles of GitOps:**
+
+1. **Declarative:** The entire system state is described declaratively (YAML manifests)
+2. **Versioned & Immutable:** Git stores every change with full history and audit trail
+3. **Automated Delivery:** Changes are automatically applied to match the declared state
+4. **Continuous Reconciliation:** Software agents continuously compare actual state with desired state and correct drift
+
+```
+Traditional CI/CD:     Git → CI → CD → kubectl apply → (manual kubectl changes) → DRIFT
+                       
+GitOps:                Git → CI → (commit to config repo) → ArgoCD reconciles → NO DRIFT
+                                                                        (auto-corrects)
+```
+
+**Why GitOps for Kubernetes?**
+
+- **Audit trail:** Every cluster change is a Git commit with author, timestamp, and PR discussion
+- **Rollback:** `git revert` is safer than `kubectl rollout undo`
+- **Drift detection:** ArgoCD alerts when someone makes manual `kubectl` changes
+- **Multi-cluster:** Deploy the same manifest to 100 clusters with ApplicationSets
+- **Separation of concerns:** Developers own app manifests; platform owns cluster config
+
+***
+
+## What is Progressive Delivery?
+
+Progressive delivery is a deployment pattern that reduces risk by gradually shifting traffic to new versions while automatically monitoring for problems.
+
+**Traditional Deployment:**
+```
+Blue-Green:  100% traffic → Blue → Switch → 100% traffic → Green
+             (instant cutover, instant rollback if problems)
+```
+
+**Progressive Delivery (Canary):**
+```
+Step 1:  95% v1 / 5% v2   → monitor metrics
+Step 2:  75% v1 / 25% v2  → monitor metrics
+Step 3:  50% v1 / 50% v2  → monitor metrics
+Step 4:  0% v1 / 100% v2  → complete
+```
+
+**Benefits:**
+- Catch bugs before they affect all users
+- Automatic rollback if error rates spike
+- Test with real production traffic (not staging)
+- Business metric validation (conversion rates, latency)
+
+***
+
 ## ArgoCD Architecture Internals
 
 ```
