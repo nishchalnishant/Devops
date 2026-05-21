@@ -1,5 +1,76 @@
 # AWS Cheatsheet
 
+```
+AWS Cheatsheet
+├── CLI Configuration
+│   ├── aws configure (interactive: access key, secret, region, output)
+│   ├── Named profiles (--profile prod, AWS_PROFILE env var)
+│   ├── aws sts assume-role (cross-account access with temp credentials)
+│   └── aws sts get-caller-identity (verify current identity)
+├── IAM
+│   ├── Users: create, delete, access-key lifecycle
+│   ├── Groups: create, add-user-to-group
+│   ├── Roles: create-role (trust policy), attach-role-policy
+│   ├── Policies: list, get-policy, get-policy-version
+│   └── simulate-principal-policy (test permissions before deploying)
+├── EC2
+│   ├── describe-instances (filter by tag, query by fields)
+│   ├── start/stop/terminate/reboot
+│   ├── run-instances (launch with AMI, SG, subnet, tags)
+│   ├── Key pairs, Security Groups (authorize-security-group-ingress)
+│   ├── AMIs (create-image, describe-images --owners self)
+│   ├── EBS Volumes (create, attach, delete, find unattached)
+│   └── Elastic IPs (allocate, release, find unattached — charged!)
+├── S3
+│   ├── Bucket operations (ls, mb, rb --force)
+│   ├── Object operations (cp, mv, rm, recursive)
+│   ├── Sync (efficient directory-to-bucket, --delete for mirror)
+│   ├── Presigned URLs (--expires-in seconds)
+│   ├── Bucket policies (get/put via s3api)
+│   └── Versioning, static website hosting
+├── VPC & Networking
+│   ├── VPCs, Subnets (describe, create with CIDR/AZ)
+│   ├── Route Tables (create-route, associate-route-table)
+│   ├── Internet Gateways (create, attach to VPC)
+│   ├── NAT Gateways (needs EIP + public subnet)
+│   └── VPC Endpoints (Gateway for S3/DynamoDB free; Interface for others)
+├── EKS
+│   ├── Clusters (list, describe, create, delete)
+│   ├── update-kubeconfig (get credentials, alias support)
+│   ├── Node Groups (list, describe, create with scaling-config)
+│   ├── Fargate Profiles (namespace-based selector)
+│   └── Add-ons (vpc-cni, coredns, kube-proxy, aws-ebs-csi-driver)
+├── Lambda
+│   ├── list-functions, get-function, invoke (--payload)
+│   ├── update-function-code (zip-file deploy)
+│   ├── update-function-configuration (timeout, memory, env vars)
+│   └── aws logs tail /aws/lambda/<name> --follow
+├── ECR
+│   ├── Login (get-login-password | docker login)
+│   ├── Repos (describe, create, delete --force)
+│   ├── Images (list, describe sorted by date)
+│   └── Build → tag → push pipeline + image scanning
+├── Secrets Manager & SSM
+│   ├── Secrets Manager: list, get-secret-value, create, update, rotate
+│   ├── SSM Parameter Store: get-parameter (--with-decryption), put, delete
+│   └── SSM Session Manager: start-session (no SSH), port-forward to RDS
+├── CloudWatch
+│   ├── Logs: describe-log-groups, tail --follow, filter-log-events
+│   ├── Metrics: list-metrics, get-metric-statistics
+│   └── Alarms: describe-alarms, put-metric-alarm with SNS action
+├── Cost & Billing
+│   ├── Cost Explorer: get-cost-and-usage (grouped by TAG)
+│   ├── Budgets: describe-budgets, describe-budget-notifications
+│   └── Trusted Advisor: security, cost, performance checks
+└── Output Filters
+    ├── JMESPath --query (filter + project inline)
+    └── jq (complex transformations on JSON output)
+```
+
+## First Principles
+
+AWS is a collection of primitives: compute (EC2/Lambda), storage (S3/EBS), network (VPC), IAM. EKS = Kubernetes control plane managed by AWS. IAM Roles for Service Accounts (IRSA) solves the pod identity problem without long-lived credentials. Multi-account = blast radius control.
+
 Quick reference for AWS CLI commands, IAM, EC2, S3, EKS, and common patterns.
 
 ***
@@ -388,3 +459,17 @@ aws ec2 describe-volumes \
 aws iam list-roles --output json | jq -r '.Roles[] | select(.RoleName | contains("eks")) | .RoleName'
 aws ec2 describe-instances --output json | jq -r '.Reservations[].Instances[] | select(.State.Name == "running") | .InstanceId'
 ```
+
+## System Design Perspective
+
+**VPC Peering vs Transit Gateway:** VPC Peering is direct, non-transitive, and suited for 2-5 VPCs with non-overlapping CIDRs. Transit Gateway is a managed cloud router that enables transitive routing, scales to thousands of VPCs, supports VPN and Direct Connect attachments, and allows inter-region peering. Cost: TGW charges per attachment plus per GB processed; use VPC Endpoints alongside TGW to keep S3/DynamoDB traffic off the TGW.
+
+**Identity Federation (OIDC/SAML):** IRSA (IAM Roles for Service Accounts) uses OIDC federation — the EKS cluster's OIDC issuer is registered in IAM, and pods exchange a projected ServiceAccount JWT for temporary STS credentials via sts:AssumeRoleWithWebIdentity. GitHub Actions and GitLab CI use the same pattern to assume IAM roles without storing access keys. SAML 2.0 is used for AWS SSO federation with enterprise IdPs (Okta, Azure AD).
+
+**Cross-Region DR:** Strategy selection depends on RTO/RPO targets. Backup and Restore (hours RTO, cheapest) uses S3 CRR plus RDS snapshots. Pilot Light (30 min RTO) keeps minimal standby infra running. Warm Standby (minutes RTO) runs a reduced-scale active stack. Active-Active (near-zero RTO) uses Route 53 latency routing plus Aurora Global Database with less than 1s replication lag. All strategies require IaC — without it, failover cannot meet aggressive RTOs.
+
+**Cost Allocation Tagging Strategy:** Enforce mandatory tags (Environment, Team, CostCenter, Owner) via AWS Config Rules or SCPs requiring tags on resource creation. Use AWS Cost Explorer grouped by tag to produce per-team cost reports. Activate cost allocation tags in the Billing Console. Use Tag Policies in AWS Organizations to standardize tag key formats across accounts.
+
+**Managed Identity vs Service Principals (AWS context):** IAM Roles are the equivalent of Managed Identities — they provide temporary credentials without stored secrets. Long-term access keys (equivalent to Service Principals with secrets) should only exist for external systems that cannot assume roles. IRSA and ECS task roles are the pod/task-level equivalent of Azure Workload Identity.
+
+**AWS Organizations SCPs vs Azure Policy:** SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions, act before IAM evaluation, and even the root user cannot exceed them. Azure Policy enforces at the ARM API layer with richer effects (Deny, Audit, DeployIfNotExists, Modify). Both use hierarchical policy inheritance but differ in execution layer: SCPs block at the IAM authorization step; Azure Policy intercepts at the resource provider level and supports auto-remediation.

@@ -1,5 +1,98 @@
 # Content from devops_errors_and_troubleshooting.pdf
 
+```
+DevOps Troubleshooting Guide
+├── Git Errors
+│   ├── not a git repository → git init or navigate to correct path
+│   ├── failed to push some refs → git pull --rebase then push
+│   ├── Permission denied publickey → generate SSH key + add to agent + add pub key to repo
+│   ├── Merge conflict → resolve markers + git add + git commit
+│   ├── Detached HEAD → git checkout -b <new-branch>
+│   ├── remote origin already exists → git remote set-url origin <new-URL>
+│   ├── Large file exceeds limit → git lfs track
+│   ├── Submodule update failed → git submodule update --init --recursive
+│   ├── cannot lock ref → rm -f .git/index.lock
+│   └── Untracked files prevent branch switch → git stash
+├── Jenkins Errors
+│   ├── service not starting → check journalctl + java -version
+│   ├── Build stuck in queue → check executors and agent connectivity
+│   ├── Plugins fail to load → update Jenkins + reinstall plugins
+│   ├── Pipeline syntax error → use pipeline syntax generator
+│   ├── Missing env vars → define in Build Environment or as parameters
+│   ├── Unauthorized webhook → verify webhook URL + add credentials
+│   ├── Out of disk → Workspace Cleanup Plugin + automate post-build cleanup
+│   └── Node disconnected → check agent logs + network connectivity
+├── Docker Errors
+│   ├── Cannot connect to daemon → systemctl start docker + usermod -aG docker $USER
+│   ├── Port in use → docker stop conflicting container or change port mapping
+│   ├── No space left → docker system prune -a
+│   └── Permission denied bind mount → chmod on host directory
+├── Kubernetes Errors
+│   ├── ImagePullBackOff → verify image name/tag + ImagePullSecret
+│   ├── CrashLoopBackOff → kubectl logs --previous to find crash reason
+│   ├── Node Not Ready → restart kubelet + check disk/memory
+│   ├── PVC Pending → check storageClass + create matching PV
+│   ├── Pod Pending → insufficient resources → kubectl describe pod + scale nodes
+│   ├── RBAC Access Denied → grant Role/ClusterRole + RoleBinding
+│   ├── Service Unreachable → check selectors + target port + ingress rules
+│   ├── Resource Quota Exceeded → increase quota or optimize usage
+│   ├── Evicted Pods → add node resources or reschedule workloads
+│   └── Deployment Rollout Fails → kubectl logs failing pods → kubectl rollout undo
+├── Prometheus Errors
+│   ├── No targets found → check prometheus.yml scrape configs
+│   ├── High cardinality → optimize label usage + relabeling rules to filter
+│   ├── Query too slow → limit time ranges + enable query caching
+│   ├── Out of storage → reduce retention.time or add disk
+│   ├── Alert not firing → promtool check rules + verify expression matches data
+│   └── OOM crash → increase memory + reduce metrics scraped
+├── ELK Stack Errors
+│   ├── Cluster health red → check nodes + POST _cluster/reroute
+│   ├── Java heap space → increase Xms/Xmx ≤50% available RAM
+│   ├── Logstash pipeline abort → logstash -t -f logstash.conf to validate
+│   └── Kibana not ready → verify ES connectivity + restart after ES is ready
+├── AWS DevOps Errors
+│   ├── EC2 unreachable → SG inbound rules + NACL + subnet routing
+│   ├── S3 Access Denied → bucket policy + IAM role permissions
+│   ├── CodePipeline failed → deployment logs + IAM permissions for CodeDeploy
+│   ├── RDS cannot connect → RDS SG inbound + credentials
+│   ├── CloudFormation stack fail → validate-template + check events
+│   ├── Lambda execution failed → CloudWatch logs + fix function code
+│   └── Route 53 not resolving → verify record type + TTL + delegation
+├── Azure DevOps Errors
+│   ├── Build agent unavailable → restart agent service + verify registration
+│   ├── Resource group deployment failed → validate ARM template
+│   ├── Pipeline YAML syntax error → Azure DevOps YAML validator
+│   ├── Cannot connect to AKS → az aks get-credentials + check network rules
+│   └── Access denied to subscription → assign role to service principal
+├── CI/CD Pipeline Errors
+│   ├── Stuck pending → ensure runners/agents registered and running
+│   ├── Build fails deps → update requirement files + cache dependencies
+│   ├── Env var not found → add in CI/CD settings or use secret manager
+│   ├── Timeout → optimize stages + increase timeout values
+│   └── Webhook not triggering → verify URL + check firewall restrictions
+├── Monitoring Tools Errors
+│   ├── Metrics not in Grafana → verify data source + check Prometheus targets
+│   ├── Alerts not firing → promtool validate + test expression
+│   ├── Too many false-positive alerts → adjust thresholds + use hysteresis
+│   └── Dashboard panels empty → verify query syntax + check time range
+├── Real-Time Kubernetes Troubleshooting
+│   ├── Pod CrashLoopBackOff → logs + resource constraints + config review
+│   ├── Network communication failure → network policies + traceroute + service config
+│   ├── Node resource exhaustion → Prometheus metrics → scale nodes or adjust limits
+│   ├── Ingress misconfiguration → kubectl describe ingress + backend service check
+│   └── Cluster-wide outage → etcd health + control plane logs + kubectl get events
+└── Incident Response Runbook (Senior SRE)
+    ├── Lifecycle: Detect → Triage → Declare → Mitigate → Resolve → Post-Mortem
+    ├── Severity: P0 immediate / P1 15min / P2 1h / P3 next business day
+    ├── Mitigation order: feature flag → rollback → traffic shift → scale up → restart → failover
+    ├── SLO burn rate alerting: 14x → page (2d budget burn); 3x → slack (sprint investigation)
+    └── Blameless post-mortem: 5 Whys + action items (SMART) + what went well/poorly
+```
+
+## First Principles
+
+Observability is not monitoring — monitoring tells you a system is down; observability tells you why. The three pillars (metrics, logs, traces) are complementary: metrics alert you, logs explain what happened, traces show where time was spent. SLOs are contracts with users — error budgets make reliability a shared engineering problem, not a ops problem. Toil is the enemy of reliability: every repetitive manual action is a reliability debt that compounds.
+
 ## Page 1
 
  
@@ -1720,3 +1813,25 @@ An alert is worth paging an engineer at 3 AM **only if** it meets all three crit
 3. **Customer-impacting** — there is measurable user harm, not just an internal metric anomaly.
 
 If an alert does not meet all three, it belongs in a Slack channel or a Jira ticket, not a phone call.
+
+## System Design Perspective
+
+**Prometheus Cardinality at Failure Scale:** The troubleshooting guide identifies high-cardinality as a Prometheus issue; the design fix is prevention at two layers. First, enforce a `sample_limit` per scrape target in `prometheus.yml` — scrapes exceeding the limit are rejected, preventing a single service from OOM-ing the Prometheus instance. Second, gate new metric label names in CI: run `promtool check metrics` against the service `/metrics` endpoint and reject PRs that introduce unbounded label values (detected by comparing cardinality estimates via the Prometheus API `/api/v1/label/<name>/values` endpoint between the PR branch and main). These two layers convert a reactive troubleshooting problem into a proactive enforcement problem.
+
+**Structured Error Taxonomy for Faster MTTD:** The multi-tool error taxonomy in this guide (Git → Jenkins → Docker → K8s → Prometheus → ELK → AWS → Azure) maps to a diagnostic routing decision tree: define which tool owns each error class, and configure log-based alerts in Loki/CloudWatch that pattern-match on the exact error strings documented here (`ImagePullBackOff`, `CrashLoopBackOff`, `OutOfMemoryError`, etc.). When an error string fires a Loki alert, the alert annotation links directly to the runbook section for that error class. This reduces the "what is this error?" triage step from minutes to seconds for common failure modes.
+
+**Incident Communication Templates as Code:** The communication templates (investigating/update/resolved) and executive update format should be stored as Slack workflow templates or PagerDuty response play templates — not institutional knowledge in a document. When the IC triggers a response play, the status page template auto-populates with the current time and incident ID, and a 15-minute reminder fires automatically. This removes the cognitive load of "what do I write?" during a Sev-1, which is exactly when cognitive load is highest. The goal: IC's first three actions (open channel, update status page, send executive notification) should be completable in under 2 minutes via automation.
+
+## System Design Perspective
+
+**VPC Peering vs Transit Gateway:** VPC Peering is direct, non-transitive, and suited for 2-5 VPCs with non-overlapping CIDRs. Transit Gateway is a managed cloud router that enables transitive routing, scales to thousands of VPCs, supports VPN and Direct Connect attachments, and allows inter-region peering. Cost: TGW charges per attachment plus per GB processed; use VPC Endpoints alongside TGW to keep S3/DynamoDB traffic off the TGW.
+
+**Identity Federation (OIDC/SAML):** IRSA (IAM Roles for Service Accounts) uses OIDC federation — the EKS cluster's OIDC issuer is registered in IAM, and pods exchange a projected ServiceAccount JWT for temporary STS credentials via sts:AssumeRoleWithWebIdentity. GitHub Actions and GitLab CI use the same pattern to assume IAM roles without storing access keys. SAML 2.0 is used for AWS SSO federation with enterprise IdPs (Okta, Azure AD).
+
+**Cross-Region DR:** Strategy selection depends on RTO/RPO targets. Backup and Restore (hours RTO, cheapest) uses S3 CRR plus RDS snapshots. Pilot Light (30 min RTO) keeps minimal standby infra running. Warm Standby (minutes RTO) runs a reduced-scale active stack. Active-Active (near-zero RTO) uses Route 53 latency routing plus Aurora Global Database with less than 1s replication lag. All strategies require IaC — without it, failover cannot meet aggressive RTOs.
+
+**Cost Allocation Tagging Strategy:** Enforce mandatory tags (Environment, Team, CostCenter, Owner) via AWS Config Rules or SCPs requiring tags on resource creation. Use AWS Cost Explorer grouped by tag to produce per-team cost reports. Activate cost allocation tags in the Billing Console. Use Tag Policies in AWS Organizations to standardize tag key formats across accounts.
+
+**Managed Identity vs Service Principals (AWS context):** IAM Roles are the equivalent of Managed Identities — they provide temporary credentials without stored secrets. Long-term access keys (equivalent to Service Principals with secrets) should only exist for external systems that cannot assume roles. IRSA and ECS task roles are the pod/task-level equivalent of Azure Workload Identity.
+
+**AWS Organizations SCPs vs Azure Policy:** SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions, act before IAM evaluation, and even the root user cannot exceed them. Azure Policy enforces at the ARM API layer with richer effects (Deny, Audit, DeployIfNotExists, Modify). Both use hierarchical policy inheritance but differ in execution layer: SCPs block at the IAM authorization step; Azure Policy intercepts at the resource provider level and supports auto-remediation.

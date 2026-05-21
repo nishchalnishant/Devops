@@ -1,5 +1,43 @@
 # DevSecOps Tips & Tricks
 
+```
+DevSecOps Tips & Tricks
+├── Secrets — Top Leak Patterns
+│   ├── AWS credentials in ~/.aws (use SSO, no long-term creds)
+│   ├── .env committed to git (git rm --cached .env)
+│   ├── Docker build args visible in history (use BuildKit secret mounts)
+│   ├── Git history scanning (gitleaks, trufflehog --only-verified)
+│   └── GitHub push protection + custom org-specific patterns
+├── Container Security
+│   ├── CIS Docker Benchmark (docker/docker-bench-security)
+│   ├── Trivy severity levels (CRITICAL=fix now, HIGH=this sprint)
+│   └── Distroless debugging (debug variant or kubectl debug ephemeral)
+├── Vault Gotchas
+│   ├── Sealed after restart → AWS KMS auto-unseal
+│   ├── Token TTL vs lease TTL (token must outlive credential TTL)
+│   └── Test K8s auth: curl /v1/auth/kubernetes/login with pod JWT
+├── Kubernetes Security Misconfigurations
+│   ├── Running as root → runAsNonRoot: true, runAsUser: 1000
+│   ├── No resource limits → OOM / container breakout risk
+│   ├── Privileged containers → privileged: false always
+│   ├── Writable root filesystem → readOnlyRootFilesystem: true
+│   ├── Auto-mounted SA tokens → automountServiceAccountToken: false
+│   └── No NetworkPolicy → all pods can reach all pods
+├── Detection Tools
+│   ├── kubesec (YAML security score)
+│   ├── kube-bench (CIS K8s Benchmark)
+│   ├── popeye (cluster sanitizer, HTML report)
+│   └── kube-score (YAML linter for best practices)
+└── Supply Chain Security
+    ├── cosign verify in CI before reporting success
+    ├── Kyverno ClusterPolicy to enforce signatures on admission
+    └── Syft SBOM → Dependency-Track continuous CVE monitoring
+```
+
+## First Principles
+
+Security found late is expensive to fix. Shift security left — run checks where developers already work (in CI). Code has vulnerabilities (SAST), dependencies have vulnerabilities (SCA), running apps have vulnerabilities (DAST). Secrets in code are permanent leaks — scan for them. Supply chain: verify what you build is what you ship (SLSA, SBOM, signing).
+
 Production-tested security patterns, common misconfigurations, and gotchas.
 
 ***
@@ -270,4 +308,12 @@ curl -X POST \
   -H "X-API-Key: $DT_TOKEN" \
   -F "bom=@sbom.json" \
   https://dependencytrack.company.com/api/v1/bom
+
+## System Design Perspective
+
+**Falco for Runtime Detection:** This file covers pre-deployment scanning and admission-time enforcement, but runtime detection is missing. Falco monitors syscalls via eBPF and fires alerts on behavioral anomalies — a container spawning a shell, reading `/etc/shadow`, or making unexpected DNS lookups. Deploy Falco as a DaemonSet with the eBPF probe. Route alerts through Falcosidekick to Slack (low severity) and PagerDuty (high severity, e.g., `Terminal shell in container`).
+
+**OPA/Gatekeeper for Policy Enforcement:** The kubesec and kube-score tools score individual YAML files, but they do not enforce at runtime. OPA Gatekeeper enforces policies as a validating admission webhook so that no pod can be created in the cluster that violates policies — even if a developer bypasses local linting tools. The key policies that complement the misconfigurations listed here: require `runAsNonRoot`, disallow `privileged`, require `readOnlyRootFilesystem`, require resource limits, and restrict image registries.
+
+**Zero-Trust at the Network Layer:** The NetworkPolicy entry in the Kubernetes misconfigurations list covers basic segmentation. Elevate this to zero-trust: (1) service mesh mTLS (Istio `PeerAuthentication` STRICT mode) so even pods within the same namespace cannot communicate without valid certificates, (2) Istio `AuthorizationPolicy` to allow only specific source principals and HTTP methods, (3) egress NetworkPolicy to block all internet access from production pods except explicitly allowlisted endpoints.
 ```

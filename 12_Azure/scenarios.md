@@ -1,5 +1,45 @@
 # Azure Scenario-Based DevOps Interview Drills
 
+```
+Azure Scenario Drills
+├── Scenario 1 — App Service Slot Swap Disaster
+│   ├── Root cause: Managed Identity context not preserved post-swap
+│   ├── Sticky settings: WEBSITE_OVERRIDE_STICKY_EXTENSION_VERSIONS
+│   ├── VNet Integration slot-stickiness issue
+│   └── Fix: mark identity-related settings as slot settings
+├── Scenario 2 — Pipeline Timeout on MS-Hosted Agent
+│   ├── External dependency causing hang (network blocked)
+│   ├── OOM kill (agent memory limit)
+│   ├── Hanging process (missing exit code)
+│   └── Fix: timeout step, diagnostics logging, self-hosted agent
+├── Scenario 3 — Terraform Destruction Loop
+│   ├── ForceNew attributes trigger replacement (not update)
+│   ├── Node pool name changes → destroy + recreate
+│   ├── Blue-green node pool pattern (add new pool, drain old)
+│   └── Fix: lifecycle { create_before_destroy } + cordon/drain
+├── Scenario 4 — AKS Pod 403 to Key Vault
+│   ├── RBAC vs Access Policies mismatch
+│   ├── Wrong Managed Identity (node identity vs pod WI)
+│   ├── KV network firewall blocking pod subnet
+│   └── Fix: verify federated credential, RBAC assignment, network rules
+├── Azure DevOps Troubleshooting Guide
+│   ├── OIDC/SP failures (audience mismatch, expired creds)
+│   ├── AKS → Private Endpoint DNS (custom DNS not forwarding)
+│   ├── ACR pull failures (AcrPull role missing on MI)
+│   ├── App Service VNet Integration (subnet delegation missing)
+│   ├── Azure Firewall blocking AKS (FQDN rule not added)
+│   └── Agent queue delays (parallel job limits, self-hosted pool sizing)
+└── Interview Playbook
+    ├── 7 YOE context (architecture decisions, not just commands)
+    ├── Answer framework: Situation → Diagnosis → Fix → Prevention
+    ├── Key topic areas: OIDC, private networking, Workload Identity
+    └── CLI/KQL commands for live debugging
+```
+
+## First Principles
+
+Compute needs identity (AAD), network isolation (VNet), storage, and managed services. AKS = Kubernetes control plane managed by Azure. Azure DevOps = hosted CI/CD. Azure Policy = guardrails enforced at API level. Cost comes from consumption — control it with budgets and tagging.
+
 Use these scenarios for final-round technical interviews for Senior/Lead Azure DevOps positions. They are designed to test your mental model of Azure's control/data planes, networking, and CI/CD pipelines.
 
 ## Scenario 1: The App Service Slot Swap Disaster
@@ -517,3 +557,17 @@ dependencies
 - You understand that an Azure resource's control plane (ARM) and data plane (e.g., Key Vault secrets) have different RBAC hierarchies.
 - You discuss Azure Policy as the ultimate guardrail for enterprise governance.
 - You know that swapping an App Service slot triggers a warm-up phase to avoid cold starts.
+
+## System Design Perspective
+
+**VNet Peering vs Transit Gateway (Azure Route Server):** VNet peering is direct, non-transitive, and best for 2-5 VNets. For hub-and-spoke at scale, Azure Route Server enables BGP-based transit through an NVA without UDR maintenance on every spoke. ExpressRoute Gateway Transit allows peered VNets to share a single ER circuit.
+
+**Identity Federation (OIDC/SAML):** Workload Identity Federation eliminates static client secrets by exchanging a short-lived OIDC token from the identity provider (GitHub Actions, AKS) for an Azure access token. Entra ID validates the issuer, audience, and subject claims before granting access. SAML 2.0 is used for SSO to legacy enterprise apps; OIDC is preferred for everything modern.
+
+**Cross-Region DR:** For RTO less than 15 min: Azure Front Door routes traffic globally, paired regions share disaster recovery SLAs, geo-redundant storage (GRS/GZRS) replicates data asynchronously. Use Azure Site Recovery for VM-level replication. IaC (Bicep/Terraform) is mandatory — manual re-creation cannot meet aggressive RTOs.
+
+**Cost Allocation Tagging Strategy:** Enforce mandatory tags (CostCenter, Environment, Team, Owner) via Azure Policy with Deny or Append effect at the Management Group level. Use Azure Cost Management to filter spending by tag. Automate tag inheritance from Resource Group to resources using the Inherit Tags built-in initiative.
+
+**Managed Identity vs Service Principals:** Managed Identities are the default choice for any Azure resource accessing other Azure services — zero credential management, auto-rotation. Use Service Principals only for external systems (on-prem, third-party) that cannot use Managed Identity. Workload Identity Federation is the bridge for Kubernetes pods and CI/CD pipelines.
+
+**Azure Policy vs AWS Organizations SCPs:** Azure Policy enforces guardrails at the ARM layer with effects including Deny, Audit, and DeployIfNotExists (auto-remediation). AWS SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions and act before IAM evaluation. Both use top-down policy inheritance through a hierarchy (Management Group in Azure; Root/OU/Account in AWS).

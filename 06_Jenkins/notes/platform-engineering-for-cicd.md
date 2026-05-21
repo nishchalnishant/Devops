@@ -1,5 +1,58 @@
 # Platform Engineering for CI/CD
 
+```
+Platform Engineering for CI/CD
+├── Architecture Internals
+│   ├── Controller — UI, scheduling, plugin management
+│   ├── Agent types
+│   │   ├── JNLP (inbound) — agent initiates TCP to controller:50000
+│   │   ├── SSH — controller initiates SSH to agent
+│   │   └── K8s pods — plugin creates/destroys pods per job
+│   └── Multi-container pods — jnlp + build + docker DinD
+├── JCasC Full Configuration
+│   ├── SAML securityRealm — enterprise SSO
+│   ├── RBAC authorizationStrategy — admin, developer, readonly roles
+│   ├── K8s cloud — containerCap, podRetention: never
+│   └── Pod templates — security context, nodeSelector, tolerations
+├── Shared Libraries — standardPipeline.groovy
+│   ├── Full pipeline template — test, ECR build, push, deploy
+│   ├── withCredentials ECR login
+│   ├── kubectl/helm deploy step
+│   └── Slack notification on failure
+├── K8s Pod Templates
+│   ├── Security context — runAsNonRoot: true, readOnlyRootFilesystem
+│   ├── Containers — jnlp (inbound-agent), build (openjdk), docker (DinD)
+│   ├── Resource requests/limits — CPU 200m/1, memory 256Mi/2Gi
+│   ├── Tolerations — spot-instance node pools
+│   └── nodeSelector — workload type targeting
+├── Pipeline Observability
+│   ├── OpenTelemetry config — OTLP endpoint, traces per stage
+│   ├── Grafana Tempo — distributed trace visualization
+│   └── PromQL — build duration P99, failure rate by job
+├── Cost Optimization
+│   ├── Spot instance agents via JCasC — 60-80% cost reduction
+│   ├── containerCap — limit max concurrent pods
+│   └── podRetention: never — destroy immediately after job
+├── OIDC / Keyless Auth
+│   ├── WebIdentityTokenCredentialsBinding — AWS STS
+│   └── No static AWS credentials in Jenkins
+├── GitHub Organization Management
+│   └── Terraform GitHub provider — org repos, branch protection, webhooks
+└── Key Gotchas
+    ├── DinD requires privileged: true (security trade-off)
+    ├── Workspace PVC sharing → race conditions
+    ├── JNLP container must be named 'jnlp' exactly
+    └── K8s API rate limiting on pod create/delete bursts
+```
+
+## First Principles
+
+- Platform Engineering for CI/CD means treating Jenkins itself as a product consumed by developer teams. The platform team owns the controller, pod templates, shared libraries, and observability. Dev teams only own their Jenkinsfiles (and ideally just call `standardPipeline()`).
+- Spot instance agents (via JCasC K8s cloud with appropriate tolerations) reduce compute cost by 60-80%. The trade-off is interruption risk. Jenkins handles this gracefully — a spot interruption causes the build to fail and retry; it doesn't corrupt the controller.
+- OIDC (WebIdentityToken) eliminates static AWS credentials entirely. Jenkins requests a token from the AWS STS, which is bound to the IAM role trust policy. No secret to rotate, no risk of a leaked credential living forever.
+- Pipeline Observability (OpenTelemetry traces per stage) makes CI/CD measurable. You can see which stage is the slowest across all pipelines, identify flaky stages by trace error rate, and correlate pipeline slowdowns with infrastructure events.
+- `podRetention: never` ensures K8s pod agents are always deleted after the job. This prevents state accumulation, eliminates the risk of a compromised pod being reused, and ensures disk on agent nodes is reclaimed immediately.
+
 ## Jenkins Architecture Internals
 
 ```

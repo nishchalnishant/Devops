@@ -4,6 +4,54 @@ description: Kubernetes RBAC, Pod Security, OPA/Gatekeeper, Secrets management, 
 
 # Kubernetes — Security, RBAC & Policy
 
+```
+Kubernetes Security, RBAC & Policy
+├── RBAC Architecture
+│   ├── Who? — User / Group / ServiceAccount (subjects)
+│   ├── What? — get, list, watch, create, update, patch, delete (verbs)
+│   ├── On what? — pods, deployments, secrets, configmaps (resources)
+│   ├── Role — namespace-scoped rules
+│   ├── ClusterRole — cluster-wide rules (also reusable in RoleBinding)
+│   ├── RoleBinding — binds Role/ClusterRole to subjects within a namespace
+│   └── ClusterRoleBinding — binds ClusterRole cluster-wide
+├── RBAC Key Properties
+│   ├── Allow-only — no Deny rules; unmatched requests implicitly denied
+│   ├── cluster-admin = root — bypasses all RBAC; treat like a root key
+│   └── Prefer RoleBinding over ClusterRoleBinding for namespace-scoped access
+├── ServiceAccount — Pod Identity
+│   ├── Dedicated SA per workload (not the default SA)
+│   ├── automountServiceAccountToken: false — disable unless pod calls K8s API
+│   └── IRSA/Workload Identity — OIDC annotation → short-lived IAM credentials
+├── Secrets Management
+│   ├── K8s Secrets — base64 encoded (NOT encrypted); anyone with etcd access reads all
+│   ├── Encryption at Rest — EncryptionConfiguration on API server (AES-GCM / KMS)
+│   ├── External Secrets Operator (ESO) — sync from AWS SM / Vault / Azure KV
+│   └── Best practice: don't put real secrets in K8s Secrets at all; use ESO + Vault
+├── Pod Security Standards (PSS)
+│   ├── Replaces deprecated PodSecurityPolicy (removed K8s 1.25)
+│   ├── Applied via namespace labels (pod-security.kubernetes.io/enforce)
+│   ├── privileged — unrestricted; allows everything
+│   ├── baseline — blocks privileged containers, hostNetwork/ports, most caps
+│   └── restricted — requires non-root, read-only FS, drops ALL capabilities
+├── OPA / Gatekeeper — Policy as Code
+│   ├── ConstraintTemplate — defines Rego policy schema as a CRD
+│   ├── Constraint — instantiates policy with match rules + parameters
+│   ├── Use cases: require labels, block :latest, enforce approved registries
+│   └── failurePolicy: Fail — webhook unavailability blocks all pod creation
+└── Audit & Compliance
+    ├── API server audit logging — requestObject + user identity + timestamp
+    ├── kubectl auth can-i --list — audit what a SA can do
+    └── clusterrolebindings audit — find who has cluster-admin binding
+```
+
+## First Principles
+
+- You need to control who can do what in the cluster — **RBAC** is an allow-only model; every unmatched request is implicitly denied; there are no explicit Deny rules.
+- Pods need to call the Kubernetes API (operators, monitoring agents) — **ServiceAccounts** provide in-cluster identity; the JWT token is auto-mounted and used for authentication.
+- Secrets stored in etcd are readable by anyone with etcd access — **encryption at rest** and **External Secrets Operator** (pulling from Vault/AWS SM) are the production-grade solutions.
+- You need to enforce policy on what's inside objects, not just who creates them — **admission webhooks** (OPA Gatekeeper, Kyverno) run before objects are persisted to etcd and can block or mutate non-compliant resources.
+- Zero-trust at the workload level — **IRSA/Workload Identity** binds a ServiceAccount to a cloud IAM role via OIDC; the pod receives short-lived, auto-rotating credentials instead of long-lived access keys.
+
 ## RBAC Architecture
 
 RBAC controls **what** authenticated identities can **do** in Kubernetes. It is always enabled in production clusters.
@@ -214,3 +262,11 @@ spec:
 | **Secrets base64** | Think it's encryption | base64 is encoding, not encryption. Always encrypt at rest + use ESO |
 | **PSP deprecation** | Still using PSP on K8s 1.25+ | Use Pod Security Standards + OPA/Gatekeeper |
 | **Audit logging** | Not enabled | Enable API server audit logging to track who did what and when |
+
+## System Design Perspective
+
+- **RBAC is not the whole security story:** RBAC controls who can create/modify objects, but it doesn't control what's inside those objects. A developer with `create pods` permission can create a privileged container with `hostNetwork: true` and bypass NetworkPolicy. **Pod Security Standards** (at the namespace level) and **OPA Gatekeeper/Kyverno** (at the admission webhook level) are complementary controls that restrict object content. Defense in depth requires all three layers: RBAC + PSS + admission policy.
+- **ServiceAccount token blast radius:** The auto-mounted JWT token in every pod (`/var/run/secrets/kubernetes.io/serviceaccount/token`) is valid for the lifetime of the pod and has the permissions of the ServiceAccount. If an application is compromised, the attacker can use this token to enumerate cluster resources, read Secrets (if RBAC allows), and potentially escalate privileges. `automountServiceAccountToken: false` + dedicated minimal-permission ServiceAccounts limits this to only what the workload genuinely needs.
+- **ESO sync interval is a security trade-off:** External Secrets Operator syncs from Vault/AWS SM on a `refreshInterval`. A 1-hour interval means a rotated secret takes up to 1 hour to reach pods. A 1-minute interval creates 1440 Vault/SM API calls per day per secret. Production recommendation: 15-30 minute refresh for most secrets; on-demand refresh (ESO `refreshInterval: 0` + manual annotation) for emergency rotation.
+- **OPA Gatekeeper `failurePolicy: Fail` is a cluster availability risk:** If the Gatekeeper webhook is unavailable (pod crash, network partition), all resource creation/updates that match the webhook's rules will fail. This includes pod creation during node scale-up, breaking the cluster's ability to recover. Always configure webhook `namespaceSelector` to exclude `kube-system`, and run 2+ Gatekeeper replicas with a PDB.
+- **OIDC group claims and RBAC scale:** Binding RBAC roles to OIDC groups (instead of individual users) means adding/removing a developer from a group in your IdP (Okta, Azure AD) immediately changes their cluster access without any Kubernetes change. This is the correct model at scale — Kubernetes RBAC becomes the policy layer, the IdP is the identity source of truth. Audit RBAC bindings for direct user subjects (not groups) as a compliance signal.

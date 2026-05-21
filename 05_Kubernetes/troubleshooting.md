@@ -1,5 +1,72 @@
 # Kubernetes Troubleshooting Runbooks
 
+```
+Kubernetes Troubleshooting Runbooks
+├── Decision Tree Entry Points
+│   ├── kubectl get events --sort-by=lastTimestamp — always first
+│   └── kubectl describe pod — events + state inline
+├── Pod-Level Runbooks
+│   ├── 1. Pending
+│   │   ├── Insufficient CPU/RAM on nodes
+│   │   ├── Taint/toleration mismatch
+│   │   ├── Node affinity too strict
+│   │   ├── PVC in different AZ than pod
+│   │   └── ResourceQuota exhausted
+│   ├── 2. CrashLoopBackOff
+│   │   ├── kubectl logs --previous (exit code is the clue)
+│   │   ├── OOMKilled (exit 137) → increase memory limits
+│   │   ├── App crash (exit 1) → check application logs
+│   │   └── kubectl debug --copy-to to override entrypoint
+│   ├── 3. ImagePullBackOff
+│   │   ├── Wrong image name or tag
+│   │   ├── Private registry: missing imagePullSecrets
+│   │   └── Registry unreachable from cluster network
+│   ├── 4. OOMKilled (exit 137)
+│   │   ├── Container exceeded memory limit → kernel OOMKill
+│   │   ├── Increase limits or fix memory leak
+│   │   └── kubectl top pods to measure actual usage
+│   └── 5. ContainerCreating stuck
+│       ├── Volume mount failure (PVC not bound, wrong SC)
+│       └── CNI plugin error (check node CNI logs)
+├── Service / Networking Runbooks
+│   ├── 6. Service Not Reachable
+│   │   ├── kubectl get endpoints — is pod IP in list?
+│   │   ├── Label selector mismatch (svc ↔ pod labels)
+│   │   ├── NetworkPolicy blocking traffic
+│   │   └── kube-proxy not running (kubectl get pods -n kube-system)
+│   └── 7. DNS Resolution Failure
+│       ├── kubectl exec -- nslookup kubernetes.default
+│       ├── CoreDNS pods running? (kubectl get pods -n kube-system)
+│       └── ndots:5 causing excessive search-domain lookups
+├── Node-Level Runbooks
+│   ├── 8. Node NotReady
+│   │   ├── kubelet stopped (ssh + systemctl status kubelet)
+│   │   ├── Disk pressure / memory pressure (kubectl describe node)
+│   │   └── CNI plugin failure on node
+│   └── 9. Ingress 502 / 504
+│       ├── 502 — upstream pod returning error or not ready
+│       └── 504 — upstream pod timeout; increase proxy timeout annotation
+├── Cluster-Level Runbooks
+│   ├── 10. PVC Pending — no matching PV, wrong access mode, wrong StorageClass
+│   ├── 11. HPA Not Scaling — metrics-server down; no CPU requests set on pods
+│   ├── 12. etcd Issues — check DB size, leader changes, disk fsync latency
+│   ├── 13. Rolling Update Stuck — maxUnavailable=0 + PDB conflict; check PDB
+│   ├── 14. Certificate Expiry — kubeadm certs check-expiration; renew all
+│   ├── 15. Namespace Terminating — stuck finalizer; patch to remove finalizer
+│   └── 16. ArgoCD OutOfSync Loop — drift from live state; check server-side apply conflicts
+└── Quick Reference
+    ├── Exit codes: 0=clean, 1=app error, 137=OOMKill, 139=segfault, 143=SIGTERM
+    └── API server audit: kubectl get --raw /logs/kube-apiserver-audit.log
+```
+
+## First Principles
+
+- Containers fail — the **controller manager** restarts them; probes detect failure faster than polling.
+- Traffic reaches containers via **Service endpoints** populated by the Endpoints/EndpointSlices controller — a pod not in endpoints will never receive traffic even if running.
+- Config and secrets externalised — **misconfiguration** (wrong key name, missing Secret) is a top cause of CrashLoopBackOff; always check env vars and volume mounts.
+- Declarative desired state — troubleshooting is diff between **desired state** (what you applied) and **actual state** (what the cluster has); `kubectl describe` and `kubectl get events` expose this diff.
+- Distributed systems have partial failures — a node losing disk pressure will evict **BestEffort pods first**, then Burstable, then Guaranteed; QoS class determines eviction order.
+
 > [!IMPORTANT]
 > Start every investigation with: `kubectl get events --sort-by='.lastTimestamp' -n <namespace>` and `kubectl describe pod <pod>`. 80% of issues are surfaced here.
 
@@ -522,3 +589,11 @@ kubectl api-resources --verbs=list -o name | \
   xargs -n1 -I{} kubectl get {} --all-namespaces --ignore-not-found -o json 2>/dev/null | \
   jq -r '.items[]? | "\(.apiVersion) \(.kind) \(.metadata.namespace)/\(.metadata.name)"'
 ```
+
+## System Design Perspective
+
+- **Why runbooks must be offline-accessible:** During a cluster outage, `kubectl` may not work. Runbooks stored only in a K8s ConfigMap or a cluster-hosted wiki are unavailable precisely when needed. Store runbooks in version control or an external wiki (Confluence, Notion) that doesn't depend on the cluster being healthy.
+- **Exit code 137 is not the same as OOMKill from the app:** The kernel OOM killer fires `SIGKILL` (exit 137) when a container exceeds its memory **limit**. The JVM/Python GC may cause gradual memory growth that only hits the limit hours later — the root cause is a leak, not a spike. Correlate with `container_memory_usage_bytes` over time in Prometheus, not just the final event.
+- **HPA not scaling — the silent failure mode:** If pods have no `resources.requests.cpu`, HPA computes `currentUtilization / desiredUtilization` where the denominator is zero — it reports `<unknown>` and never scales. This is a configuration contract: HPA is useless without resource requests. LimitRange with `defaultRequest` provides a safety net.
+- **Namespace stuck Terminating — design flaw in finalizer contract:** A finalizer on a resource prevents deletion until a controller removes it. If the controller (operator) is uninstalled before its CRs are deleted, the namespace can never finish terminating because no controller will ever clear the finalizer. Always delete CRs before uninstalling operators. Emergency fix: `kubectl patch` to remove the finalizer directly — but understand this bypasses cleanup logic.
+- **Rolling update stuck — PDB interaction is by design, not a bug:** A `PodDisruptionBudget` with `minAvailable: 1` on a single-replica deployment means `maxUnavailable` is effectively 0. A rolling update (which terminates the old pod before or alongside the new one) will never progress. The fix is either to scale to 2+ replicas, or set `maxSurge: 1` so the new pod starts first. This is why PDB + single-replica is an anti-pattern for mutable deployments.

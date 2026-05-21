@@ -1,5 +1,41 @@
 # Git — Production Scenario Drills
 
+```
+Git Production Scenarios
+├── Recovery Scenarios
+│   ├── Detached HEAD — commits not on any branch (git checkout -b recovery)
+│   ├── Force-push disaster — pusher recovery (reflog) + teammate recovery (ORIG_HEAD)
+│   ├── Large file accidentally committed — filter-repo / BFG cleanup
+│   └── Lost commit recovery via git fsck --lost-found
+├── Conflict & Merge Scenarios
+│   ├── Merge conflict in CI — resolve locally, push, re-trigger
+│   └── Collaborative rebase on shared branch — rerere + force-with-lease
+├── Monorepo & Scale
+│   ├── Partial checkout with sparse-checkout (monorepo subset)
+│   └── Broken submodule — all fix paths (pointer update, URL fix, rm + re-add)
+├── Debugging & Regression
+│   ├── git bisect manual — good/bad narrowing
+│   └── git bisect run ./test.sh — automated O(log N) regression hunt
+├── Productivity Scenarios
+│   ├── git worktree — two branches simultaneously without stash
+│   └── Slow pre-commit hooks — skip selectively vs fix properly
+├── Repository Health
+│   ├── Internal object corruption — git fsck + git clone to heal
+│   ├── rerere setup — reuse recorded resolutions
+│   └── SSH key incompatibility — key type mismatch debugging
+└── Storage & Size
+    ├── LFS quota exhaustion — prune + migrate strategy
+    └── Dirty reset recovery — restore working tree from index/stash
+```
+
+## First Principles
+
+- **Why does detached HEAD happen?** HEAD normally points to a branch reference (symbolic ref). Checking out a commit SHA or tag makes HEAD point to the raw SHA — no branch moves when you commit. Any work done in this state belongs to no branch and is at risk of GC.
+- **Why does force-push destroy teammates' work?** Rebase rewrites SHAs. After you force-push, remote history diverges from what teammates fetched. Their branches now have "extra" commits that look like conflicts. The fix is for them to `git rebase origin/main` on their branches, not `git pull`.
+- **Why use filter-repo over BFG for secret removal?** `git filter-repo` is the officially recommended replacement for `git filter-branch`. BFG is simpler for the common case (remove a file) but less flexible. `filter-repo` can rewrite paths, emails, commit messages, and more with full Python programmability.
+- **Why bisect with a script?** Manual bisect requires human judgment at each step (O(log N) manual checkouts). With `git bisect run`, Git automates the process — your test script is the oracle. For a 10,000-commit history, this means ~14 automated steps to find the culprit.
+- **Why git worktree over stash?** Stash is a hack — it saves your current changes to a temporary commit and restores HEAD. Worktree gives you a real second checkout: different branch, different directory, both fully functional simultaneously. No stashing, no context switching.
+
 ## 1. Detached HEAD Recovery
 
 **Situation:** You checked out a tag or commit SHA directly, made changes, and now realize you're in detached HEAD state. Your commits are not on any branch.
@@ -455,3 +491,34 @@ git log --merges --ancestry-path a4f9d12..main | head -5
 **Symptom:** `git clone` fails with `sign_and_send_pubkey: no mutual signature supported`.
 **Diagnosis:** Your local SSH is too new and deprecated `ssh-rsa` (SHA-1), but the server only supports it.
 **Fix:** Generate an Ed25519 key: `ssh-keygen -t ed25519`.
+
+---
+
+## System Design Perspective
+
+### Scalability Trade-offs
+
+**Monorepo vs Polyrepo at scale:**
+- Monorepo scales the repository but requires specialized tooling (Nx, Bazel, Turborepo) to avoid rebuilding everything on every commit. The tooling cost pays off above ~20 services sharing code.
+- Polyrepo scales the teams but creates cross-cutting change coordination overhead. Atomic changes spanning services require multiple PRs, synchronized merges, and BOM updates.
+
+**Shallow vs partial clone for CI at scale:**
+- Shallow clone (`--depth 1`) is fast but breaks `git bisect` and `git blame`. Use for ephemeral CI runners where history is irrelevant.
+- Partial clone (`--filter=blob:none`) preserves history while skipping blob content. Preferred for developer machines on large repos.
+
+### Failure Modes
+
+| Failure | Root Cause | Prevention |
+|---------|-----------|------------|
+| Force-push catastrophe | No branch protection | Require `--force-with-lease`; lock main branch |
+| Secret in history | Committed `.env` or key file | `gitleaks` pre-commit hook + `git filter-repo` remediation |
+| LFS quota exhaustion | Large binaries tracked by LFS exceed limit | Monitor LFS usage in CI; set quota alerts |
+| Submodule pointer drift | Forgot to commit submodule SHA after update | CI check: `git submodule status` exit non-zero if dirty |
+| Merge conflict loops | Long-lived feature branches | TBD: merge to main daily; feature flags hide incomplete work |
+| Corrupted pack file | Disk failure or interrupted `git gc` | Mirror repos to separate location; use `git fsck` in CI |
+
+### Design Choices and Why
+
+- **Why protect main with signed commits?** Unsigned commits allow impersonation — anyone can set `git config user.email` to anything. Signed commits (GPG or SSH) create a cryptographic link to a verified identity. Required for SLSA level 2+ compliance.
+- **Why rerere for long-lived release branches?** Release branches receive cherry-picks from main. The same conflict between a feature and a release-only change will appear repeatedly. Rerere eliminates repeated manual resolution — critical when you have 5+ active release branches.
+- **Why branch protection over culture?** Culture degrades under deadline pressure. A senior engineer can bypass a code review just as easily as a junior if the system allows it. Branch protection rules encode the workflow into the platform — no bypass without explicit admin action.

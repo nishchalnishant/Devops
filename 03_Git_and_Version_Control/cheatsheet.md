@@ -1,5 +1,68 @@
 # Git — Comprehensive Command Cheatsheet
 
+```
+Git Cheatsheet
+├── Setup & Config
+│   ├── git config (user, email, editor, signing key)
+│   └── SSH key setup for GitHub/GitLab
+├── Init & Clone
+│   ├── git init / git clone
+│   ├── Shallow clone (--depth 1) — CI fast checkout
+│   ├── Partial clone (--filter=blob:none) — large repos
+│   ├── Sparse checkout — subset of monorepo
+│   └── Mirror clone (--mirror) — full backup
+├── Staging & Committing
+│   ├── git add / git add -p (interactive hunk staging)
+│   ├── git commit / git commit --amend
+│   └── Conventional Commits format (feat/fix/chore/docs/refactor/test)
+├── Branching
+│   ├── Create / switch / rename / delete
+│   ├── git merge (--no-ff, --squash, --ff-only)
+│   └── git rebase (--onto, -i interactive)
+├── Remote Operations
+│   ├── git fetch / git pull / git pull --rebase
+│   └── git push / git push --force-with-lease (safe force)
+├── History Inspection
+│   ├── git log (--oneline, --graph, --decorate, --since, --author)
+│   ├── git diff (working/staged/commits)
+│   └── git blame / git log -S (pickaxe search)
+├── Rebase & Cherry-pick
+│   ├── git rebase -i (squash, fixup, reword, drop, edit, reorder)
+│   └── git cherry-pick / git cherry-pick -n (no-commit)
+├── Stash
+│   ├── git stash push/pop/apply/drop/list
+│   └── git stash push -u (include untracked)
+├── Tags
+│   ├── Lightweight vs annotated (git tag -a -m)
+│   └── git push --tags / git push origin v1.0
+├── Undo & Reset
+│   ├── git reset --soft / --mixed / --hard
+│   ├── git revert (safe — new commit)
+│   └── git clean -fd (remove untracked)
+├── Bisect, Reflog, Submodules, Worktrees
+│   ├── git bisect start/good/bad/run (binary search regression)
+│   ├── git reflog (all HEAD movements — disaster recovery)
+│   ├── git submodule update --init --recursive
+│   └── git worktree add / list / remove
+├── Sparse Checkout
+│   └── git sparse-checkout init/set/list
+├── Signing
+│   ├── GPG signing (user.signingkey, commit.gpgsign=true)
+│   └── SSH signing (gpg.format=ssh)
+└── Maintenance & Large Files
+    ├── git filter-repo (rewrite history, remove secrets/binaries)
+    ├── git lfs track / git lfs pull
+    └── git gc / git maintenance start
+```
+
+## First Principles
+
+- **Why a cheatsheet?** Git has hundreds of flags. The cognitive load is in knowing which command + flag combination solves which problem. This cheatsheet groups by intent, not alphabetically.
+- **Why `--force-with-lease` instead of `--force`?** Force push overwrites whatever is on the remote. `--force-with-lease` aborts if someone else pushed since your last fetch — prevents accidental history destruction.
+- **Why interactive rebase?** Raw commits are drafts. Before merging a PR, you clean up the history — squash WIP commits, fix typos in messages, drop debug commits. The reviewer sees intent, not the messy path.
+- **Why git reflog?** Every operation that moves HEAD is recorded locally for 90 days. It's the undo stack for Git itself — you can recover from nearly any mistake including `reset --hard`.
+- **Why partial clone + sparse checkout?** A 50GB monorepo with 10 years of history is unusable for a frontend dev who only touches one package. Partial clones fetch metadata only; sparse checkout limits the working tree to specified paths.
+
 ## Setup and Configuration
 
 ```bash

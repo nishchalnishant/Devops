@@ -1,5 +1,75 @@
 # Kubernetes Tips & Tricks
 
+```
+Kubernetes Tips & Tricks
+├── kubectl Productivity
+│   ├── Aliases — k, kgp, kgpa, kd, kl, ke, kwatch
+│   ├── --dry-run=client -o yaml — generate YAML for deploy/svc/cm/secret fast
+│   ├── JSONPath — extract pod IPs, images, node zones, PVC status
+│   └── Custom Columns — NAME, STATUS, NODE, IP in one command
+├── Debugging Techniques
+│   ├── CrashLoopBackOff
+│   │   ├── kubectl describe pod → "Last State" exit code
+│   │   ├── kubectl logs --previous — logs from crashed container
+│   │   └── kubectl debug --copy-to — override entrypoint to prevent crash
+│   ├── Networking In-Cluster
+│   │   ├── nicolaka/netshoot — debug pod with net tools (curl, tcpdump, dig)
+│   │   ├── busybox nslookup — test DNS resolution
+│   │   └── tcpdump on eth0 — packet capture inside pod
+│   └── Node-Level Issues
+│       ├── kubectl debug node/ — shell on node without SSH; files at /host
+│       ├── journalctl -u kubelet — kubelet logs via debug container
+│       └── kubectl get events --field-selector reason=OOMKilling
+├── Resource Management
+│   ├── kubectl top pods/nodes — current usage before setting limits
+│   ├── VPA recommendations — kubectl get vpa -o jsonpath
+│   └── LimitRange — namespace-level defaults for requests/limits/max
+├── RBAC Best Practices
+│   ├── Prefer RoleBinding over ClusterRoleBinding (namespace-scoped)
+│   ├── ClusterRole + RoleBinding pattern — reuse roles, scope bindings
+│   ├── kubectl auth can-i --list — audit ServiceAccount permissions
+│   └── Avoid wildcard permissions (*) — use specific resources + verbs
+├── Networking Tips
+│   ├── NetworkPolicy: default-deny-ingress first, then allow selectively
+│   ├── CNI must support NetworkPolicy (Calico/Cilium/Weave — NOT Flannel)
+│   └── Service DNS shorthand — <svc> / <svc>.<ns> / FQDN with trailing dot
+├── Storage Tips
+│   ├── PVC resize — patch spec.resources.requests.storage (if SC allows)
+│   └── etcd backup — etcdctl snapshot save with certs; verify with status
+├── Upgrade Tips
+│   ├── Drain node before upgrade — cordon + evict (respects PDBs)
+│   ├── Uncordon after — re-enables scheduling
+│   └── Never skip minor versions (1.27 → 1.28 → 1.29, not 1.27 → 1.29)
+├── GitOps Patterns
+│   ├── kubectl apply for everything in production
+│   ├── Imperative: only for debug / queries / emergency rollback
+│   ├── kubectl diff -f — detect drift from manifests
+│   └── Reconcile imperative changes back to git after incidents
+├── Security Tips
+│   ├── trivy image — scan before deployment; --exit-code 1 in CI
+│   ├── securityContext — runAsNonRoot, readOnlyRootFilesystem, drop ALL caps
+│   └── kubeadm certs check-expiration / renew all
+├── Performance Tips
+│   ├── kubectl get pods -w — watch via server-sent events (not polling loop)
+│   ├── kubectl wait --for=condition=Ready — scripting-safe wait
+│   └── Use informers / controller-runtime cache in operators (not direct API calls)
+└── Common Gotchas
+    ├── Never use :latest tag in production (no rollback, no version visibility)
+    ├── Real workloads never in default namespace
+    ├── HPA + replicas in Deployment spec = GitOps/HPA conflict — remove replicas from manifest
+    ├── Secrets not encrypted by default — enable encryption at rest; use ESO/Vault
+    ├── ImagePullPolicy Always = registry call on every pod start
+    └── terminationGracePeriodSeconds must match preStop hook + drain time
+```
+
+## First Principles
+
+- You have many containers to run — you need a **scheduler** that places them based on resource requests.
+- Machines fail — controllers **automatically restart and reschedule**; probes detect failure and remove unhealthy pods from traffic.
+- Traffic must reach containers wherever they run — **Service DNS** provides stable addresses; NetworkPolicy controls who can reach whom.
+- Config and secrets must not be baked into images — **externalise** via ConfigMap/Secret; never use `:latest` so rollback always works.
+- You need zero-downtime rollouts — **declarative Deployments** + rolling update strategy; `kubectl rollout undo` as the emergency lever.
+
 > [!TIP]
 > These are battle-tested patterns from production Kubernetes operations. Most apply to 1.28+.
 
@@ -343,3 +413,12 @@ The API server supports `resourceVersion` to start a watch from a specific point
 6. **ImagePullPolicy**: `Always` causes an API call to the registry on every pod start. `IfNotPresent` uses cached image. In production with immutable tags, `IfNotPresent` is fine and faster.
 
 7. **terminationGracePeriodSeconds**: Default 30 seconds. If your app needs longer to drain (e.g., a gRPC server waiting for streams to complete), increase this value. Set to match your `preStop` hook + drain time.
+
+## System Design Perspective
+
+- **Why dry-run first:** `--dry-run=client -o yaml` lets you version-control generated manifests. Server-side dry-run (`--dry-run=server`) additionally runs admission webhooks — catches policy rejections before apply. Use server-side dry-run in CI pipelines.
+- **Watch vs. poll at scale:** Each `kubectl get pods` poll is a full LIST request that hits the API server cache. At cluster scale (1000+ pods, frequent scripts), LIST storms degrade API server latency for all clients. `kubectl get pods -w` opens a single watch stream via HTTP/2 server-sent events — one connection, zero polling overhead.
+- **NetworkPolicy enforcement gap:** Flannel silently ignores NetworkPolicy objects — they appear valid but have no effect. This is a security design blind spot. Always validate CNI NetworkPolicy enforcement with a test: apply a deny-all policy, then verify traffic is actually blocked. Don't assume "applied" means "enforced."
+- **etcd backup strategy:** A single etcd snapshot on the control plane node is not offsite backup. Treat etcd snapshots like database backups: push to S3/GCS/Azure Blob on a schedule, verify restores quarterly, and document the recovery runbook. RPO (recovery point objective) should drive snapshot frequency.
+- **terminationGracePeriodSeconds sizing:** This value must be the sum of: (1) `preStop` hook duration + (2) time for the app to drain in-flight requests after SIGTERM + (3) buffer. If SIGKILL fires before drain completes, in-flight requests are aborted. The load balancer also needs time to stop sending new requests — a `preStop: sleep 5` gives the kube-proxy time to remove the pod from endpoints before SIGTERM reaches the app.
+- **Certificate rotation operational risk:** Expired certificates cause API server to reject all requests — the cluster effectively becomes read-only (existing pods keep running, but no control plane operations work). Set monitoring alerts on `kubeadm certs check-expiration` output at 60 days and 30 days before expiry.

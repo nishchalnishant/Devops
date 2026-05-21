@@ -4,6 +4,74 @@ description: GitLab CI pipeline architecture internals, runner configuration, DA
 
 # GitLab CI/CD — Pipeline Architecture & Runner Deep Dive
 
+```
+Pipeline Architecture & Runner Deep Dive
+├── Pipeline Anatomy
+│   ├── .gitlab-ci.yml → GitLab Server → Job Queue → Runner Poll → Execute
+│   ├── Stages: ordered execution phases (build → test → deploy)
+│   ├── Jobs: units of work within stages; parallel within same stage
+│   └── Artifacts: files passed downstream between jobs in the same pipeline
+│
+├── DAG Pipelines (needs:)
+│   ├── Default: stage N blocked until all jobs in stage N-1 finish
+│   ├── needs: [job-name] — job starts when specific dependency is ready
+│   ├── needs: [{job, artifacts: false}] — dependency without artifact download
+│   └── Effect: converts serial chain into parallel execution graph
+│
+├── Runner Architecture
+│   ├── GitLab Server: coordinator — stores job queue, state, artifacts, variables
+│   ├── Runner: decoupled executor — polls server via long-polling, claims jobs
+│   ├── Communication: HTTPS from runner to server (runner initiates, not server)
+│   └── Scale: runners scale independently from GitLab server
+│
+├── Executor Types
+│   ├── docker: fresh container per job, isolation via Docker engine
+│   │   ├── image: job-level or default override
+│   │   ├── services: sidecar containers (postgres:14 linked via hostname)
+│   │   └── privileged: required for docker-in-docker; security risk
+│   ├── kubernetes: pod per job, ephemeral, scales with cluster autoscaler
+│   │   ├── config.toml: image, cpu_request, memory_limit, service_account
+│   │   └── No privileged needed if using Kaniko for image builds
+│   ├── shell: runs on host — fast, no isolation, state persists between jobs
+│   └── custom: user-defined provisioning hooks (provision + run + cleanup)
+│
+├── config.toml Key Settings
+│   ├── concurrent: max parallel jobs across all registered runners on this instance
+│   ├── [runners.docker]: image, privileged, volumes, pull_policy
+│   ├── [runners.kubernetes]: namespace, image, cpu/memory limits per job tag
+│   └── [runners.cache]: Type (s3/gcs), Shared (true for distributed cache)
+│
+├── Cache vs Artifacts
+│   ├── cache: speed optimization, cross-pipeline, runner-local or S3 backend
+│   │   ├── key: cache invalidation key (branch, commit, file hash)
+│   │   ├── paths: directories to persist
+│   │   └── policy: pull-push (default) | pull (read-only) | push (write-only)
+│   └── artifacts: correctness, same-pipeline job-to-job, stored on GitLab server
+│       ├── paths: files to archive
+│       ├── expire_in: TTL before deletion
+│       └── reports: junit, coverage, security — special structured artifacts
+│
+├── Environment-Specific Deployments
+│   ├── environment: name — links job to deployment target
+│   ├── Environment-scoped variables: injected only when job targets that environment
+│   ├── Protected environments: restrict who can trigger the deployment
+│   └── on_stop: cleanup job triggered when environment is stopped
+│
+└── Logic & Trickiness
+    ├── needs: bypasses stage order — job can start before its own stage
+    ├── cache is not guaranteed — jobs must handle cache miss gracefully
+    ├── CI_JOB_TOKEN scope (GitLab 16+) — cross-project access needs allowlist
+    ├── strategy: depend required — without it trigger jobs succeed immediately
+    └── Protected branch ≠ protected variable — each configured separately
+```
+
+## First Principles
+
+- Runners poll GitLab Server — the server never pushes jobs to runners. This pull model means runners can be behind firewalls and NAT without inbound rules, and they scale horizontally by simply registering more instances.
+- The Docker executor provides job isolation by running each job in a fresh container that is destroyed after the job finishes. State that must persist across jobs must be explicitly declared as an artifact; state that accumulates between runs for speed is a cache.
+- DAG with `needs:` is a graph execution engine sitting on top of a stage-ordered scheduler. When `needs:` is present, the stage label becomes metadata for grouping only — the actual execution order is determined by dependency readiness.
+- `config.toml: concurrent` is a hard limit on simultaneous jobs. Setting it too low causes queue buildup on a runner that has idle CPU. Setting it too high causes resource contention where jobs compete for memory and disk, causing slower execution than sequential processing would.
+
 ## Pipeline Anatomy
 
 ```
@@ -179,3 +247,23 @@ deploy-production:
 | **Cache invalidation** | Fixed cache key | `key: "$CI_COMMIT_REF_SLUG-$CACHE_VERSION"` |
 | **Large monorepos** | Run all tests on every push | Use `rules: changes:` to run only affected jobs |
 | **Auto DevOps** | Enable blindly | Customize templates in `gitlab-ci-templates` |
+
+***
+
+## System Design Perspective
+
+**Coordinator-runner separation at scale**
+
+GitLab Server is the coordinator: it receives pipeline events, stores job definitions, enforces RBAC, and serves artifacts. Runners are stateless executors that poll for work. This separation means you can scale runner capacity independently — add runners during business hours, scale to zero overnight. The coordinator does not need to know about runner topology; runners self-register with tags that describe their capabilities.
+
+**Executor selection decision tree**
+
+Use Kubernetes executor when: you're already on K8s, want ephemeral jobs, need GPU or specialized node types, and want cluster autoscaling to handle burst capacity. Use Docker executor when: you have dedicated VMs, need predictable job startup time (no pod scheduling delay), and want simple configuration. Use shell executor only for: legacy compatibility, local development machines, or performance-critical jobs where container overhead is unacceptable — never for untrusted code.
+
+**Cache architecture for distributed runner pools**
+
+When runners run on multiple hosts (EC2 autoscaling, K8s nodes), runner-local cache creates unpredictable cache hits — a job on runner-1 misses the cache populated by runner-2. Solution: S3 distributed cache in `config.toml`. The cache manager uploads after job completion and downloads at job start. Keys design matters: `key: files: [package-lock.json]` means the cache is always valid when the lockfile is unchanged, busted when it changes. Per-branch keys (`key: $CI_COMMIT_REF_SLUG`) prevent different branches from sharing potentially incompatible caches.
+
+**Environment-scoped variable injection mechanics**
+
+When a job declares `environment: name: production`, GitLab Server filters the variable injection: only variables scoped to `production` (or `*`) are included in the job's environment. Variables scoped to `staging` are literally absent from the environment — the runner never receives them. This is enforced server-side before the job payload is sent to the runner; the runner has no ability to request variables for environments it's not targeting.

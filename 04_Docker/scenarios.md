@@ -1,5 +1,46 @@
 # Production Scenarios & Troubleshooting Drills (Senior Level)
 
+```
+Docker Production Scenarios
+├── Level 1: Lifecycle & Debugging
+│   ├── Too many open files (ulimit -n, --ulimit flag)
+│   ├── 5GB image crisis (multi-stage, .dockerignore, dive analysis)
+│   └── Container DNS networking (user-defined bridge, embedded DNS)
+├── Level 2: Security
+│   ├── Container escape protection (seccomp, AppArmor, rootless Docker)
+│   ├── Docker-in-Docker performance (socket mount /var/run/docker.sock)
+│   ├── Image signing with Cosign (keyless OIDC, cosign sign/verify)
+│   ├── BuildKit optimization (cache mounts, parallel stages, secret mounts)
+│   └── Rootless Docker (dockerd-rootless-setuptool.sh, slirp4netns)
+├── Level 3: SRE
+│   ├── Zombie processes / PID 1 problem (tini/dumb-init as init)
+│   ├── SIGTERM ignored (shell form vs exec form CMD/ENTRYPOINT)
+│   ├── Read-only rootfs + tmpfs for writable scratch areas
+│   ├── Docker socket security risk (socket mount = root on host)
+│   ├── OOM kill diagnosis (exit code 137, docker inspect OOMKilled)
+│   ├── UID/GID mismatch (volume permission, fsGroup, initContainer)
+│   ├── Log disk exhaustion (daemon.json log rotation, max-size)
+│   ├── Registry GC (remove untagged manifests, reclaim storage)
+│   ├── OverlayFS corruption (docker system prune, fsck overlay)
+│   ├── AppArmor permission denied (aa-status, custom profile)
+│   └── BuildKit secret leak (--mount=type=secret, never in ENV/ARG)
+└── Level 2: Networking
+    ├── Container can't reach internet (ip_forward sysctl, iptables, DNS)
+    ├── CI cache invalidation (Dockerfile layer order fix)
+    ├── Java OOM (JVM cgroup awareness: -XX:+UseContainerSupport)
+    ├── No space left (overlay2 layers, inode exhaustion, docker prune)
+    ├── Multi-arch exec format error (buildx + QEMU binfmt_misc)
+    └── Compose race condition (healthcheck + service_healthy condition)
+```
+
+## First Principles
+
+- **Why does the PID 1 problem matter?** Linux sends SIGTERM to PID 1 when stopping a container. The shell (`/bin/sh`) doesn't forward signals to child processes — your app never receives SIGTERM and gets SIGKILL after the timeout. Exec form or a proper init (tini) makes your app PID 1.
+- **Why does Docker socket mounting give host root?** The Docker socket (`/var/run/docker.sock`) is the API endpoint for the Docker daemon running as root. A container with socket access can run `docker run --privileged -v /:/host ubuntu chroot /host bash` — instant root on the host. This is equivalent to `sudo`.
+- **Why does OOM kill produce exit code 137?** The kernel sends SIGKILL (signal 9) to the container process. Exit code = 128 + signal number = 128 + 9 = 137. Docker records `OOMKilled: true` in `docker inspect`. The cgroup's memory limit was exceeded.
+- **Why does Java ignore container memory limits by default?** Old JVMs read `/proc/meminfo` to determine heap size — they see the host's total RAM, not the container's cgroup limit. `-XX:+UseContainerSupport` (default in Java 11+) reads the cgroup memory limit instead. Without this, a 512MB container can have a JVM configured for 16GB heap.
+- **Why do multi-arch images need QEMU binfmt_misc?** ARM64 binaries can't execute natively on an AMD64 host. `binfmt_misc` registers QEMU as the interpreter for ARM64 ELF binaries — the kernel transparently routes ARM64 execution through QEMU. This enables building ARM64 images on AMD64 CI runners.
+
 ## Level 1: Container Lifecycle & Debugging
 
 ### Scenario 1: "Too Many Open Files"
@@ -434,3 +475,35 @@ def connect_with_retry(dsn, max_retries=10):
 ```
 
 The application retry is essential even in production — healthcheck handles startup, retry handles transient network issues and rolling restarts.
+
+---
+
+## System Design Perspective
+
+### Scalability Trade-offs
+
+**Image size vs build speed:**
+- Smaller images (distroless, scratch) reduce attack surface and pull time but eliminate debugging tools. The trade-off: use distroless in production, add a debug variant (`:debug` tag with busybox) for incident response.
+- Multi-stage builds add Dockerfile complexity but are non-negotiable at scale — a 1.2GB image deployed 100 times per day wastes orders of magnitude more bandwidth and storage than a 50MB distroless image.
+
+**Storage driver selection:**
+- `overlay2` is the default and handles most workloads. High-write workloads (databases, log aggregators) should use named volumes with the appropriate driver (local, NFS, cloud block storage) — overlay's copy-on-write is expensive for large file rewrites.
+- Inode exhaustion on overlay2 is a silent failure mode. Monitor inode usage (`df -i`) alongside disk usage on nodes with many containers.
+
+### Failure Modes
+
+| Failure | Root Cause | Prevention |
+|---------|-----------|------------|
+| OOM kill (exit 137) | Container exceeds memory cgroup limit | Set `--memory` with headroom; monitor `docker stats` |
+| Zombie processes | PID 1 doesn't reap orphaned children | Use `tini` or `dumb-init` as init process |
+| SIGTERM not received | Shell-form CMD wraps in `/bin/sh -c` | Always use exec-form: `CMD ["app"]` not `CMD app` |
+| Log disk exhaustion | Containers write unbounded logs | `daemon.json`: `log-driver: json-file`, `max-size: 100m`, `max-file: 3` |
+| OverlayFS corruption | Ungraceful shutdown during write | `docker system prune` + re-pull images; monitor with `docker info` |
+| Registry unavailable | Single registry SPOF | Mirror to multiple registries; use pull-through cache |
+| BuildKit cache stale | Stale cache-from in CI | Use `mode=max` for full cache; pin base image SHAs |
+
+### Design Choices and Why
+
+- **Why tini over dumb-init?** Both are minimal init processes, but `tini` is maintained by Docker and is included in Docker Desktop via `--init`. `dumb-init` is more configurable. Either eliminates zombie processes and ensures signal forwarding — the choice depends on ecosystem fit.
+- **Why Docker socket mounting is an architectural anti-pattern:** Any workload with Docker socket access bypasses all container isolation. For CI/CD, use rootless Docker, Kaniko (build in user space without Docker daemon), or BuildKit with remote workers. The socket should never be mounted in production workloads.
+- **Why healthchecks AND application retries?** HEALTHCHECK governs whether the container is considered ready (affects load balancer registration, Kubernetes readiness probes). Application retries handle the period between "container starts" and "dependency is ready." Both are needed — one doesn't substitute for the other.

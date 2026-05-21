@@ -1,5 +1,56 @@
 # Phase 1 - Foundations
 
+```
+Phase 1 - Foundations
+├── DevOps And Systems Thinking
+│   ├── DevOps as collaboration, automation, feedback, shared ownership
+│   ├── Scalability versus availability distinction
+│   ├── Why observability precedes troubleshooting
+│   └── Why toil reduction defines senior contribution
+├── Git And Delivery Hygiene
+│   ├── Core commands: clone, branch, commit, merge, rebase, fetch, pull, revert
+│   ├── Pull request flow and protected branches
+│   └── Safe rollback (revert) versus destructive history rewrite (reset)
+├── Linux
+│   ├── Filesystems: structure, permissions, ownership, sudo
+│   ├── Process inspection: signals, top, ps, kill, /proc
+│   ├── Open ports: ss, lsof, netstat
+│   ├── Memory and disk: free, df, du, iostat
+│   ├── systemd: systemctl, journalctl, service management
+│   └── Package management and CLI fluency
+├── Shell Scripting
+│   ├── Variables, loops, conditions, functions, exit codes
+│   ├── Writing safe Bash: set -euo pipefail, ShellCheck
+│   └── Automating repeated operational tasks
+├── Networking
+│   ├── IP addressing, CIDR notation, routing, ports
+│   ├── TCP versus UDP behavior differences
+│   ├── DNS resolution: query path, TTL, troubleshooting with dig/nslookup
+│   ├── Connection error types: refused vs timed out vs reset
+│   ├── TLS basics: handshake, certificates, trust chains
+│   └── Load balancing: L4 vs L7, round robin vs least connections
+├── Hands-On Tasks
+│   ├── Shell script: basic host health check
+│   ├── systemctl + journalctl: inspect a running service
+│   ├── ss, curl, dig, ip route: live host investigation
+│   ├── Git repo: merge, rebase, revert, branch cleanup practice
+│   └── Explain full browser-to-backend request path in your own words
+└── Exit Criteria
+    ├── Work comfortably in terminal without guessing
+    ├── Explain basic Git collaboration flow
+    ├── Inspect Linux host for CPU, memory, disk, port issues
+    ├── Explain DNS, TCP, CIDR, and TLS at practical level
+    └── Automate a simple operational task with a script
+```
+
+## First Principles
+
+- **Why Linux before everything else?** Every container runs on Linux. Every Kubernetes node is Linux. Debugging a production issue without understanding processes, namespaces, signals, and file descriptors is guesswork.
+- **Why Git hygiene before CI/CD tools?** CI/CD tools are wrappers around Git events. If the branching model and merge strategy are unclear, the pipeline design will reflect that confusion.
+- **Why scripting before cloud platforms?** Cloud platforms expose APIs, and scripts call those APIs. A script that fails silently or lacks error handling will corrupt state in any environment — local, staging, or production.
+- **Why networking fundamentals before Kubernetes networking?** Kubernetes networking is standard IP networking with labels on top. CNI plugins, Services, and Ingress all become tractable once DNS, routing, and connection semantics are clear.
+- **Why checkpoint questions, not just reading?** Passive reading creates familiarity, not recall. The checkpoint questions simulate the live pressure of an interview and reveal the difference between recognition and true understanding.
+
 This phase builds the base layer for senior DevOps learning. If Linux, Git, scripting, and networking are weak, everything else will feel harder than it needs to.
 
 ## Goal
@@ -8,12 +59,12 @@ By the end of this phase, you should be able to explain how code moves from a de
 
 ## Study Order
 
-1. `../../08_General_Guides_and_Roadmaps/1.-devops-terms.md`
-2. `../../01_Prerequisites_and_Fundamentals/Linux/README.md`
-3. `../../01_Prerequisites_and_Fundamentals/Scripting/README.md`
-4. `../../01_Prerequisites_and_Fundamentals/Networking/README.md`
-5. `../../02_Version_Control_and_CI_CD/Git_GitHub/Notes_Git_GitHub.pdf`
-6. `../../07_Interview_Preparation/interview-questions-easy.md`
+1. `../08_General_Guides_and_Roadmaps/roadmap_README.md`
+2. `../01_Linux_and_Scripting/README.md`
+3. `../01_Linux_and_Scripting/README.md`
+4. `../02_Networking/README.md`
+5. `../03_Git_and_Version_Control/notes/Notes_Git_GitHub.md`
+6. `../07_Interview_Preparation/interview-questions-easy.md`
 
 ## What To Master
 
@@ -80,12 +131,12 @@ Move to Phase 2 only when you can:
 
 ## Related Resources
 
-- [DevOps Terms and Concepts](../../08_General_Guides_and_Roadmaps/1.-devops-terms.md)
-- [Linux Fundamentals](../../01_Prerequisites_and_Fundamentals/Linux/README.md)
-- [Scripting Basics](../../01_Prerequisites_and_Fundamentals/Scripting/README.md)
-- [Networking Fundamentals](../../01_Prerequisites_and_Fundamentals/Networking/README.md)
-- [Easy Interview Questions](../../07_Interview_Preparation/interview-questions-easy.md)
-- [Advanced Linux Performance](../01_Prerequisites_and_Fundamentals/Linux/advanced-linux-performance-and-hardening.md) (for senior depth)
+- [DevOps Terms and Concepts](../08_General_Guides_and_Roadmaps/roadmap_README.md)
+- [Linux Fundamentals](../01_Linux_and_Scripting/README.md)
+- [Scripting Basics](../01_Linux_and_Scripting/README.md)
+- [Networking Fundamentals](../02_Networking/README.md)
+- [Easy Interview Questions](../07_Interview_Preparation/interview-questions-easy.md)
+- [Advanced Linux Performance](../01_Linux_and_Scripting/notes/advanced-linux.md) (for senior depth)
 
 ***
 

@@ -1,5 +1,94 @@
 # Docker — Deep Theory Notes
 
+```
+Docker — Deep Theory Notes
+├── Container vs VM
+│   ├── Shared host kernel (namespaces + cgroups) vs hypervisor-level isolation
+│   ├── Start time: ms vs seconds; disk: MBs vs GBs
+│   └── When to use VM: different kernel required, full hardware isolation, legacy OS
+├── Docker Architecture
+│   ├── docker CLI → REST API → dockerd (Docker daemon)
+│   ├── dockerd → gRPC → containerd (image pull, container lifecycle)
+│   ├── containerd → containerd-shim → runc (OCI runtime)
+│   └── runc: creates namespaces, cgroups, pivot_root, exec process
+├── Linux Namespaces (Isolation)
+│   ├── pid — isolated process tree (container PID 1 ≠ host PID 1)
+│   ├── net — isolated network stack (veth, routing table, iptables)
+│   ├── mnt — isolated mount points (pivot_root from runc)
+│   ├── uts — isolated hostname / domain name
+│   ├── ipc — isolated System V IPC, POSIX message queues
+│   └── user — UID/GID remapping for rootless containers
+├── cgroups (Resource Control)
+│   ├── cgroups v1: per-subsystem hierarchy (memory, cpu, blkio, pids)
+│   ├── cgroups v2: unified hierarchy; required for rootless Docker
+│   ├── --memory, --cpu-shares, --cpus, --pids-limit
+│   └── OOM killer: kernel terminates container process on memory limit breach (exit 137)
+├── Union Filesystems (overlay2 / devicemapper)
+│   ├── overlay2: lowerdir (image layers, read-only) + upperdir (container writable) + workdir
+│   ├── Copy-on-write: file read from lowerdir; first write copies to upperdir
+│   ├── devicemapper (legacy): block-level CoW; used on RHEL without overlay2
+│   └── inode exhaustion risk on overlay2 (each file = inode on host)
+├── OCI Specification
+│   ├── OCI Image Spec: layer format (tar gzip), image manifest, image index
+│   ├── OCI Runtime Spec: config.json — namespaces, mounts, capabilities, seccomp
+│   └── Enables any OCI-compliant runtime (runc, gVisor, Kata) to run any OCI image
+├── Container Runtimes
+│   ├── runc — reference OCI low-level runtime (C, uses libcontainer)
+│   ├── crun — C alternative to runc, lower memory, faster startup
+│   ├── gVisor (runsc) — user-space kernel for syscall interception
+│   ├── Kata Containers — lightweight VM per container (QEMU/Firecracker)
+│   └── containerd-shim — per-container process keeping container alive across containerd restarts
+├── Image Layering & Build Cache
+│   ├── Each Dockerfile instruction = immutable layer (SHA256 hash of content)
+│   ├── Cache hit: instruction + inputs unchanged → reuse layer
+│   ├── Cache miss: re-execute from this instruction onwards (cascading)
+│   └── Layer sharing: multiple images share identical layers (deduplication on disk)
+├── Multi-Stage Builds
+│   ├── Multiple FROM statements; each stage is independent
+│   ├── COPY --from=stagename: selective artifact extraction
+│   ├── Only final stage becomes the pushed image
+│   └── Result: build toolchain stays out of production image
+├── Docker Networking Deep Dive
+│   ├── bridge: veth pair + docker0 Linux bridge + iptables MASQUERADE
+│   ├── User-defined bridge: embedded DNS 127.0.0.11, scoped isolation
+│   ├── overlay: VXLAN UDP 4789, 50-byte overhead, MTU must be 1450
+│   ├── host: shared host net namespace, no NAT, Linux-only
+│   ├── macvlan: real MAC per container, promiscuous mode required
+│   └── none: loopback only, air-gapped
+├── Volumes and Bind Mounts
+│   ├── Named volume: Docker-managed (/var/lib/docker/volumes/), survives container delete
+│   ├── Anonymous volume: created at runtime, harder to manage lifecycle
+│   ├── Bind mount: host path mapped into container (code hot-reload, config injection)
+│   └── tmpfs mount: in-memory, cleared on container stop (secrets, tmp scratch)
+├── Docker Security
+│   ├── seccomp: syscall allowlist (Docker default blocks ~44 syscalls)
+│   ├── AppArmor / SELinux: mandatory access control profiles
+│   ├── Linux capabilities: --cap-drop ALL + --cap-add only needed
+│   ├── USER directive: run as UID 1000, not root
+│   ├── --read-only + --tmpfs /tmp: immutable filesystem
+│   └── Rootless Docker: daemon runs as non-root, user namespace UID remapping
+├── Container Lifecycle
+│   ├── created → running → paused / stopped → deleted
+│   ├── PID 1 problem: CMD must handle SIGTERM; use tini or dumb-init
+│   ├── Zombie processes: PID 1 must reap children (init responsibility)
+│   └── HEALTHCHECK: probe determines container health for orchestrator
+└── BuildKit Internals
+    ├── LLB (Low-Level Build) graph: DAG of build operations
+    ├── Parallel execution of independent stages
+    ├── --mount=type=cache: persist package manager cache across builds
+    ├── --mount=type=secret: zero-trace secret injection
+    ├── --mount=type=ssh: forward SSH agent for private repo access
+    └── Remote cache backends: registry, GitHub Actions, S3
+```
+
+## First Principles
+
+- **Why do containers share the host kernel instead of having their own?** A VM hypervisor allocates a full guest OS kernel — that's what gives it true isolation but also why it's heavyweight. Containers use Linux namespaces to create the *illusion* of an isolated kernel without actually running one. The container process runs directly on the host kernel with its view of resources restricted by namespaces and cgroups. This is why containers start in milliseconds and are measured in MBs.
+- **Why does overlay2 use copy-on-write instead of copying the full image?** Image layers are shared across all containers running from the same image. If Docker copied the full image into each container's writable space, 10 nginx containers would use 10× the disk. With CoW, all 10 containers share the same read-only lower layers; only the files each container actually writes get copied to that container's exclusive upper layer.
+- **Why is the OCI spec important?** Before OCI, each runtime (Docker, rkt, LXC) had incompatible image and runtime formats. Kubernetes couldn't standardize on one. OCI defines portable specifications: any OCI-compliant image runs on any OCI-compliant runtime. This is what allows swapping runc for gVisor or Kata Containers in Kubernetes without changing the image or Kubernetes configuration.
+- **Why is the PID 1 problem specific to containers?** In a normal Linux system, PID 1 is the init system (systemd, SysV init) which is designed to reap zombie processes and forward signals to children. In a container, whatever process CMD/ENTRYPOINT starts becomes PID 1. Most application binaries don't handle SIGTERM properly and don't reap zombie children. `tini` (included in Docker as `docker run --init`) is a minimal init designed specifically for this: it forwards signals and reaps zombies without the overhead of systemd.
+- **Why does cgroups v2 matter for rootless Docker?** cgroups v1 requires root to create control groups in the hierarchy. cgroups v2 introduced delegation — non-root processes can manage their own subtree of the cgroup hierarchy. Rootless Docker needs to set memory and CPU limits for containers it runs as a non-root user; only cgroups v2 with delegation enables this. This is why rootless mode requires a modern kernel (5.2+) and cgroups v2 enabled.
+
 ## Table of Contents
 
 1. [Container vs Virtual Machine](#1-container-vs-virtual-machine)

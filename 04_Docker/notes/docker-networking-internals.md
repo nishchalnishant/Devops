@@ -1,5 +1,69 @@
 # Docker Networking Internals
 
+```
+Docker Networking Internals
+├── Network Driver Architecture
+│   ├── Container process → veth pair → docker0 bridge → host NIC → external
+│   ├── Each container gets its own net namespace (isolated routing table, interfaces)
+│   └── iptables MASQUERADE rule provides outbound NAT
+├── veth Pairs & Linux Bridge
+│   ├── Virtual ethernet cable: one end in container netns, one end on host bridge
+│   ├── docker0: 172.17.0.0/16, host gateway at 172.17.0.1
+│   └── Inspection: bridge link show docker0, nsenter -t PID -n ip addr
+├── Network Drivers
+│   ├── bridge (default docker0)
+│   │   ├── No DNS — IP communication only between containers
+│   │   └── All containers share it — no scope isolation
+│   ├── user-defined bridge
+│   │   ├── Embedded DNS 127.0.0.11 → resolves container names
+│   │   └── Scoped: only containers on same bridge communicate
+│   ├── host — shares host net namespace, no NAT, Linux-only
+│   ├── overlay (VXLAN) — multi-host L2 over UDP 4789, 50-byte overhead
+│   ├── macvlan — real MAC per container, appears as physical device on LAN
+│   ├── ipvlan (L2/L3 modes) — shares parent MAC, assigns IP; no promiscuous mode needed
+│   └── none — loopback only, fully air-gapped
+├── Port Publishing Internals (iptables DNAT)
+│   ├── docker run -p 8080:80 → iptables -t nat -A DOCKER -p tcp --dport 8080 -j DNAT --to container-ip:80
+│   ├── Bind to specific interface: -p 127.0.0.1:8080:80
+│   └── 0.0.0.0 binding exposes to all host interfaces (security risk)
+├── Container DNS (127.0.0.11)
+│   ├── Embedded resolver in every container on user-defined networks
+│   ├── Resolves: container names, service aliases, Swarm VIPs
+│   └── Falls back to host's upstream resolver on miss
+├── Overlay Networks (VXLAN)
+│   ├── VXLAN header: 14 (Eth) + 20 (IP) + 8 (UDP) + 8 (VXLAN) = 50 bytes overhead
+│   ├── Effective MTU on 1500-byte link: 1450 bytes
+│   ├── Silent fragmentation if MTU not set correctly → intermittent failures
+│   └── Fix: --opt com.docker.network.driver.mtu=1450
+├── Macvlan / IPvlan
+│   ├── Macvlan: unique MAC per container, promiscuous mode required on host NIC
+│   ├── IPvlan L2: shared MAC, unique IP; no promiscuous mode needed
+│   ├── IPvlan L3: router-mode, no ARP broadcast, highly scalable
+│   └── Host cannot reach macvlan containers (split-horizon); fix with macvlan sub-interface
+├── Network Security
+│   ├── --internal flag: no gateway route, containers can't reach internet
+│   ├── icc=false: disable inter-container communication on default bridge
+│   ├── Bind ports to 127.0.0.1 to prevent external exposure
+│   └── User-defined bridges isolate container groups from each other
+├── Troubleshooting Commands
+│   ├── docker network inspect / docker network ls
+│   ├── nsenter -t PID -n (enter container netns from host)
+│   ├── nicolaka/netshoot: tcpdump, dig, iperf3, mtr, ss
+│   └── iptables -t nat -L DOCKER -n -v (inspect NAT rules)
+└── Docker Compose Networking
+    ├── Each project gets an isolated user-defined bridge (project_default)
+    ├── Services discover each other by service name (DNS)
+    └── networks: key enables custom network topology in Compose
+```
+
+## First Principles
+
+- **Why does each container get a separate net namespace?** Network isolation requires separate routing tables, interface sets, and firewall rules. Without namespace isolation, containers could sniff each other's traffic, bind to the same ports, or manipulate the host's routing table. The net namespace makes each container believe it has its own dedicated NIC.
+- **Why does default bridge have no DNS while user-defined bridges do?** The `docker0` bridge predates Docker's embedded DNS resolver (127.0.0.11). DNS was retrofitted onto user-defined networks without breaking the default bridge for backward compatibility. This is why every production deployment should use `docker network create` — never rely on the default bridge.
+- **Why does VXLAN overhead cause intermittent failures rather than consistent ones?** VXLAN adds 50 bytes per packet. Packets that fit within 1500 bytes after encapsulation transit normally. Packets near the 1500-byte boundary get silently fragmented at the physical layer — fragmentation itself isn't an error, but it causes reassembly overhead, partial retransmits, and latency spikes that appear to be random application failures. Setting overlay MTU to 1450 prevents any packet from exceeding the physical MTU after encapsulation.
+- **Why does macvlan require promiscuous mode?** The host NIC normally drops frames not destined for its MAC address. Macvlan containers each have their own MAC — the NIC must accept frames for all those MACs, which requires promiscuous mode. In cloud environments (AWS, GCP), virtual NICs have strict MAC filtering and reject promiscuous mode requests — macvlan doesn't work on most cloud VMs without IPvlan as the alternative.
+- **Why use `--internal` for database networks?** An internal network has no gateway route. A compromised database container cannot make outbound TCP connections to exfiltrate data, download additional malware, or call back to a command-and-control server. The container is reachable only from other containers on the same network — enforcing the principle of least network access at the infrastructure level, not the application level.
+
 ## Network Driver Architecture
 
 ```

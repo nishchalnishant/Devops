@@ -1,5 +1,62 @@
 # Production Scenarios & Troubleshooting Drills (Senior Level)
 
+```
+AWS Production Scenarios
+├── IAM & Permissions
+│   ├── Scenario 1 — Permission Boundary Blocks AdministratorAccess
+│   │   └── Boundary acts as ceiling; even admin can't exceed it
+│   ├── Scenario 2 — Cross-Account Role Access (Account-A → Account-B S3)
+│   │   └── Trust policy in Account-B + sts:AssumeRole from Account-A
+│   └── Scenario 3 — IAM Role Trust Policy Missing EC2 Service Principal
+│       └── ec2.amazonaws.com not in Principal → instance can't assume role
+├── Storage
+│   ├── Scenario 1 — S3 Bucket Policy Lockout (Deny * blocks root)
+│   │   └── Fix: root account bypasses IAM policies; delete restrictive policy
+│   └── Scenario 6 — VPC Endpoint Routing (S3 traffic still via NAT)
+│       ├── Endpoint not associated with all private subnet route tables
+│       ├── Cross-region S3 calls bypass gateway endpoint
+│       └── Fix: modify-vpc-endpoint --add-route-table-ids (all private RTs)
+├── EKS & Containers
+│   ├── Scenario 5 — EKS IRSA Token Not Working (AccessDenied from pod)
+│   │   ├── OIDC provider not registered in IAM
+│   │   ├── Trust policy condition mismatch (sub/aud claims)
+│   │   ├── Pod not using annotated ServiceAccount
+│   │   └── Old SDK not reading AWS_WEB_IDENTITY_TOKEN_FILE
+│   ├── Scenario 2 — EBS Volume Stuck Attaching
+│   │   └── Kernel mount failure / Xen→Nitro device name mismatch
+│   └── Scenario 10 — EKS Node Group Upgrade → NotReady Nodes
+│       ├── VPC CNI version incompatible with new kubelet
+│       ├── maxUnavailable too high (thundering herd)
+│       └── PodDisruptionBudget blocking drain (temporarily relax)
+├── Multi-Account
+│   └── Scenario 7 — SCP Silently Blocks Terraform Apply (exit 0, nothing created)
+│       ├── SCP denies region → API call rejected before hitting service
+│       ├── CloudTrail shows no CreateBucket event (blocked before service)
+│       └── Fix: simulate-principal-policy as CI pre-flight check
+├── Serverless
+│   ├── Scenario 4 — Lambda Cold Start 10s (Java JVM init)
+│   │   └── Provisioned Concurrency or switch to lighter runtime
+│   └── Scenario 11 — Lambda Concurrency Limit → API Gateway 502s
+│       ├── Account 1000 concurrent limit shared across all functions
+│       ├── No reserved concurrency → bursty function starves others
+│       └── Fix: reserved concurrency + request quota increase
+├── Databases
+│   └── Scenario 9 — RDS IAM Authentication Failing
+│       ├── DB user not created with rds_iam role (GRANT rds_iam TO app_user)
+│       ├── Token used without SSL (sslmode=require required)
+│       ├── Clock skew (token is 15-min time-limited)
+│       └── IAM policy uses DB identifier not DbiResourceId
+└── Long-Running Tasks
+    └── Scenario 8 — ECS Task Role Credentials Expiring Mid-Batch
+        ├── App caches boto3 frozen credentials at startup (static key/secret)
+        ├── Hardcoded env vars override ECS credential chain
+        └── Fix: use boto3.client() directly (SDK auto-refreshes)
+```
+
+## First Principles
+
+AWS is a collection of primitives: compute (EC2/Lambda), storage (S3/EBS), network (VPC), IAM. EKS = Kubernetes control plane managed by AWS. IAM Roles for Service Accounts (IRSA) solves the pod identity problem without long-lived credentials. Multi-account = blast radius control.
+
 ### Scenario 1: IAM Permission Boundary Issues
 **Problem:** You gave a user `AdministratorAccess`, but they still can't create an IAM Role.
 **Diagnosis:** Check for an **IAM Permission Boundary**. It acts as a "max ceiling" for permissions. If it's not allowed in the boundary, the user can't do it.
@@ -372,3 +429,17 @@ aws lambda put-function-concurrency \
 4. **Burst limit** — Lambda can burst to 3000 concurrent executions in the first minute, then adds 500/minute. If traffic spikes faster, throttles occur before the burst ceiling.
 
 **Prevention:** Set `ReservedConcurrentExecutions` on critical functions. Use Provisioned Concurrency for latency-sensitive functions. Set CloudWatch alarm on `Throttles > 0` for production functions.
+
+## System Design Perspective
+
+**VPC Peering vs Transit Gateway:** VPC Peering is direct, non-transitive, and suited for 2-5 VPCs with non-overlapping CIDRs. Transit Gateway is a managed cloud router that enables transitive routing, scales to thousands of VPCs, supports VPN and Direct Connect attachments, and allows inter-region peering. Cost: TGW charges per attachment plus per GB processed; use VPC Endpoints alongside TGW to keep S3/DynamoDB traffic off the TGW.
+
+**Identity Federation (OIDC/SAML):** IRSA (IAM Roles for Service Accounts) uses OIDC federation — the EKS cluster's OIDC issuer is registered in IAM, and pods exchange a projected ServiceAccount JWT for temporary STS credentials via sts:AssumeRoleWithWebIdentity. GitHub Actions and GitLab CI use the same pattern to assume IAM roles without storing access keys. SAML 2.0 is used for AWS SSO federation with enterprise IdPs (Okta, Azure AD).
+
+**Cross-Region DR:** Strategy selection depends on RTO/RPO targets. Backup and Restore (hours RTO, cheapest) uses S3 CRR plus RDS snapshots. Pilot Light (30 min RTO) keeps minimal standby infra running. Warm Standby (minutes RTO) runs a reduced-scale active stack. Active-Active (near-zero RTO) uses Route 53 latency routing plus Aurora Global Database with less than 1s replication lag. All strategies require IaC — without it, failover cannot meet aggressive RTOs.
+
+**Cost Allocation Tagging Strategy:** Enforce mandatory tags (Environment, Team, CostCenter, Owner) via AWS Config Rules or SCPs requiring tags on resource creation. Use AWS Cost Explorer grouped by tag to produce per-team cost reports. Activate cost allocation tags in the Billing Console. Use Tag Policies in AWS Organizations to standardize tag key formats across accounts.
+
+**Managed Identity vs Service Principals (AWS context):** IAM Roles are the equivalent of Managed Identities — they provide temporary credentials without stored secrets. Long-term access keys (equivalent to Service Principals with secrets) should only exist for external systems that cannot assume roles. IRSA and ECS task roles are the pod/task-level equivalent of Azure Workload Identity.
+
+**AWS Organizations SCPs vs Azure Policy:** SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions, act before IAM evaluation, and even the root user cannot exceed them. Azure Policy enforces at the ARM API layer with richer effects (Deny, Audit, DeployIfNotExists, Modify). Both use hierarchical policy inheritance but differ in execution layer: SCPs block at the IAM authorization step; Azure Policy intercepts at the resource provider level and supports auto-remediation.

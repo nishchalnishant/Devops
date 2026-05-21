@@ -1,5 +1,56 @@
 # Networking Troubleshooting Scenarios
 
+```
+Networking Troubleshooting Scenarios
+├── Load Balancer / Proxy
+│   ├── Scenario 1 — 502 Bad Gateway (keep-alive mismatch, SG rules, NAT limits)
+│   ├── Scenario 7 — TLS cert expiry (openssl check, cert-manager, Prometheus alert)
+│   └── Scenario 9 — gRPC hot nodes (headless svc, L7 proxy, MaxConnectionAge)
+├── DNS Failures
+│   ├── Scenario 2 — K8s DNS failure (CoreDNS OOM, ndots:5, NetworkPolicy blocking 53)
+│   ├── Scenario 11 — DNS caching ghost IPs (negative TTL, ndots:5 cascade)
+│   └── Scenario 20 — DNS glue record mismatch (registrar vs zone file)
+├── Connectivity
+│   ├── Scenario 3 — Connection Refused vs Timeout decision tree
+│   ├── Scenario 6 — K8s service not reachable (selector mismatch, kube-proxy, iptables)
+│   └── Scenario 8 — Pod external API access (proxy config, VPC endpoints)
+├── Performance / Latency
+│   ├── Scenario 4 — Cross-region latency (MTU, Direct Connect, BBR, geolocation DNS)
+│   ├── Scenario 10 — Packet loss via MTR (PMTUD Black Hole, overlay MTU)
+│   └── Scenario 17 — SoftIRQ drops (RSS/RPS CPU distribution)
+├── NAT / Connection Tracking
+│   ├── Scenario 5 — NAT Gateway exhaustion (VPC endpoints, pooling, TIME_WAIT tuning)
+│   ├── Scenario 13 — Conntrack exhaustion (nf_conntrack_max, GC tuning)
+│   └── Scenario 16 — TIME_WAIT saturation (tcp_tw_reuse, connection pooling)
+├── Kubernetes Networking
+│   ├── Scenario 2 — CoreDNS failures and ndots:5 cascades
+│   ├── Scenario 6 — Service selector mismatch, kube-proxy iptables debug
+│   ├── Scenario 9 — gRPC L4 vs L7 load balancing
+│   └── Scenario 12 — Asymmetric routing in hybrid cloud (route priority, iptables marks)
+├── Security / TLS
+│   ├── Scenario 7 — TLS cert expiry and cert-manager automation
+│   ├── Scenario 14 — mTLS CERTIFICATE_VERIFY_FAILED (CA chain mismatch, SPIFFE IDs)
+│   └── Scenario 18 — BGP hijacking / RPKI enforcement
+├── Routing / BGP
+│   ├── Scenario 14 — Asymmetric routing BGP fix (LOCAL_PREF, route policy)
+│   ├── Scenario 15 — BGP route flapping (dampening, MD5 auth, interface stability)
+│   └── Scenario 18 — BGP hijacking awareness and RPKI
+└── Protocol-Specific
+    ├── Scenario 10 — PMTUD Black Hole (MSS clamping, ICMP filtering)
+    ├── Scenario 19 — SCTP multi-homing MTU and pathmaxrxt
+    └── Scenario 11 — gRPC hot nodes and HTTP/2 connection pinning
+```
+
+## First Principles
+
+- Networking failures are almost never random — they are **deterministic responses to incorrect state**. A 502 means the load balancer received a TCP RST or connection timed out; tracing which component closed first reveals the root cause.
+- Every troubleshooting question has a **layer** answer: is the problem physical (L1), addressing (L2/L3), transport (L4), or application (L7)? Narrowing the layer first eliminates 80% of the search space.
+- Connection Refused means the far-end TCP stack explicitly rejected the connection (port not listening, firewall sent RST). Connection Timeout means packets are being dropped silently — a fundamentally different failure. The distinction drives different fixes.
+- DNS is stateless and cached — **stale DNS entries** survive long after the underlying resource changes. Every production DNS investigation must account for TTL, negative caching, and ndots-induced search domain bloat.
+- NAT is stateful — the **connection tracking table** is a finite resource. When SNAT exhausts the 64k-port range per (source, destination, protocol) tuple, new connections are silently dropped. All NAT exhaustion scenarios share the same fix: reduce connection count or add more NAT IPs.
+- gRPC runs over HTTP/2, which **multiplexes all RPCs over one TCP connection**. A L4 load balancer distributes at connection granularity; once one pod holds the connection, all traffic goes there. L7 load balancing or gRPC client-side load balancing is required.
+- BGP is a **policy-driven protocol** — every mis-advertisement propagates globally in minutes. RPKI provides cryptographic proof of prefix ownership, and route filtering at the peer boundary is the only defense against hijacking.
+
 Real-world production scenarios and systematic debugging approaches.
 
 ***
@@ -982,3 +1033,22 @@ Compare the source/destination IPs and MAC addresses to see if they match the ex
 **Symptom:** Your nameservers are correct in your zone file, but the internet can't find your domain.
 **Diagnosis:** The "Glue Records" at the Registrar (TLD level) are pointing to old, non-existent IPs.
 **Fix:** Update the nameserver IPs at the domain registrar level.
+
+***
+
+## System Design Perspective
+
+**Scalability**
+- NAT Gateway has a hard limit of 55,000 simultaneous connections per destination IP:port pair, and 64k total ports per public IP. High-throughput services making many short-lived connections to the same external endpoint exhaust this faster than expected. The fix is architectural: VPC Endpoints (no NAT, private path), connection pooling (reuse connections), or spreading load across multiple NAT Gateways across AZs.
+- kube-proxy iptables rule traversal scales linearly with service count. A cluster with 5,000 Services and 20,000 endpoints has ~80,000 rules evaluated per packet. Migrating to Cilium eBPF or kube-proxy IPVS mode is the only scalable path beyond ~1,000 services.
+- CoreDNS is a cluster-wide single point of failure if under-replicated. At scale, ndots:5 generates 5x the DNS query volume for every external call. CoreDNS NodeLocal DNSCache reduces cross-node DNS traffic and eliminates conntrack storms caused by DNS over UDP.
+
+**Failure Modes**
+- Keep-alive timeout mismatch (Scenario 1) is the most common source of 502s in ALB→Nginx→Gunicorn stacks. The rule: backend keep-alive timeout must be set shorter than the load balancer's idle timeout by at least 5 seconds to avoid the race condition where the LB sends a request on a connection the backend just closed.
+- PMTUD Black Hole (Scenario 10) is invisible in packet captures at the sender — packets are sent but never acknowledged. The diagnostic signal is that `ping -M do -s 1400` succeeds while large transfers stall. MSS clamping to 1350 on the VPN/VXLAN interface is the standard fix without requiring ICMP to be re-enabled.
+- BGP route flapping (Scenario 15) causes repeated withdraw/announce cycles that ripple across all BGP peers. Route dampening suppresses flapping prefixes after repeated instability, trading convergence speed for stability — acceptable for provider edges, not for direct customer-facing routes.
+
+**Trade-offs**
+- VPC Endpoints vs NAT Gateway: VPC Endpoints eliminate internet egress costs and NAT Gateway pricing for AWS service calls, but require endpoint policies and do not support non-AWS destinations. NAT Gateway is universal but metered and connection-limited.
+- DNS-based failover (geolocation, latency routing) vs anycast: DNS failover has a TTL delay (minimum 60 seconds) before traffic shifts after a failure. Anycast (BGP-based) shifts traffic in seconds by withdrawing the route. DNS is simpler to operate; anycast requires BGP infrastructure.
+- Connection pooling vs short-lived connections: pooling reduces NAT exhaustion, TIME_WAIT accumulation, and TLS handshake overhead. The trade-off is connection state — a pool holds connections open to backends that may go down, requiring health checks and connection validation before reuse.

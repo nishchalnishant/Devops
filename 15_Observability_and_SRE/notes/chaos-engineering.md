@@ -1,5 +1,49 @@
 # Chaos Engineering & Resilience Testing
 
+```
+Chaos Engineering & Resilience Testing
+├── The Mindset
+│   ├── "Does it still work when things go wrong?" (not just when correct)
+│   └── Experimentation: steady state → hypothesis → inject → observe → conclude
+├── Chaos Maturity Model
+│   ├── L0: Manual game days (quarterly)
+│   ├── L1: Automated staging (weekly)
+│   ├── L2: Automated production (daily, controlled blast radius)
+│   └── L3: Continuous chaos (CI gate on every deploy)
+├── Steady State Hypothesis
+│   └── YAML: SLI thresholds (success rate > 99.5%, p99 < 500ms, lag < 1000)
+├── Experiment Taxonomy
+│   ├── Infrastructure (kill pod, drain node, cordon, CPU/disk stress)
+│   ├── Network (latency, packet loss, partition, DNS block, bandwidth throttle)
+│   ├── Application (503 from dependency, delay, DB primary kill, pool exhaustion)
+│   └── State (corrupt Redis cache, stale feature store, kill Kafka broker)
+├── Chaos Mesh CRDs
+│   ├── PodChaos (pod-kill, pod-failure, container-kill)
+│   ├── NetworkChaos (delay with latency/jitter/correlation)
+│   └── HTTPChaos (abort, delay, replace status code)
+├── GameDay Planning Template
+│   ├── Pre-game: verify steady state, confirm monitoring, document rollback
+│   ├── Experiments: kill pod → inject latency → kill dependency → node drain
+│   └── Post-game: review metrics, document findings, create action items
+├── Production Safety Guardrails
+│   ├── SLO gate: auto-abort if error budget burn rate exceeds threshold
+│   ├── Blast radius cap: never > 10% of pods simultaneously
+│   ├── Business hours / on-call present requirement
+│   ├── Rollback hook: 30-second documented rollback for every experiment
+│   └── Progressive scope: staging → canary → production
+└── Common Findings Table
+    ├── Connection pool not detecting closed connections (add health probes)
+    ├── Circuit breaker threshold too aggressive (tune to match P99 SLO)
+    ├── Database failover: retry window too short (exponential backoff)
+    ├── Retry storm from independent retries (jitter + retry budgets)
+    ├── DNS caching TTL=0 (implement 30-60s TTL)
+    └── Node drain: Cluster Autoscaler slow → use Karpenter
+```
+
+## First Principles
+
+You can't fix what you can't see. Three pillars: logs (what happened), metrics (how much/how fast), traces (where time was spent across services). SLOs define acceptable failure rates — alerts fire when burn rate exceeds budget. On-call needs runbooks to act on alerts.
+
 Chaos Engineering is the practice of deliberately injecting faults into a system to discover weaknesses before they manifest as real incidents. It transforms reliability from a reactive to a proactive discipline.
 
 ***
@@ -237,3 +281,11 @@ spec:
 | Latency injection causes retry storm | Every microservice retries independently → 10x amplification | Add jitter to retries; implement retry budgets |
 | DNS injection causes full service failure | Application caches DNS for 0 seconds (TTL ignored) | Implement DNS caching with 30-60s TTL |
 | Node drain causes pod scheduling delay | Cluster Autoscaler slow to provision new nodes | Enable Karpenter; use node disruption budgets |
+
+## System Design Perspective
+
+**Observability During Chaos Experiments:** Chaos experiments reveal weaknesses only if observability is in place to detect them. Before running experiments, verify: (1) the steady state SLIs are instrumented in Prometheus and visible on a dashboard, (2) distributed traces are being collected so you can see which service fails first during a network partition, (3) Loki log alerts fire within the experiment window. Chaos without observability is random destruction — not engineering.
+
+**Cardinality Spike During Experiments:** Chaos experiments often generate unusual traffic patterns (retry storms, connection resets) that can spike metric cardinality if labels are not bounded. Design: pre-create recording rules for the experiment's key SLIs before running chaos, so the Prometheus evaluation engine doesn't need to process raw high-cardinality queries during a high-load experiment.
+
+**Alerting Fatigue During Experiments:** A chaos experiment intentionally breaks things — but Alertmanager doesn't know the difference between an experiment and a real incident. Design: create a Chaos Engineering silence template in Alertmanager that can be applied for the experiment window (scoped to the specific namespace/service under test), automatically expiring at the experiment end time. This prevents false positive pages to on-call while still capturing the experiment's SLI impact in the steady state metrics.

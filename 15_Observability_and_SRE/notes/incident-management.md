@@ -1,5 +1,57 @@
 # Incident Management & On-Call Excellence
 
+```
+Incident Management & On-Call Excellence
+├── Severity Levels
+│   ├── Sev-1 (Critical): all users, immediate < 5 min, IC + manager + VP
+│   ├── Sev-2 (High): > 20% users, < 15 min, on-call + lead
+│   ├── Sev-3 (Medium): < 20% users, workaround exists, < 1 hour
+│   └── Sev-4 (Low): no user impact, cosmetic, next business day
+├── Incident Roles (assign within first 5 minutes)
+│   ├── Incident Commander (IC) — coordinates, communicates, escalates
+│   ├── Technical Lead — diagnoses and remediates (not IC's job)
+│   ├── Scribe — real-time timeline and findings documentation
+│   ├── Communications Lead — status page, stakeholders, executives
+│   └── SME — domain expert called in on demand
+├── 5-Phase Response Framework
+│   ├── Phase 1 Detect: alert → ack → confirm real → open channel → declare sev
+│   ├── Phase 2 Investigate: blast radius → trend → what changed → data → mitigate?
+│   ├── Phase 3 Mitigate: LOW (rollback, flag, replicas) → MED (restart, shift) → HIGH (backup)
+│   ├── Phase 4 Resolve: 15 min monitoring → declare → status page → stakeholder msg
+│   └── Phase 5 Postmortem: blameless, 5 Whys, action items with owners + due dates
+├── Communication Templates
+│   ├── Status page (every 10-15 min during Sev-1): INVESTIGATING/UPDATE/RESOLVED
+│   └── Executive update (every 20 min): impact + root cause + mitigation + ETA
+├── Runbook Design
+│   └── Alert → Impact ($) → Triage → Common Causes + Fixes → Escalation
+├── On-Call Health Targets
+│   ├── Good: < 5 actionable alerts/shift, MTTD < 5 min, every alert has runbook
+│   └── Bad: > 25 alerts/shift, > 30% informational, same alert fires 3x with no fix
+├── Reducing Alert Fatigue
+│   ├── Delete noisy alerts (ignored 3 times → delete)
+│   ├── Tune thresholds (3am self-fixing alerts = worst)
+│   └── Alert on symptoms, not causes (P99 latency, not CPU%)
+├── Blameless Postmortem Template
+│   ├── Timeline (UTC), Root Cause Analysis (5 Whys)
+│   ├── What Went Well / What Went Poorly
+│   └── Action Items (owner, due date, priority)
+└── MTTD and MTTR Reduction
+    ├── MTTD: multi-window SLO alerting, synthetic monitoring, log-based alerting
+    └── MTTR: automated rollback (Flagger), feature flags, runbook automation, blast radius reduction
+
+## System Design Perspective
+
+**Incident Routing as Code:** Alertmanager routing trees should live in Git and be validated in CI with `amtool config check` and `amtool config routes test --labels severity=critical,team=payments`. The routing tree design matters: route by `team` label first (ownership), then by `severity` (page vs ticket). Use `group_wait: 30s` and `group_interval: 5m` to batch related alerts into a single notification rather than flooding on-call with 20 individual pages during a cascading failure. Store silence templates as YAML in Git — maintenance windows become auditable and reproducible instead of ad-hoc Alertmanager UI silences.
+
+**Inhibition Rules to Reduce Noise During Incidents:** When a Sev-1 fires (cluster down, node NotReady), inhibit all downstream service alerts from that node/cluster. This prevents 30 individual pod-level pages when the root cause is a single node failure. Design: `inhibit_rules` in Alertmanager that match `source_match: {severity: critical, alertname: NodeNotReady}` and `target_match_re: {severity: warning|info}` on the same `instance` label. Without this, on-call receives the root cause alert plus 20 cascading symptoms simultaneously — the noise obscures the signal.
+
+**Runbook Automation Reduces MTTR:** Common mitigations (`redis-scale-up`, `rollback-deployment`, `flush-connection-pool`) should be executable via a Slack bot (`/fix redis-scale-up payment-api`) backed by a webhook that runs pre-approved kubectl/helm commands. This reduces MTTR from 15 minutes (on-call reads runbook, types commands) to 90 seconds (on-call triggers automation, monitors). Pre-approval is critical: define a "safe mitigation list" — commands that can run without change management approval during a Sev-1. Anything on that list must be idempotent and have a verified rollback.
+```
+
+## First Principles
+
+You can't fix what you can't see. Three pillars: logs (what happened), metrics (how much/how fast), traces (where time was spent across services). SLOs define acceptable failure rates — alerts fire when burn rate exceeds budget. On-call needs runbooks to act on alerts.
+
 A structured approach to incident response is one of the highest-leverage investments an engineering organization can make. This note covers the complete incident lifecycle — detection, declaration, response, communication, and postmortem.
 
 ***
@@ -282,3 +334,17 @@ BAD on-call week (alert fatigue):
 - **Runbook automation** — common mitigations executable via a Slack bot (`/fix redis-scale-up`)
 - **Blast radius reduction** — if only one AZ is affected, immediately route traffic to other AZs
 - **Pre-approved change list** — mitigations that don't require change management approval during incidents
+
+## System Design Perspective
+
+**VPC Peering vs Transit Gateway:** VPC Peering is direct, non-transitive, and suited for 2-5 VPCs with non-overlapping CIDRs. Transit Gateway is a managed cloud router that enables transitive routing, scales to thousands of VPCs, supports VPN and Direct Connect attachments, and allows inter-region peering. Cost: TGW charges per attachment plus per GB processed; use VPC Endpoints alongside TGW to keep S3/DynamoDB traffic off the TGW.
+
+**Identity Federation (OIDC/SAML):** IRSA (IAM Roles for Service Accounts) uses OIDC federation — the EKS cluster's OIDC issuer is registered in IAM, and pods exchange a projected ServiceAccount JWT for temporary STS credentials via sts:AssumeRoleWithWebIdentity. GitHub Actions and GitLab CI use the same pattern to assume IAM roles without storing access keys. SAML 2.0 is used for AWS SSO federation with enterprise IdPs (Okta, Azure AD).
+
+**Cross-Region DR:** Strategy selection depends on RTO/RPO targets. Backup and Restore (hours RTO, cheapest) uses S3 CRR plus RDS snapshots. Pilot Light (30 min RTO) keeps minimal standby infra running. Warm Standby (minutes RTO) runs a reduced-scale active stack. Active-Active (near-zero RTO) uses Route 53 latency routing plus Aurora Global Database with less than 1s replication lag. All strategies require IaC — without it, failover cannot meet aggressive RTOs.
+
+**Cost Allocation Tagging Strategy:** Enforce mandatory tags (Environment, Team, CostCenter, Owner) via AWS Config Rules or SCPs requiring tags on resource creation. Use AWS Cost Explorer grouped by tag to produce per-team cost reports. Activate cost allocation tags in the Billing Console. Use Tag Policies in AWS Organizations to standardize tag key formats across accounts.
+
+**Managed Identity vs Service Principals (AWS context):** IAM Roles are the equivalent of Managed Identities — they provide temporary credentials without stored secrets. Long-term access keys (equivalent to Service Principals with secrets) should only exist for external systems that cannot assume roles. IRSA and ECS task roles are the pod/task-level equivalent of Azure Workload Identity.
+
+**AWS Organizations SCPs vs Azure Policy:** SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions, act before IAM evaluation, and even the root user cannot exceed them. Azure Policy enforces at the ARM API layer with richer effects (Deny, Audit, DeployIfNotExists, Modify). Both use hierarchical policy inheritance but differ in execution layer: SCPs block at the IAM authorization step; Azure Policy intercepts at the resource provider level and supports auto-remediation.

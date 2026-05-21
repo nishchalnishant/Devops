@@ -1,5 +1,137 @@
 # Linux Command Cheatsheet — Comprehensive Quick Reference
 
+```
+Linux Command Cheatsheet
+├── File & Directory Operations
+│   ├── Navigation: ls, pwd, cd, tree
+│   ├── Create/copy/move/delete: mkdir -p, cp -a, mv, rm -rf
+│   ├── Links: ln -s (symlink), ln (hard link)
+│   ├── Metadata: stat, file, readlink -f
+│   └── Size: du -sh, du -ah, du -sh * | sort -rh
+├── Find & Locate
+│   ├── find: by name, type, size, time, permissions, user
+│   ├── find -exec: execute command on each result
+│   ├── Special finds: SUID (-perm -4000), empty, newer
+│   └── locate / updatedb: fast name search from mlocate db
+├── Text Processing
+│   ├── View: cat, less, head, tail, tail -f
+│   ├── Count: wc -l/-w/-c
+│   ├── Sort/dedup: sort, uniq -c, uniq -d
+│   ├── Extract: cut, awk, tr, paste, join
+│   └── Transform: tee, column, fold, rev, xxd
+├── grep / sed / awk
+│   ├── grep: -r, -i, -v, -n, -c, -A/-B/-C context, -E ERE, -P perl
+│   ├── sed: s/old/new/g, -i in-place, line ranges, delete/insert
+│   └── awk: field extraction, NR/NF, patterns, sum, dedup
+├── Process Management
+│   ├── View: ps aux, ps -ef, pgrep, pstree, top, htop
+│   ├── Kill: kill (SIGTERM), kill -9 (SIGKILL), kill -1 (SIGHUP)
+│   ├── Priority: nice, renice
+│   ├── Jobs: nohup, disown, jobs, fg, bg
+│   └── Bulk kill: killall, pkill -f, pkill -u
+├── System Monitoring
+│   ├── CPU: top, uptime, vmstat, mpstat, sar -u, pidstat
+│   ├── I/O: iostat -xz, iotop, sar -d
+│   ├── Profiling: perf stat, perf top, perf record
+│   ├── Syscall tracing: strace -p, ltrace
+│   └── Open files: lsof, lsof -i :port, lsof | grep deleted
+├── Memory
+│   ├── Overview: free -h, vmstat -s
+│   ├── Kernel detail: /proc/meminfo, /proc/PID/status
+│   ├── Per-process: pmap, /proc/PID/smaps
+│   └── Leak detection: valgrind --leak-check=full
+├── Disk & Filesystem
+│   ├── Usage: df -h, df -i (inodes), du
+│   ├── Block devices: lsblk, fdisk, gdisk, parted, blkid
+│   ├── Mount: mount, umount, /etc/fstab
+│   ├── Filesystem check: fsck, e2fsck, mkfs.ext4, mkfs.xfs
+│   ├── Performance: iostat, ioping, hdparm
+│   └── Archive: tar (czf/xzf), gzip, zip, zcat, zgrep
+├── Network Commands
+│   ├── Interfaces: ip a, ip r, ip link, ethtool, ifconfig
+│   ├── Sockets: ss -tulnp, ss -s, netstat -tulnp
+│   ├── Connectivity: ping, traceroute, mtr
+│   ├── DNS: dig, dig +trace, nslookup, host
+│   ├── HTTP: curl -I/-v/-L/-w, wget
+│   ├── Capture: tcpdump, nc
+│   ├── Scan: nmap -sV, nmap -sS
+│   ├── Firewall: iptables, iptables-save, ufw
+│   └── SSH & transfer: ssh, scp, rsync, sftp, ssh-keygen
+├── User & Permission Management
+│   ├── Users: useradd, usermod -aG, userdel, passwd, chage
+│   ├── Groups: groupadd, gpasswd, groups, id
+│   ├── Session audit: who, w, last, lastb
+│   ├── chmod: numeric (755/644/600) and symbolic (u+x, g-w)
+│   ├── Special bits: SUID (4xxx), SGID (2xxx), sticky (1xxx)
+│   ├── Ownership: chown user:group, chgrp
+│   └── ACL: getfacl, setfacl -m, setfacl -d (default ACL)
+├── systemd
+│   ├── Service control: start, stop, restart, reload, status
+│   ├── Boot management: enable, disable, mask, unmask
+│   ├── Targets: isolate, set-default, get-default
+│   ├── Analysis: systemd-analyze, blame, critical-chain
+│   └── Logs: journalctl -u, -f, --since, -p err, -b -1
+├── Package Management
+│   ├── Debian/Ubuntu: apt update/upgrade/install/remove/purge
+│   ├── RHEL/Rocky/Fedora: dnf check-update/upgrade/install/remove
+│   └── Arch: pacman -Syu/S/R/Rns
+├── Bash Quick Reference
+│   ├── Variables: assignment, ${VAR:-default}, ${VAR:?}, ${#VAR}
+│   ├── String ops: ^^/,, case, /, ## prefix strip, %% suffix strip
+│   ├── Arrays: (a b c), ${ARRAY[@]}, ${#ARRAY[@]}, slices
+│   ├── Conditionals: file tests (-f/-d/-e/-r/-w/-x/-s/-L)
+│   ├── String tests: -z/-n, =, !=, glob/regex with [[]]
+│   ├── Numeric: -eq/-ne/-lt/-le/-gt/-ge, (( a > b ))
+│   ├── Loops: for/while/until, C-style for, while read < file
+│   ├── Functions: local vars, return codes, capture with $()
+│   ├── Special vars: $0 $1 $@ $# $? $$ $! $LINENO
+│   └── I/O redirection: >, >>, 2>, 2>&1, &>, <, |, <<EOF, <<<
+├── Kernel & Performance Tuning (sysctl)
+│   ├── Network: somaxconn, ip_local_port_range, tcp_syncookies
+│   ├── TCP: tcp_tw_reuse, tcp_fastopen, tcp_fin_timeout
+│   ├── VM: swappiness, dirty_ratio, dirty_background_ratio
+│   └── FS: file-max, kernel.pid_max, randomize_va_space (ASLR)
+├── Resource Limits (ulimit)
+│   ├── ulimit -a (show all), -n (open files)
+│   └── /etc/security/limits.conf: soft/hard per-user limits
+├── CPU & NUMA
+│   ├── nproc, lscpu, lstopo, numactl
+│   └── taskset -c (CPU affinity), chrt -f (real-time scheduling)
+├── Cron
+│   ├── Syntax: MIN HOUR DOM MON DOW CMD
+│   ├── Special: @reboot, @daily
+│   └── crontab -e/-l/-r/-u
+├── LVM Management
+│   ├── Physical: pvcreate, pvs/pvdisplay
+│   ├── Groups: vgcreate, vgs/vgdisplay
+│   ├── Logical: lvcreate, lvextend, resize2fs
+│   └── Snapshots: lvcreate -s (CoW — 3 I/O ops per write)
+├── eBPF & Profiling
+│   ├── bpftrace: tracepoints, kprobes, per-process counts
+│   ├── perf top -g: real-time CPU call graphs
+│   └── strace -c: syscall summary (count, time, errors)
+├── Signals Reference
+│   ├── 1 SIGHUP: reload config
+│   ├── 2 SIGINT: Ctrl+C
+│   ├── 9 SIGKILL: immediate (kernel), no cleanup
+│   ├── 15 SIGTERM: graceful shutdown request
+│   └── 19/18 SIGSTOP/SIGCONT: pause/resume
+└── Useful One-Liners
+    ├── Top 10 largest files, live network connections by state
+    ├── Most open FDs per process, kill user's processes
+    ├── Count TCP connections by state, find recently changed files
+    └── inotifywait: watch directory for create/modify/delete
+```
+
+## First Principles
+
+- Every command is just a program that calls system calls on your behalf. `ls` calls `getdents()`. `rm` calls `unlink()`. Understanding the underlying syscall explains what can go wrong.
+- The shell is a text-based interface to the kernel. Pipes (`|`) connect process stdout to stdin without touching disk — the kernel buffers data in memory between processes.
+- File descriptors are just integers (0=stdin, 1=stdout, 2=stderr, 3+ = anything). "Too many open files" means the process has hit its fd table limit — a kernel resource, not a filesystem one.
+- Permissions exist because the kernel enforces isolation: without rwx bits, any program could overwrite any file. The 3-tier model (owner/group/other) was designed for multi-user timesharing systems.
+- Text processing tools (grep/sed/awk) exist because Unix was designed for pipelines: small tools doing one thing well, composable via pipes. This is the Unix philosophy in action.
+- `sysctl` parameters exist because the kernel must serve all workloads with the same binary. Defaults are conservative. Production systems need explicit tuning for their specific load pattern.
+
 All commands, flags, one-liners, and quick-reference tables for DevOps/SRE engineers.
 
 ***
@@ -876,3 +1008,27 @@ inotifywait -m -r -e create,modify,delete /path/to/dir
 # Show disk usage by directory, sorted
 du -h --max-depth=1 / 2>/dev/null | sort -rh | head -20
 ```
+
+## System Design Perspective
+
+**Scalability**
+- `ulimit -n` is per-process; `fs.file-max` is system-wide. Both must be raised for high-connection services. Missing either one causes silent failures under load.
+- `ss` is preferred over `netstat` on modern kernels — it reads directly from kernel socket structures via netlink, much faster on systems with thousands of sockets.
+- LVM snapshots introduce CoW overhead (3 I/O ops per write). On write-heavy databases, this can cut throughput by 50–70%. LVM thin provisioning is more efficient but requires monitoring metadata space independently.
+
+**Failure Modes**
+- Inode exhaustion: `df -h` shows 50% free space but `touch` fails — use `df -i`. Common cause: millions of small session/temp files filling inode table.
+- SUID binaries are privilege escalation vectors. Any `find / -perm -4000` output that includes unexpected paths should be investigated immediately.
+- `rm -rf` on an open file does not free disk space until the last file descriptor is closed. Always follow with `lsof +L1` to verify.
+- Hard links survive `rm` but crossing filesystem boundaries is impossible — a common confusion when building container image layers.
+
+**Trade-offs**
+- `rsync --delete` mirrors exactly but will delete files at the destination that were removed at the source. Safe for backups, dangerous for deployments without testing `--dry-run` first.
+- `strace` is invaluable for debugging but adds ~10x overhead per traced syscall. Never run it against a production process without profiling the impact first — use eBPF (bpftrace) instead for low-overhead production tracing.
+- Real-time scheduling (`chrt -f`) prevents the process from being preempted but can starve other processes. Reserve for genuinely latency-critical workloads (audio, trading) only.
+- `cron` vs `systemd timers`: cron is simple but has no dependency tracking, no logging, and no retry. Systemd timers integrate with journald and support `RandomizedDelaySec` to spread load — prefer for new deployments.
+
+**Why These Design Choices Were Made**
+- The `awk/sed/grep` trifecta exists because Unix was designed around pipelines of small text-processing programs. The alternative — a monolithic command for every task — would be unmaintainable.
+- `sysctl` was added because the kernel binary cannot be recompiled per workload. Runtime-tunable parameters let ops teams adjust behavior without kernel patches.
+- `LVM` was designed to abstract physical disk boundaries so logical volumes can span multiple disks and be resized online — solving the "disk too small" problem without downtime.

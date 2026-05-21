@@ -1,5 +1,61 @@
 # DevSecOps — Deep Theory Notes
 
+```
+DevSecOps Deep Theory
+├── Shift-Left Philosophy
+│   └── Cost: $1 fix in dev → $100 fix in prod
+├── Security Testing Types
+│   ├── SAST (static, no running app, finds logic flaws)
+│   ├── DAST (runtime, black-box, finds injection/auth issues)
+│   ├── IAST (agent inside app during test, hybrid)
+│   └── RASP (runtime protection, blocks attacks in-process)
+├── SCA — Software Composition Analysis
+│   ├── Modern apps: 70-90% open-source
+│   └── Tools: Trivy, Grype, Snyk, Dependency-Track, FOSSA
+├── Container Image Scanning
+│   └── Tools: Trivy, Grype, Clair (registry-integrated)
+├── SBOM
+│   ├── CycloneDX (XML/JSON, richer metadata)
+│   └── SPDX (NIST standard, license-focused)
+├── SLSA Framework
+│   ├── L0: No guarantees
+│   ├── L1: Provenance generated
+│   ├── L2: Hosted build, signed provenance
+│   ├── L3: Hardened builder, non-falsifiable provenance
+│   └── L4: Two-party review, hermetic builds
+├── Sigstore / Cosign
+│   ├── Keyless: OIDC → Fulcio cert → sign digest → Rekor log
+│   └── in-toto attestations (SLSA provenance JSON)
+├── OPA / Gatekeeper
+│   ├── Rego language (policy as code)
+│   ├── ConstraintTemplate (defines Rego logic)
+│   ├── Constraint (applies template to resource kinds)
+│   └── conftest (local policy testing against YAML)
+├── Falco
+│   ├── eBPF kernel syscall interception (DaemonSet)
+│   ├── Rule syntax (rule, macro, list)
+│   ├── Falcosidekick (alert routing: Slack, PagerDuty, S3)
+│   └── Key rules: spawned_shell, sensitive_file_open, outbound_network
+├── Secret Scanning
+│   └── Gitleaks (git history), detect-secrets (baseline file)
+├── mTLS / Zero-Trust
+│   ├── SPIFFE / SPIRE (workload identity standard)
+│   ├── Istio PeerAuthentication (STRICT mTLS mode)
+│   └── AuthorizationPolicy (source principal + HTTP method/path)
+├── Kubernetes Security Controls
+│   ├── Pod Security Admission (baseline/restricted profiles)
+│   ├── RBAC (Role, ClusterRole, RoleBinding)
+│   └── Audit Logging (API server audit policy)
+└── Compliance Frameworks
+    ├── SOC 2 (CC6.6, CC7.2, CC8.1, A1.2)
+    ├── PCI-DSS (Req 6.3, 7, 8, 10, 11.3)
+    └── CIS Benchmarks (kube-bench, Docker bench)
+```
+
+## First Principles
+
+Security found late is expensive to fix. Shift security left — run checks where developers already work (in CI). Code has vulnerabilities (SAST), dependencies have vulnerabilities (SCA), running apps have vulnerabilities (DAST). Secrets in code are permanent leaks — scan for them. Supply chain: verify what you build is what you ship (SLSA, SBOM, signing).
+
 ## Shift-Left Security Philosophy
 
 Shift-left means moving security testing earlier in the software development lifecycle — from a final gate before release to an integrated practice at every commit, PR, and build. The core insight is that a vulnerability found in code review costs $1 to fix; the same vulnerability found in production costs $100+.
@@ -707,3 +763,11 @@ Key Kubernetes CIS controls:
 - Use RBAC authorization (`--authorization-mode=RBAC`)
 - Restrict etcd access (client cert auth only)
 - Disable the default ServiceAccount token auto-mounting
+
+## System Design Perspective
+
+**Secret Rotation at Scale:** The Vault section covers dynamic secrets with TTLs, but a rotation failure mode needs explicit design. If Vault is unavailable when a lease expires, applications must have a grace period retry. Design: Vault Agent with `exit_after_auth=false` retries indefinitely with exponential backoff; application pods should not crash on a single secret fetch failure — implement a startup probe that waits for the secret file to appear before marking the pod ready.
+
+**Falco Noise Management:** Default Falco rules are verbose for production — many alerts will fire on legitimate operations. Recommended approach: (1) run Falco in dry-run (no kill action) for 2 weeks in staging, (2) collect alert histogram, (3) create a `falco_rules.override.yaml` that suppresses known-good patterns with narrow conditions (specific container names, specific image digests), (4) only then enable response actions (kill pod, network isolation via CNI).
+
+**OPA Policy Governance at Scale:** With hundreds of teams, a central OPA policy library becomes a bottleneck. Design: a shared `policy-library` repo owns `ConstraintTemplate` (Rego logic); individual team repos own `Constraint` objects that reference the shared templates and set team-specific parameters. ArgoCD syncs both. Policy exceptions are modeled as Constraint parameters, not as changes to the Rego logic — so exceptions are auditable and scoped to the requesting namespace.

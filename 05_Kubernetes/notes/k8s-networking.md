@@ -4,6 +4,53 @@ description: Kubernetes networking internals — CNI, Services, Ingress, Network
 
 # Kubernetes — Networking Deep Dive
 
+```
+Kubernetes Networking Deep Dive
+├── Fundamental Rules (3 guarantees)
+│   ├── Every pod gets its own IP — no port sharing between pods on same node
+│   ├── All pods can reach all pods without NAT — universally routable pod IPs
+│   └── Node agents can reach all pods on their node
+├── CNI (Container Network Interface)
+│   ├── Called by kubelet on pod creation
+│   ├── Creates veth pair — one end in pod namespace (eth0), one on host (cali.xxx)
+│   ├── Assigns IP from node's pod CIDR
+│   └── Programs routing rules (iptables or eBPF)
+├── CNI Comparison
+│   ├── Flannel — VXLAN overlay; iptables; simplest; NO NetworkPolicy support
+│   ├── Calico — BGP direct routing or VXLAN; iptables/eBPF; full NetworkPolicy
+│   ├── Cilium — eBPF only; L7 NetworkPolicy; replaces kube-proxy; Hubble observability
+│   └── Weave — VXLAN mesh; simple auto-discovery; slower than Calico
+├── Services — Stable Network Identity
+│   ├── ClusterIP — virtual IP; kube-proxy DNAT to pod IP; internal only
+│   ├── NodePort — ClusterIP + port on every node (30000-32767)
+│   ├── LoadBalancer — NodePort + cloud LB with external IP
+│   └── ExternalName — DNS CNAME alias; no proxying
+├── Ingress — L7 HTTP Routing
+│   ├── Ingress object — routing rules (host-based, path-based, TLS)
+│   ├── Ingress Controller — nginx/Traefik/AWS ALB programs actual reverse proxy
+│   ├── Single cloud LB → Ingress Controller → many backend Services
+│   └── IngressClass — selects which controller handles which Ingress
+├── DNS (CoreDNS)
+│   ├── Runs as Deployment in kube-system
+│   ├── FQDN: <svc>.<ns>.svc.cluster.local
+│   ├── Same namespace: just <svc> (search domain appended)
+│   ├── ndots:5 — 5 search-domain lookups before external resolution
+│   └── Reduce DNS overhead: set ndots: 2 in pod dnsConfig
+└── NetworkPolicy — Pod-Level Firewall
+    ├── Default: all pods can communicate with all pods (open by default)
+    ├── NetworkPolicy = whitelist model (additive allow rules)
+    ├── Requires NetworkPolicy-capable CNI (Calico/Cilium/Weave — NOT Flannel)
+    ├── Pattern: default-deny-all → allow selectively
+    └── Must allow DNS egress (UDP:53 to kube-system) even in deny-all namespaces
+```
+
+## First Principles
+
+- Every pod needs a unique IP to communicate without NAT — the **CNI plugin** provisions this by creating a veth pair, assigning an IP from the node's CIDR, and programming routes.
+- Pods are ephemeral and change IPs — **Services** provide a stable virtual IP (ClusterIP) and DNS name; kube-proxy (or Cilium) handles the DNAT translation to healthy pod IPs.
+- External traffic needs a single entry point — **Ingress** with one cloud load balancer routes HTTP traffic to many backend Services by host/path, eliminating the need for one LB per Service.
+- By default all pods can talk to all pods — **NetworkPolicy** flips this to a whitelist model, but only if the CNI enforces it (Flannel does not); the CNI choice is a security architecture decision, not just a networking one.
+
 ## The Kubernetes Networking Model
 
 K8s enforces three fundamental rules:
@@ -33,6 +80,26 @@ Pod Created by kubelet
         └── Programs routing rules (iptables or eBPF)
                 Pod A (10.244.1.5) → Pod B (10.244.2.7)
                   └── Node A routes to Node B via overlay or direct routing
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor K as Kubelet
+    participant C as CNI Plugin (Calico/Cilium)
+    participant NS as Pod NetNS
+    participant H as Host NetNS
+    participant CIDR as IPAM (Node CIDR Pool)
+
+    K->>C: Invoke CNI ADD (Container ID, NetNS Path)
+    C->>NS: Create Virtual Ethernet Interface (eth0)
+    C->>H: Create Host-side Peer Interface (caliXXXX / lxcXXXX)
+    C->>NS: Bind eth0 end of veth pair inside Container Namespace
+    C->>CIDR: Request IP Address allocation
+    CIDR-->>C: Assigns IP (e.g., 10.244.1.5)
+    C->>NS: Assign IP to eth0 interface
+    C->>H: Program Routing Rules (iptables / eBPF map update)
+    C-->>K: Return JSON Payload (IP, interfaces, gateway info)
 ```
 
 ### CNI Comparison
@@ -212,3 +279,11 @@ Pod does: curl http://my-api
 | **Ingress vs Gateway API** | Use only Ingress | Gateway API is the future — supports L4+L7, multi-team tenancy |
 | **LoadBalancer cost** | One LB per service | Use a single Ingress controller with one LB for all HTTP services |
 | **MTU** | Ignore it | VXLAN adds 50 bytes overhead; set CNI MTU to 1450 on 1500 networks |
+
+## System Design Perspective
+
+- **CNI choice is a long-term architectural commitment:** Migrating CNI plugins on a running cluster (e.g., Flannel to Cilium) requires draining all nodes and replacing the CNI binary — effectively a cluster rebuild. Evaluate NetworkPolicy requirements, eBPF support, and L7 observability needs before the first node is provisioned. Flannel is appropriate only for development clusters.
+- **iptables scaling cliff:** Each Service adds rules to the `KUBE-SERVICES` chain. At ~10,000 rules (roughly 1000 Services), iptables rule evaluation creates measurable packet processing latency and CPU overhead on every node. Switch to IPVS mode (hash table, O(1)) or Cilium with kube-proxy replacement before hitting this limit. Monitor `iptables -L -n | wc -l` as a leading indicator.
+- **LoadBalancer per Service is an anti-pattern at scale:** Each `type: LoadBalancer` Service provisions a cloud load balancer with its own hourly cost, IP address, and DNS name. 100 services = 100 load balancers, 100 IPs to manage, 100 TLS certificates to rotate. A single Ingress controller with one LB and cert-manager (Let's Encrypt) serves all HTTP services. Use LoadBalancer type only for non-HTTP (TCP/UDP) services that Ingress cannot route.
+- **ndots:5 is a DNS performance tax:** The default `ndots: 5` in pod `/etc/resolv.conf` means a query for `api.example.com` triggers 5 failed search-domain lookups (`api.example.com.namespace.svc.cluster.local`, etc.) before resolving externally. At high RPS, this multiplies DNS query volume by 6x. Set `ndots: 2` for pods that primarily query external DNS, or use fully-qualified names with trailing dots (`api.example.com.`).
+- **Gateway API as a multi-team contract:** Ingress gives all route configuration to whoever can write Ingress objects in any namespace — there's no ownership boundary. Gateway API separates concerns: the platform team owns `GatewayClass` (implementation) and `Gateway` (IP + port + TLS), while application teams own `HTTPRoute` (path rules). This role separation makes the routing layer auditable and prevents teams from accidentally overriding each other's routes.

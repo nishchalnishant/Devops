@@ -4,6 +4,46 @@ description: AWS VPC networking internals, subnets, routing, security groups, NA
 
 # AWS — Networking & VPC Deep Dive
 
+```
+AWS Networking & VPC
+├── VPC Architecture
+│   ├── Logically isolated network within a region (CIDR /16 typical)
+│   ├── Availability Zones (independent failure domains within region)
+│   ├── Public Subnet: route 0.0.0.0/0 → Internet Gateway (IGW)
+│   ├── Private Subnet: route 0.0.0.0/0 → NAT Gateway (outbound only)
+│   ├── Internet Gateway (IGW): enables inbound + outbound internet
+│   └── NAT Gateway: outbound-only internet from private subnets (in public subnet, Elastic IP)
+├── Route Tables — Traffic Director
+│   ├── Each subnet has exactly one Route Table
+│   ├── Longest Prefix Match (most-specific route wins)
+│   ├── Public RT: local + 0.0.0.0/0 → IGW
+│   ├── Private RT: local + 0.0.0.0/0 → NAT GW
+│   └── VPN/DX RT: local + on-prem CIDR → Virtual Private Gateway
+├── Security Groups vs NACLs
+│   ├── Security Groups: instance-level (ENI), stateful, allow-only, all rules evaluated
+│   ├── NACLs: subnet-level, stateless (explicit inbound + outbound), allow+deny, ordered rules
+│   └── Senior insight: SGs always sufficient; NACLs only for subnet-wide emergency blocks
+├── VPC Connectivity Patterns
+│   ├── VPC Peering: direct, non-transitive, requires RT updates on both sides, CIDR must not overlap
+│   ├── Transit Gateway: hub-and-spoke, transitive, scales to thousands of VPCs, inter-region peering
+│   ├── Gateway VPC Endpoint: S3 + DynamoDB only, free, route table entry (pl-xxxxx prefix list)
+│   └── Interface VPC Endpoint (PrivateLink): all other services, ENI in subnet, $0.01/hr/AZ
+├── IP Address Planning for Enterprise
+│   ├── 10.0.0.0/8 → company; 10.{region}.0.0/16 → per region; 10.x.{az}.0/24 → per AZ/purpose
+│   ├── Production VPCs: non-overlapping with each other and on-prem
+│   └── Reserve separate CIDRs for Staging and Development (10.100/10.200)
+└── Logic & Trickiness Table
+    ├── "Public" subnet = has route to IGW + map_public_ip_on_launch=true (both required)
+    ├── NAT Gateway HA: one per AZ (cross-AZ NAT traffic costs money + adds latency)
+    ├── SG rules: reference SGs by ID for internal service-to-service (not CIDR)
+    ├── VPC Peering at scale: use TGW when >5 VPCs need to communicate
+    └── DNS: enable enableDnsSupport + enableDnsHostnames for private hosted zones
+```
+
+## First Principles
+
+AWS is a collection of primitives: compute (EC2/Lambda), storage (S3/EBS), network (VPC), IAM. EKS = Kubernetes control plane managed by AWS. IAM Roles for Service Accounts (IRSA) solves the pod identity problem without long-lived credentials. Multi-account = blast radius control.
+
 ## VPC Architecture
 
 A VPC is a logically isolated network within AWS. Understanding its internals is essential for debugging connectivity issues.
@@ -143,3 +183,17 @@ Example:
 | **NACLs** | Complex rules in NACLs | Use SGs; NACLs only for subnet-level emergency blocks |
 | **VPC Peering scale** | Peer everything | Use Transit Gateway when more than 5 VPCs need to communicate |
 | **DNS** | Default VPC DNS works | Enable `enableDnsSupport` and `enableDnsHostnames` for private hosted zones |
+
+## System Design Perspective
+
+**VPC Peering vs Transit Gateway:** VPC Peering is direct, non-transitive, and suited for 2-5 VPCs with non-overlapping CIDRs. Transit Gateway is a managed cloud router that enables transitive routing, scales to thousands of VPCs, supports VPN and Direct Connect attachments, and allows inter-region peering. Cost: TGW charges per attachment plus per GB processed; use VPC Endpoints alongside TGW to keep S3/DynamoDB traffic off the TGW.
+
+**Identity Federation (OIDC/SAML):** IRSA (IAM Roles for Service Accounts) uses OIDC federation — the EKS cluster's OIDC issuer is registered in IAM, and pods exchange a projected ServiceAccount JWT for temporary STS credentials via sts:AssumeRoleWithWebIdentity. GitHub Actions and GitLab CI use the same pattern to assume IAM roles without storing access keys. SAML 2.0 is used for AWS SSO federation with enterprise IdPs (Okta, Azure AD).
+
+**Cross-Region DR:** Strategy selection depends on RTO/RPO targets. Backup and Restore (hours RTO, cheapest) uses S3 CRR plus RDS snapshots. Pilot Light (30 min RTO) keeps minimal standby infra running. Warm Standby (minutes RTO) runs a reduced-scale active stack. Active-Active (near-zero RTO) uses Route 53 latency routing plus Aurora Global Database with less than 1s replication lag. All strategies require IaC — without it, failover cannot meet aggressive RTOs.
+
+**Cost Allocation Tagging Strategy:** Enforce mandatory tags (Environment, Team, CostCenter, Owner) via AWS Config Rules or SCPs requiring tags on resource creation. Use AWS Cost Explorer grouped by tag to produce per-team cost reports. Activate cost allocation tags in the Billing Console. Use Tag Policies in AWS Organizations to standardize tag key formats across accounts.
+
+**Managed Identity vs Service Principals (AWS context):** IAM Roles are the equivalent of Managed Identities — they provide temporary credentials without stored secrets. Long-term access keys (equivalent to Service Principals with secrets) should only exist for external systems that cannot assume roles. IRSA and ECS task roles are the pod/task-level equivalent of Azure Workload Identity.
+
+**AWS Organizations SCPs vs Azure Policy:** SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions, act before IAM evaluation, and even the root user cannot exceed them. Azure Policy enforces at the ARM API layer with richer effects (Deny, Audit, DeployIfNotExists, Modify). Both use hierarchical policy inheritance but differ in execution layer: SCPs block at the IAM authorization step; Azure Policy intercepts at the resource provider level and supports auto-remediation.

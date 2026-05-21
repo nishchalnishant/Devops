@@ -1,5 +1,75 @@
 # Jenkins — Deep Theory Notes
 
+```
+Jenkins Deep Theory Notes
+├── Architecture
+│   ├── Controller — orchestration, UI port 8080, REST API, 0 executors
+│   ├── Agent connection modes — JNLP inbound, SSH, WebSocket
+│   ├── Remoting protocol — JNLP4 over TCP 50000
+│   ├── Agent lifecycle — register → label match → allocate → execute → disconnect
+│   └── Label expressions — AND (&&), OR (||), NOT (!), wildcard
+├── Pipeline Types
+│   ├── Declarative — pipeline{} block, schema-validated
+│   ├── Scripted — node{} Groovy DSL, full flexibility
+│   └── Multibranch — auto-create jobs per branch with Jenkinsfile
+├── Jenkinsfile Structure
+│   ├── agent — where to run
+│   ├── environment — vars + credentials binding
+│   ├── parameters — user inputs
+│   ├── options — behavior (timeout, retry, buildDiscarder, disableConcurrentBuilds)
+│   ├── triggers — cron, pollSCM, upstream
+│   ├── tools — auto-install Maven, JDK
+│   ├── stages → stage → steps
+│   └── post — always/success/failure/unstable/changed
+├── Shared Libraries
+│   ├── vars/ — global steps with call() method
+│   ├── src/ — Groovy helper classes (NotificationService)
+│   ├── resources/ — non-Groovy files (shell scripts, templates)
+│   └── Import — @Library('name@version') _
+├── Plugin Ecosystem
+│   ├── SCM — Git, GitHub, GitLab, Bitbucket
+│   ├── Agents — Kubernetes, Docker, EC2
+│   ├── Security — LDAP, SAML, OIDC, Role Strategy
+│   ├── Reporting — JUnit, Jacoco, SonarQube, HTML Publisher
+│   └── Notifications — Slack, Email, PagerDuty
+├── Distributed Builds
+│   ├── Executor slots — agent × executors = concurrent capacity
+│   ├── Build distribution — label matching, least busy
+│   ├── Throttle concurrent builds — lock shared resources
+│   └── Optimize executor slots — not too many per agent (memory pressure)
+├── Security Model
+│   ├── Authentication — internal DB, LDAP, SAML, OIDC
+│   ├── Authorization — matrix, project-based, RBAC plugin
+│   ├── Groovy sandbox — restricted method set, script approval
+│   ├── Credentials — AES-256, master.key + credentials.xml
+│   ├── Agent-controller security — agent cannot read controller files
+│   └── CSRF crumb — prevent cross-site request forgery
+├── JCasC
+│   ├── jenkins.yaml — full controller config
+│   └── GitOps workflow — PR review → CI applies YAML → reload
+├── Ephemeral Agents
+│   ├── K8s plugin — Pod spec via YAML, JNLP inbound container
+│   ├── Pod lifecycle — create → register → run → delete
+│   └── Docker agents — docker { image } block
+├── High Availability
+│   ├── K8s PVC — controller PersistentVolume survives Pod crash
+│   ├── Recreate strategy — one controller at a time (data safety)
+│   ├── Readiness/liveness probes — auto-restart on hang
+│   └── CloudBees HA — active-active enterprise option
+└── Backup & Recovery
+    ├── rsync JENKINS_HOME → S3 (exclude workspace/, caches)
+    ├── JCasC YAML in Git — config recovery
+    └── ThinBackup plugin — scheduled incremental backups
+```
+
+## First Principles
+
+- JNLP inbound protocol exists because agents are typically behind firewalls. The agent initiates the TCP connection to the controller on port 50000, reversing the typical server-initiates model. This lets agents live in private networks without opening inbound ports.
+- Label expressions (`&&`, `||`, `!`) give fine-grained build routing. `gpu && linux && !arm64` means: "run only on Linux GPU agents that are not ARM64." Without labels, all agents are interchangeable — fine for simple pipelines, wrong for specialized workloads.
+- The Groovy sandbox blocks most filesystem, network, and reflection APIs. Pipelines run in a restricted environment by default. Whitelisting specific methods requires admin approval — this is the security control preventing arbitrary code execution on the controller.
+- `credentials.xml` is AES-256 encrypted with a key derived from `master.key`. Backing up only `credentials.xml` without `master.key` gives you an encrypted file you cannot decrypt. Back them together, store in separate locations.
+- K8s `Recreate` deployment strategy for the Jenkins controller avoids split-brain: never two controller pods writing to the same PVC simultaneously. Data corruption from concurrent writes is worse than the brief downtime during pod replacement.
+
 ## Table of Contents
 
 1. [Architecture](#architecture)

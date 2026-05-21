@@ -1,5 +1,39 @@
 # Observability Tips & Tricks
 
+```
+Observability Tips & Tricks
+├── PromQL Anti-Patterns
+│   ├── Never divide by zero silently (use > 0 or "or vector(0)")
+│   ├── irate() — spiky, good for alerting on sudden spikes
+│   ├── rate() — smooth, good for dashboards and trends
+│   ├── Label cardinality (#1 performance killer — no user_id/trace_id labels)
+│   └── Recording rules — pre-aggregate, use everywhere (not per-dashboard)
+├── Alerting Mistakes
+│   ├── Cause-based: CPU > 90% (might be fine)
+│   ├── Symptom-based: P99 latency > 500ms, error rate > 0.1%
+│   ├── Multi-window burn rate SLO alerting (fast 14.4x + slow 6x)
+│   └── Alert fatigue fixes: inhibit_rules, runbook links, delete noisy alerts
+├── Grafana Dashboard Quality
+│   ├── Variable-driven (one panel × $service variable, not 20 panels)
+│   ├── Data links: metric spike → click → jump to Loki logs for that pod
+│   └── No hardcoded thresholds (reference $latency_slo_ms variable)
+├── Loki LogQL Patterns
+│   ├── Structured JSON logging prerequisite for LogQL power
+│   ├── Drop DEBUG/INFO at Promtail pipeline stage (90% cost reduction)
+│   └── Extract metrics from logs (rate, quantile_over_time with unwrap)
+├── Distributed Tracing Mistakes
+│   ├── Kafka/async: manually serialize trace context into message headers
+│   └── Sampling: tail sampling keeps 100% errors, 1% normal traffic
+└── On-Call Efficiency
+    ├── 5-minute triage: trend → change → user impact → mitigate → notify
+    ├── Postmortem anti-patterns: blame, no owner, no verification, skip it
+    └── Golden signals quick reference table (Latency/Traffic/Errors/Saturation)
+```
+
+## First Principles
+
+You can't fix what you can't see. Three pillars: logs (what happened), metrics (how much/how fast), traces (where time was spent across services). SLOs define acceptable failure rates — alerts fire when burn rate exceeds budget. On-call needs runbooks to act on alerts.
+
 Production-tested patterns, anti-patterns, and gotchas for metrics, logs, traces, and alerting.
 
 ***
@@ -250,3 +284,11 @@ When a Sev-1 alert fires:
 | **Traffic** | Requests/second | Drop > 30% vs baseline |
 | **Errors** | Error rate (4xx/5xx ratio) | > 0.5% for 5 minutes |
 | **Saturation** | CPU, memory, disk, connection pool | > 80% of limit |
+
+## System Design Perspective
+
+**Log Aggregation at Scale Architecture:** This file covers Promtail log filtering at the agent level — the single most impactful cost-reduction action. The full architecture: Promtail/OTel agent drops DEBUG/INFO, adds structured labels (app, namespace, level), ships to Loki. Loki stores 7-14 days hot. For retention beyond 30 days: configure Loki's object storage backend (S3/GCS) — logs older than the hot window are queried from S3 transparently via Loki's `ruler` component. This gives multi-year retention at near-zero cost with Loki's querier routing requests to the right storage tier automatically.
+
+**Cardinality Budget in Practice:** The label cardinality tip identifies the problem; the design solution is enforcement. Implement a `cardinality_exporter` that exposes the current series count per job/label combination as a metric, alert when any label set creates more than 10,000 unique series, and block new metric labels via PR review in the service instrumentation code. The OTel Collector `filter` processor can drop high-cardinality attributes before they reach Prometheus remote write.
+
+**Alert Routing Design as Code:** Alertmanager configuration should be managed in Git and tested in CI. Use `amtool config check` to validate routing YAML before merging. Test routing decisions with `amtool config routes test --labels ...` to verify that a given set of labels routes to the expected receiver. Store silence templates as code (not ad-hoc UI silences) so maintenance windows are auditable and reproducible.

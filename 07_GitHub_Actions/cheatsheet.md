@@ -1,5 +1,75 @@
 # GitHub Actions Cheatsheet
 
+```
+GitHub Actions Cheatsheet
+├── Workflow Structure
+│   ├── name, on:, permissions:, jobs:
+│   └── Skeleton: push+pull_request triggers, contents:read, runs-on, steps
+├── Trigger Events
+│   ├── push / pull_request / pull_request_target / schedule
+│   ├── workflow_dispatch (manual) / workflow_call (reusable)
+│   ├── release / repository_dispatch / workflow_run
+│   └── filters — branches, paths, types
+├── Contexts & Expressions
+│   ├── github.sha / github.ref / github.ref_name / github.event_name
+│   ├── github.repository / github.actor / github.run_id / github.run_number
+│   ├── env.MY_VAR / secrets.MY_SECRET / vars.MY_VAR (non-secret)
+│   ├── needs.job-id.outputs.key / matrix.os / runner.os
+│   └── Functions: format, join, toJSON, fromJSON, hashFiles, contains, startsWith
+├── Common Patterns
+│   ├── OIDC to ECR — configure-aws-credentials + ecr-login + docker build/push
+│   ├── Cache npm — setup-node with cache: 'npm'
+│   ├── Artifacts — upload-artifact / download-artifact, retention-days
+│   ├── Matrix — python-version × os, fail-fast: false
+│   ├── Manual approval — environment: production (required reviewers)
+│   ├── Conditional steps — if: github.ref, failure(), always()
+│   ├── Pass data — echo "key=val" >> $GITHUB_OUTPUT / $GITHUB_ENV
+│   ├── Reusable workflow call — uses: myorg/workflows/.github/workflows/deploy.yml@main
+│   └── Self-hosted runner — runs-on: [self-hosted, linux, x64, gpu]
+├── Permissions Reference
+│   ├── contents / actions / checks / deployments / id-token / issues
+│   ├── packages / pull-requests / security-events / statuses
+│   └── Pattern: read-all at workflow, minimal per job
+├── OIDC Keyless Auth
+│   ├── AWS — configure-aws-credentials with role-to-assume
+│   ├── Azure — azure/login with client-id, tenant-id, subscription-id
+│   └── GCP — google-github-actions/auth with workload_identity_provider
+├── Concurrency
+│   ├── group: ${{ github.workflow }}-${{ github.ref }}
+│   └── cancel-in-progress: true (PRs) / false (production deploys)
+├── Composite Action
+│   ├── .github/actions/*/action.yml
+│   ├── using: composite, inputs:, steps: (shell: bash required)
+│   └── Usage: uses: ./.github/actions/setup-app
+├── Debugging
+│   ├── ACTIONS_STEP_DEBUG=true / ACTIONS_RUNNER_DEBUG=true (repo secrets)
+│   ├── toJSON(github) — print all context
+│   └── action-tmate — SSH into runner on failure
+├── GitHub CLI in Workflows
+│   ├── GH_TOKEN: ${{ github.token }}
+│   ├── gh pr comment / gh release create / gh pr view
+│   └── gh workflow run / gh run download
+├── Security Hardening
+│   ├── SHA pinning — actions/checkout@<sha>  # v4.x.x
+│   ├── Minimal permissions per job
+│   ├── env var injection — never ${{ ... }} in run: directly
+│   └── zizmor — static analyzer for GHA (pip install zizmor)
+└── Gotchas
+    ├── set-output deprecated → $GITHUB_OUTPUT
+    ├── Secrets not in forks (pull_request)
+    ├── GITHUB_TOKEN expires after job
+    ├── pull_request_target + checkout = script injection risk
+    └── fail-fast: true default — set false to see all matrix results
+```
+
+## First Principles
+
+- Contexts (`${{ github.* }}`) are the runtime data layer. Everything about the triggering event, runner, secrets, and job outputs is accessible via contexts. Understanding which context holds what data is the difference between working and broken expressions.
+- OIDC (id-token: write) exists to eliminate the worst class of secret: static cloud credentials. A short-lived JWT proves "this is GitHub Actions job from repo X, branch Y" to the cloud provider's IAM. No secret to store, rotate, or leak.
+- `$GITHUB_OUTPUT` (not `set-output`) is the standard for passing data between steps. `$GITHUB_ENV` is for setting env vars available to all subsequent steps. These are append-only files — each step writes, later steps read.
+- `concurrency` is a correctness control, not just efficiency. Two deploys running simultaneously can corrupt state. `cancel-in-progress: true` for PRs and `cancel-in-progress: false` for production are the two different semantics needed.
+- SHA-pinning actions is a supply chain security control. A mutable tag (`@v4`) can point to different code after a tag update. A commit SHA (`@11bd71901bbe5b1630ceea73d27597364c9af683`) is immutable — the code you audit is the code that runs.
+
 ## Workflow Skeleton
 
 ```yaml
@@ -424,3 +494,30 @@ IMAGE_TAG: sha-${{ github.sha[:8] }}    # expression syntax
   env:
     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
 ```
+
+## System Design Perspective
+
+**Pipeline scalability:**
+- GitHub-hosted runners scale automatically with no configuration. Each job gets a fresh VM. Concurrency is limited by your GitHub plan; for large teams, use larger runners or self-hosted ARC runners to remove that ceiling.
+- Matrix strategy provides free horizontal scaling. `python-version: [3.10, 3.11, 3.12] × os: [ubuntu, windows, macos]` = 9 parallel jobs, each on its own runner, at zero configuration cost. Total CI time = slowest individual job, not sum.
+- `max-parallel` in matrix limits simultaneous jobs when GitHub concurrency limits are a concern or when downstream systems (staging environment, shared database) cannot handle parallel load.
+
+**Agent/runner architecture trade-offs:**
+- GitHub-hosted runners: zero ops, fresh VM, multiple OS options. Limitation: no access to private VPC resources (RDS, internal services). Work around with VPN actions or use self-hosted runners in the VPC.
+- Self-hosted persistent runners: fast (no VM boot), private network access. Problem: state accumulates between jobs (leftover files, cached credentials, modified tool versions). Requires regular cleanup or re-imaging.
+- ARC ephemeral runners: each job creates a fresh K8s pod, which registers as a runner, executes the job, and self-destructs. Best of both worlds: clean environment + private network access.
+
+**Failure recovery:**
+- Failed matrix jobs can be re-run individually (GitHub UI: "Re-run failed jobs"). Successful matrix jobs don't re-run — only the failed cells are retried.
+- For OIDC-authenticated long jobs, the assumed role session may expire. Set `role-duration-seconds` in `configure-aws-credentials` to extend the session, or structure the workflow to re-authenticate between jobs.
+- `concurrency: cancel-in-progress: false` for production deploy jobs ensures a running deployment is never cancelled mid-way. Use a separate concurrency group per environment to queue rather than cancel.
+
+**Caching strategies:**
+- `hashFiles('**/package-lock.json')` as cache key ensures a cache miss when any dependency changes — prevents stale caches. The `restore-keys` fallback uses a prefix match to find the most recent partial cache hit.
+- Cache is branch-scoped: a cache from `main` is available to feature branches as a restore-key fallback. A cache from a feature branch is NOT available to other branches.
+- Docker layer caching in GHA: use `docker/build-push-action` with `cache-from: type=gha` and `cache-to: type=gha,mode=max` — uses GitHub's cache backend, free up to 10GB per repo.
+
+**Security boundaries:**
+- `permissions: {}` at the workflow level disables all GITHUB_TOKEN scopes. Job-level `permissions` then grants only what that specific job needs. This applies the principle of least privilege at the finest granularity.
+- Fork PRs have no access to secrets and a read-only GITHUB_TOKEN regardless of permissions settings. This is enforced at the GitHub API level, not just in YAML.
+- `pull_request_target` runs with the BASE repo's permissions and secrets. If you checkout the PR's code in a `pull_request_target` workflow, that code runs with base repo secrets — a critical injection attack vector. Never combine `pull_request_target` + `actions/checkout` with PR ref.

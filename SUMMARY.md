@@ -1,6 +1,7 @@
 * [Table of contents](SUMMARY.md)
 
 * [DevOps Interview Handbook](README.md)
+* [Syllabus & Roadmap](roadmap.md)
 * [Learning Path](Learning_Path/README.md)
   * [Phase 1: Foundations](Learning_Path/phase-1-foundations.md)
   * [Phase 2: Platform and Delivery](Learning_Path/phase-2-platform-and-delivery.md)
@@ -15,10 +16,7 @@
     * [Fundamentals](01_Linux_and_Scripting/notes/fundamentals.md)
     * [Processes And Memory](01_Linux_and_Scripting/notes/processes-and-memory.md)
     * [Shell Scripting](01_Linux_and_Scripting/notes/shell-scripting.md)
-  * Interview Questions
-    * [Easy](01_Linux_and_Scripting/interview-easy.md)
-    * [Medium](01_Linux_and_Scripting/interview-medium.md)
-    * [Hard](01_Linux_and_Scripting/interview-hard.md)
+  * [Interview Questions](01_Linux_and_Scripting/interview.md)
   * [Cheatsheet](01_Linux_and_Scripting/cheatsheet.md)
   * [Scenarios & Troubleshooting](01_Linux_and_Scripting/scenarios.md)
 
@@ -29,10 +27,7 @@
     * [Core Fundamentals](02_Networking/notes/core-fundamentals.md)
     * [Protocols](02_Networking/notes/protocols.md)
     * [Routing And Topologies](02_Networking/notes/routing-and-topologies.md)
-  * Interview Questions
-    * [Easy](02_Networking/interview-easy.md)
-    * [Medium](02_Networking/interview-medium.md)
-    * [Hard](02_Networking/interview-hard.md)
+  * [Interview Questions](02_Networking/interview.md)
   * [Cheatsheet](02_Networking/cheatsheet.md)
   * [Scenarios & Troubleshooting](02_Networking/scenarios.md)
 
@@ -43,10 +38,7 @@
     * [Git Internals](03_Git_and_Version_Control/notes/git-internals.md)
     * [Advanced Git Workflows And Monorepos](03_Git_and_Version_Control/notes/advanced-git-workflows-and-monorepos.md)
     * [Reference Notes](03_Git_and_Version_Control/notes/notes.md)
-  * Interview Questions
-    * [Easy](03_Git_and_Version_Control/interview-easy.md)
-    * [Medium](03_Git_and_Version_Control/interview-medium.md)
-    * [Hard](03_Git_and_Version_Control/interview-hard.md)
+  * [Interview Questions](03_Git_and_Version_Control/interview.md)
   * [Cheatsheet](03_Git_and_Version_Control/cheatsheet.md)
   * [Scenarios & Troubleshooting](03_Git_and_Version_Control/scenarios.md)
 
@@ -59,10 +51,7 @@
     * [Container Runtimes And Security](04_Docker/notes/container-runtimes-and-security.md)
     * [Dockerfile Best Practices](04_Docker/notes/dockerfile-best-practices.md)
     * [Reference Notes](04_Docker/notes/notes.md)
-  * Interview Questions
-    * [Easy](04_Docker/interview-easy.md)
-    * [Medium](04_Docker/interview-medium.md)
-    * [Hard](04_Docker/interview-hard.md)
+  * [Interview Questions](04_Docker/interview.md)
   * [Cheatsheet](04_Docker/cheatsheet.md)
   * [Scenarios & Troubleshooting](04_Docker/scenarios.md)
 
@@ -74,10 +63,7 @@
     * [Kubernetes Networking](05_Kubernetes/notes/k8s-networking.md)
     * [Security and RBAC](05_Kubernetes/notes/k8s-security-rbac.md)
     * [Reference Notes](05_Kubernetes/notes/notes.md)
-  * Interview Questions
-    * [Easy](05_Kubernetes/interview-easy.md)
-    * [Medium](05_Kubernetes/interview-medium.md)
-    * [Hard](05_Kubernetes/interview-hard.md)
+  * [Interview Questions](05_Kubernetes/interview.md)
   * [Cheatsheet](05_Kubernetes/cheatsheet.md)
   * [Scenarios & Troubleshooting](05_Kubernetes/scenarios.md)
   * [Tips & Tricks](05_Kubernetes/tips-and-tricks.md)
@@ -90,10 +76,7 @@
     * [Reference Notes](06_Jenkins/notes/notes.md)
     * [Platform Engineering For Cicd](06_Jenkins/notes/platform-engineering-for-cicd.md)
     * [JCasC & Pipeline Architecture](06_Jenkins/notes/jenkins-as-code-jcasc.md)
-  * Interview Questions
-    * [Easy](06_Jenkins/interview-easy.md)
-    * [Medium](06_Jenkins/interview-medium.md)
-    * [Hard](06_Jenkins/interview-hard.md)
+  * [Interview Questions](06_Jenkins/interview.md)
   * [Cheatsheet](06_Jenkins/cheatsheet.md)
   * [Scenarios & Troubleshooting](06_Jenkins/scenarios.md)
 
@@ -103,23 +86,17 @@
     * [Notes](07_GitHub_Actions/notes/notes.md)
     * [Reusable Workflows & Matrix Strategy](07_GitHub_Actions/notes/gha-reusable-workflows.md)
     * [Security Hardening & OIDC](07_GitHub_Actions/notes/gha-security-hardening.md)
-  * Interview Questions
-    * [Easy](07_GitHub_Actions/interview-easy.md)
-    * [Medium](07_GitHub_Actions/interview-medium.md)
-    * [Hard](07_GitHub_Actions/interview-hard.md)
+  * [Interview Questions](07_GitHub_Actions/interview.md)
   * [Cheatsheet](07_GitHub_Actions/cheatsheet.md)
-  * [Tips & Tricks](07_GitHub_Actions/tips-and-tricks.md)
   * [Scenarios & Troubleshooting](07_GitHub_Actions/scenarios.md)
+
 
 * 8 GitLab CI
   * [Overview](08_GitLab_CI/README.md)
   * Detailed Notes
     * [Notes](08_GitLab_CI/notes/notes.md)
     * [Pipeline Architecture & Runner Config](08_GitLab_CI/notes/gitlab-pipeline-architecture.md)
-  * Interview Questions
-    * [Easy](08_GitLab_CI/interview-easy.md)
-    * [Medium](08_GitLab_CI/interview-medium.md)
-    * [Hard](08_GitLab_CI/interview-hard.md)
+  * [Interview Questions](08_GitLab_CI/interview.md)
   * [Cheatsheet](08_GitLab_CI/cheatsheet.md)
   * [Scenarios & Troubleshooting](08_GitLab_CI/scenarios.md)
 
@@ -128,10 +105,7 @@
   * Detailed Notes
     * [Progressive Delivery And Gitops At Scale](09_ArgoCD_and_GitOps/notes/progressive-delivery-and-gitops-at-scale.md)
     * [ArgoCD Architecture & App of Apps](09_ArgoCD_and_GitOps/notes/argocd-architecture.md)
-  * Interview Questions
-    * [Easy](09_ArgoCD_and_GitOps/interview-easy.md)
-    * [Medium](09_ArgoCD_and_GitOps/interview-medium.md)
-    * [Hard](09_ArgoCD_and_GitOps/interview-hard.md)
+  * [Interview Questions](09_ArgoCD_and_GitOps/interview.md)
   * [Cheatsheet](09_ArgoCD_and_GitOps/cheatsheet.md)
   * [Scenarios & Troubleshooting](09_ArgoCD_and_GitOps/scenarios.md)
 
@@ -141,10 +115,7 @@
     * [Notes](10_Terraform/notes/notes.md)
     * [Modules, Workspaces & Terragrunt](10_Terraform/notes/terraform-modules-and-workspaces.md)
     * [Backends, State & Disaster Recovery](10_Terraform/notes/terraform-backends-and-state.md)
-  * Interview Questions
-    * [Easy](10_Terraform/interview-easy.md)
-    * [Medium](10_Terraform/interview-medium.md)
-    * [Hard](10_Terraform/interview-hard.md)
+  * [Interview Questions](10_Terraform/interview.md)
   * [Cheatsheet](10_Terraform/cheatsheet.md)
   * [Tips & Tricks](10_Terraform/tips-and-tricks.md)
   * [Scenarios & Troubleshooting](10_Terraform/scenarios.md)
@@ -154,10 +125,7 @@
   * Detailed Notes
     * [Notes](11_Ansible/notes/notes.md)
     * [Roles, Collections & Molecule](11_Ansible/notes/ansible-roles-and-collections.md)
-  * Interview Questions
-    * [Easy](11_Ansible/interview-easy.md)
-    * [Medium](11_Ansible/interview-medium.md)
-    * [Hard](11_Ansible/interview-hard.md)
+  * [Interview Questions](11_Ansible/interview.md)
   * [Cheatsheet](11_Ansible/cheatsheet.md)
   * [Scenarios & Troubleshooting](11_Ansible/scenarios.md)
 
@@ -168,10 +136,7 @@
     * [Azure Networking — VNet, Private Link, Firewall](12_Azure/notes/azure-networking.md)
     * [Azure Identity & Security](12_Azure/notes/azure-identity-security.md)
     * [Azure AKS & DevOps](12_Azure/notes/azure-aks-and-devops.md)
-  * Interview Questions
-    * [Easy](12_Azure/interview-easy.md)
-    * [Medium](12_Azure/interview-medium.md)
-    * [Hard](12_Azure/interview-hard.md)
+  * [Interview Questions](12_Azure/interview.md)
   * [Cheatsheet](12_Azure/cheatsheet.md)
   * [Scenarios & Troubleshooting](12_Azure/scenarios.md)
 
@@ -181,10 +146,7 @@
     * [Notes](13_AWS/notes/notes.md)
     * [Networking & VPC](13_AWS/notes/aws-networking-vpc.md)
     * [EKS, ECS & Container Orchestration](13_AWS/notes/aws-eks-and-ecs.md)
-  * Interview Questions
-    * [Easy](13_AWS/interview-easy.md)
-    * [Medium](13_AWS/interview-medium.md)
-    * [Hard](13_AWS/interview-hard.md)
+  * [Interview Questions](13_AWS/interview.md)
   * [Cheatsheet](13_AWS/cheatsheet.md)
   * [Tips & Tricks](13_AWS/tips-and-tricks.md)
   * [Scenarios & Troubleshooting](13_AWS/scenarios.md)
@@ -196,10 +158,7 @@
     * [Supply Chain Security And Slsa](14_DevSecOps/notes/supply-chain-security-and-slsa.md)
     * [SAST, DAST & Shift-Left Security](14_DevSecOps/notes/sast-dast-scanning.md)
     * [Secret Management & Vault](14_DevSecOps/notes/secret-management-vault.md)
-  * Interview Questions
-    * [Easy](14_DevSecOps/interview-easy.md)
-    * [Medium](14_DevSecOps/interview-medium.md)
-    * [Hard](14_DevSecOps/interview-hard.md)
+  * [Interview Questions](14_DevSecOps/interview.md)
   * [Cheatsheet](14_DevSecOps/cheatsheet.md)
   * [Tips & Tricks](14_DevSecOps/tips-and-tricks.md)
   * [Scenarios & Troubleshooting](14_DevSecOps/scenarios.md)
@@ -213,10 +172,7 @@
     * [Distributed Tracing & OpenTelemetry](15_Observability_and_SRE/notes/distributed-tracing.md)
     * [Chaos Engineering & Resilience Testing](15_Observability_and_SRE/notes/chaos-engineering.md)
     * [Incident Management & On-Call](15_Observability_and_SRE/notes/incident-management.md)
-  * Interview Questions
-    * [Easy](15_Observability_and_SRE/interview-easy.md)
-    * [Medium](15_Observability_and_SRE/interview-medium.md)
-    * [Hard](15_Observability_and_SRE/interview-hard.md)
+  * [Interview Questions](15_Observability_and_SRE/interview.md)
   * [Cheatsheet](15_Observability_and_SRE/cheatsheet.md)
   * [Tips & Tricks](15_Observability_and_SRE/tips-and-tricks.md)
   * [Scenarios & Troubleshooting](15_Observability_and_SRE/scenarios.md)
@@ -227,10 +183,7 @@
     * [Notes](16_Platform_Engineering_and_FinOps/notes/notes.md)
     * [Internal Developer Platforms](16_Platform_Engineering_and_FinOps/notes/platform-engineering-idp.md)
     * [FinOps & Cost Optimization](16_Platform_Engineering_and_FinOps/notes/finops-cost-optimization.md)
-  * Interview Questions
-    * [Easy](16_Platform_Engineering_and_FinOps/interview-easy.md)
-    * [Medium](16_Platform_Engineering_and_FinOps/interview-medium.md)
-    * [Hard](16_Platform_Engineering_and_FinOps/interview-hard.md)
+  * [Interview Questions](16_Platform_Engineering_and_FinOps/interview.md)
   * [Cheatsheet](16_Platform_Engineering_and_FinOps/cheatsheet.md)
   * [Scenarios & Troubleshooting](16_Platform_Engineering_and_FinOps/scenarios.md)
 
@@ -243,10 +196,7 @@
     * [Feature Stores & ML Pipelines](17_MLOps/notes/mlops-feature-stores-and-pipelines.md)
     * [LLMOps & Advanced Serving](17_MLOps/notes/mlops-llmops-and-advanced-serving.md)
     * [Reference Notes](17_MLOps/notes/notes.md)
-  * Interview Questions
-    * [Easy](17_MLOps/interview-easy.md)
-    * [Medium](17_MLOps/interview-medium.md)
-    * [Hard](17_MLOps/interview-hard.md)
+  * [Interview Questions](17_MLOps/interview.md)
   * [Cheatsheet](17_MLOps/cheatsheet.md)
   * [Tips & Tricks](17_MLOps/tips-and-tricks.md)
   * [Scenarios & Troubleshooting](17_MLOps/scenarios.md)
@@ -255,13 +205,26 @@
   * [Overview](18_Helm/README.md)
   * Detailed Notes
     * [Helm Fundamentals](18_Helm/notes/helm-fundamentals.md)
-  * Interview Questions
-    * [Easy](18_Helm/interview-easy.md)
-    * [Medium](18_Helm/interview-medium.md)
-    * [Hard](18_Helm/interview-hard.md)
+    * [Advanced Patterns](18_Helm/notes/helm-advanced-patterns.md)
+  * [Interview Questions](18_Helm/interview.md)
   * [Cheatsheet](18_Helm/cheatsheet.md)
   * [Scenarios & Troubleshooting](18_Helm/scenarios.md)
+
+* 19 Kong
+  * [Overview](19_Kong/README.md)
+  * Detailed Notes
+    * [Kong Architecture & Plugins](19_Kong/notes/kong-architecture-and-plugins.md)
+  * [Interview Questions](19_Kong/interview.md)
+  * [Cheatsheet](19_Kong/cheatsheet.md)
+  * [Scenarios & Troubleshooting](19_Kong/scenarios.md)
+
+## Interview Preparation Playbooks
+
+* [DevOps Interview Playbook](Interview_Prep/devops-interview-playbook.md)
+* [General Scenario-Based Drills](Interview_Prep/scenario-drills.md)
 
 * Cross-Cutting Resources
   * [System Design Problems](system-design.md)
   * [Behavioral & Leadership Interview](behavioral.md)
+  * [Career and Community](Career_and_Community.md)
+  * [Persistent Questions Bank](persistent.md)

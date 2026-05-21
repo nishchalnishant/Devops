@@ -4,6 +4,53 @@ description: Terraform modules, workspaces, Terragrunt, and enterprise IaC patte
 
 # Terraform — Modules, Workspaces & Enterprise Patterns
 
+```
+Terraform Modules, Workspaces & Enterprise Patterns
+├── Module Architecture
+│   ├── Root module: main config (calls child modules)
+│   ├── Child module: reusable component with variable inputs + outputs
+│   ├── Source types: local path, Git URL, Terraform Registry
+│   ├── version pinning: exact pin in production (version = "5.5.2")
+│   └── Output chaining: module A outputs → consumed by module B
+├── Module Design
+│   ├── Encapsulate a service boundary (VPC, EKS cluster, RDS)
+│   ├── Expose outputs: IDs, ARNs, endpoints, SG IDs
+│   ├── Use locals for computed values, variables for inputs
+│   └── Semantic versioning via Git tags (MAJOR.MINOR.PATCH)
+├── Workspaces
+│   ├── Create: terraform workspace new staging
+│   ├── Switch: terraform workspace select prod
+│   ├── Use in HCL: terraform.workspace
+│   ├── Limitations: share backend config + code → weak isolation
+│   └── When to use: feature-branch infra, truly identical topology only
+├── Workspace Limitations
+│   ├── All workspaces share provider config
+│   ├── Cannot have different backend bucket per workspace (without tricks)
+│   └── Production isolation requires separate state paths, not workspaces
+├── Terragrunt (DRY Wrapper)
+│   ├── Root terragrunt.hcl: shared provider + backend generation
+│   ├── Env-specific terragrunt.hcl: inputs override per environment
+│   ├── dependency {} block: consume outputs from sibling modules
+│   ├── run-all plan/apply: execute across module hierarchy in order
+│   └── generate {} blocks: inject provider.tf and backend.tf per module
+├── for_each vs count at Module Level
+│   ├── count with module: creates module[0], module[1]... (fragile)
+│   └── for_each with module: creates module["key"]... (stable identity)
+└── Enterprise Patterns
+    ├── Private module registry: version-controlled, discoverable
+    ├── Atlantis: PR-based plan/apply workflow (GitOps)
+    ├── Terraform Cloud workspaces: team RBAC + remote execution
+    └── Sentinel: policy-as-code gate between plan and apply
+```
+
+## First Principles
+
+- A module is a function: it takes inputs (variables) and returns outputs. The implementation (resources inside) is hidden from the caller. This encapsulation allows refactoring internals without breaking callers, as long as the variable/output interface is preserved.
+- Workspaces are isolated state namespaces within the same backend configuration. They are NOT separate environments if your environments differ in topology, account ID, or provider config. For real environment isolation, use separate state paths or separate directories.
+- Terragrunt is a thin wrapper that solves the DRY problem: you define provider config and backend config once in a root `terragrunt.hcl`, and every child module inherits it via `include`. Without Terragrunt, you copy-paste backend config into every module directory.
+- The `dependency {}` block in Terragrunt creates explicit ordering between modules: EKS depends on VPC, application depends on EKS. `run-all apply` respects this order automatically — no manual sequencing.
+- Module versioning via Git tags creates a publishable API. `version = "5.5.2"` pins a specific commit. Upgrading to `5.6.0` is a conscious, reviewable decision — not a silent pull of the latest code.
+
 ## Module Architecture
 
 A module is any directory containing `.tf` files. The **root module** is your main configuration; **child modules** are reusable components you call.
@@ -197,3 +244,19 @@ resource "aws_iam_user" "users" {
 | **`terraform import`** | Use when needed | Keep an audit log; always follow up with a data source |
 | **`depends_on`** | Rarely use it | Prefer implicit dependency (resource references) |
 | **Provider versions** | `version = ">= 4.0"` | `version = "~> 4.67"` for patch-level flexibility only |
+
+***
+
+## System Design Perspective
+
+**Module registry as an internal platform:** A private Terraform module registry (Terraform Cloud, Artifactory, or a simple Git repo with tags) is an internal platform API. Platform teams publish `module "eks-cluster"`, `module "postgres-rds"`, `module "vpc"`. Application teams consume these modules with version pins — they get compliant infrastructure without needing to know the implementation. This is the IaC analog of a PaaS.
+
+**Workspace anti-pattern at scale:** Imagine 10 environments (dev, staging, perf, prod-us, prod-eu, prod-ap, ...). Using workspaces means one HCL codebase with `terraform.workspace == "prod-us" ? "m5.2xlarge" : "t3.medium"` scattered throughout. This becomes unmaintainable quickly. The Terragrunt directory model (one directory per environment, each calling the same module with different inputs) scales cleanly.
+
+**Terragrunt dependency graph as organizational structure:** The Terragrunt dependency graph mirrors your organizational ownership. VPC (networking team) → EKS (platform team) → services (app teams). `run-all apply` applies in topological order. `run-all destroy` applies in reverse order. The graph is both operational and organizational documentation.
+
+**Breaking changes in modules:**
+- MAJOR version: removes or renames an input variable, changes a resource address (causing destroy/recreate), removes an output.
+- MINOR version: adds an optional variable with a default, adds an output, adds a new resource that doesn't affect existing ones.
+- PATCH version: bug fix that doesn't change the resource plan output.
+- Communicate breaking changes in a CHANGELOG. Provide a migration guide (which `moved {}` blocks to add, which variables to rename). Bump the major version tag and let consumers opt in.

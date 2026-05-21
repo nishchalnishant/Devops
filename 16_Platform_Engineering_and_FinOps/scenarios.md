@@ -1,5 +1,46 @@
 # Production Scenarios & Troubleshooting Drills (Senior Level)
 
+```
+Platform Engineering Scenarios
+├── Cost Scenarios
+│   ├── Orphaned EBS volumes: idle storage after EC2 deletion
+│   ├── Chargeback challenge: attribute EKS spend by team/namespace
+│   ├── 35% budget overrun: tag audit + rightsize + RI purchasing
+│   └── Zombie environments: dev/staging left running over weekends
+├── Self-Service & IDP Scenarios
+│   ├── Backstage self-service: template → GitHub Action → Terraform → resource
+│   ├── Developer wait time: days → minutes via IDP portal
+│   ├── Platform versioning: breaking Composition update affecting 50 teams
+│   └── Escape hatch usage: team bypasses golden path, owns support burden
+├── Infrastructure Provisioning
+│   ├── Unattached EBS cost leak: CloudCustodian garbage collection
+│   ├── RDS idle detection: CloudWatch DatabaseConnections = 0 for 7 days
+│   ├── NAT Gateway data transfer spike: missing VPC endpoints
+│   └── Load balancer orphans: ALBs with no healthy targets
+├── DORA Metric Degradation
+│   ├── Deployment frequency drop: mandatory approval gates, CI slowdown, cultural regression
+│   ├── Lead time regression: monolith coupling, slow test suite, AppSec blocking gate
+│   ├── CFR spike: correlation with recent infra change or dependency upgrade
+│   └── MTTR increase: missing runbooks, lack of rollback automation
+├── Multi-Cloud FinOps
+│   ├── FOCUS spec normalization: unified billing across AWS + GCP + Azure
+│   ├── Cross-cloud cost allocation: tag taxonomy agreement across providers
+│   └── Savings Plan arbitrage: AWS Compute SP vs Reserved Instances decision
+└── Observability & Tooling
+    ├── Kubecost: namespace-level K8s cost attribution
+    ├── Infracost: CI gate rejecting PRs that increase infra cost > threshold
+    ├── CloudCustodian: automated resource governance policies
+    └── GitHub Actions: DORA lead time instrumentation via run timestamps
+```
+
+## First Principles
+
+- Cost problems are almost always tagging problems — if you cannot attribute the cost, you cannot manage it.
+- Self-service infrastructure must be auditable: every automated provisioning action needs an audit trail (who triggered it, what was created, when, and what policy approved it).
+- DORA metrics degrade for cultural and process reasons as often as technical ones — fixing a CI slowdown may require organizational changes, not just code.
+- Orphaned resources accumulate because deletion is never triggered — automate lifecycle management (tag with `expires-at`, auto-delete after TTL unless renewed).
+- A platform scenario answer structure: (1) identify the symptom, (2) find the root cause, (3) fix it, (4) prevent recurrence with automation or policy.
+
 ### Scenario 1: Identifying "Orphaned" Cloud Spend
 **Problem:** AWS bill is high but usage looks low.
 **Fix:** Audit unattached EBS volumes, idle Load Balancers, and unused Elastic IPs. Use **CloudCustodian** for automated "Garbage Collection" of cloud resources.
@@ -347,3 +388,22 @@ gh run list --limit=100 --json startedAt,conclusion,durationMs | \
 4. **Service owns too many dependencies** — A monolith architecture means any PR requires coordination across 5 teams, inflating lead time.
 
 **Prevention:** Instrument DORA metrics as first-class observability, not a monthly report. Alert when weekly deployment frequency drops >30% vs the 4-week rolling average. Review in the weekly engineering leads meeting.
+
+***
+
+## System Design Perspective
+
+**Platform Incident Response Design**
+- The IDP itself needs an incident runbook: what happens when Backstage is down? Developers must be able to provision resources via CLI (kubectl + Crossplane CLI) without the portal.
+- Circuit-breaker for IDP automation: if the GitHub Action triggered by a Backstage template fails > 3 times for the same team, pause automation and alert the platform team — prevent resource creation loops.
+
+**Cost Governance Automation**
+- Automated tagging enforcement: AWS Config rule or Azure Policy that flags any resource missing required tags (team, environment, service) within 1 hour of creation; auto-tags if deterministic (e.g., resource created by a known IAM role).
+- Expiry-based lifecycle: every non-production resource tagged with `expires-at: <date>`; CloudCustodian checks daily and terminates expired resources after a grace period with a Slack notification.
+- FinOps weekly digest pipeline: query Cost Explorer API → join with Backstage catalog (team ownership) → compute per-team deltas → post to Slack channel for each team automatically.
+
+**DORA Instrumentation Architecture**
+- Deployment events: emit a structured event (service, version, timestamp, deploying user) from ArgoCD post-sync hooks to a central event bus (EventBridge, Pub/Sub).
+- Incident events: PagerDuty webhook → Lambda → event store; calculate MTTR as `incident_resolved_at - incident_created_at`.
+- Lead time: GitHub Actions records `commit_sha` at PR merge; deployment event records the same `commit_sha`; lead time = `deploy_timestamp - merge_timestamp`.
+- Dashboard: Grafana + PostgreSQL backend; alert when any DORA metric crosses from "High" to "Medium" tier for two consecutive weeks.

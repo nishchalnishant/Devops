@@ -1,5 +1,48 @@
 # Terraform Tips & Tricks
 
+```
+Terraform Production Tips & Gotchas
+├── State Management
+│   ├── Always plan -out then apply saved plan (no re-plan in CI)
+│   ├── terraform refresh deprecated → use plan -refresh-only
+│   ├── -target is a smell → breaks dependent resources, use sparingly
+│   └── moved {} block → rename without destroy (tracked in code)
+├── Performance & Scale
+│   ├── -parallelism=20 → increase concurrent operations (watch rate limits)
+│   ├── Partial backend config → -backend-config flags, not hardcoded values
+│   └── TF_LOG=DEBUG + TF_LOG_PATH → diagnose provider issues
+├── for_each vs count
+│   ├── count with list → index-based, reordering causes cascading destroy
+│   ├── for_each with toset() → key-based, safe deletion of any element
+│   └── Rule: always for_each for collections of real resources
+├── Security
+│   ├── sensitive = true → hides from CLI, NOT from state file
+│   ├── State encryption → S3 + KMS, restrict s3:GetObject
+│   ├── prevent_destroy → lifecycle guard on production resources
+│   └── Secrets → fetch from SSM/Vault at runtime, never in tfvars
+├── Module Design
+│   ├── Version-pin sources → exact version in production (not ~> 5.0)
+│   ├── Expose all outputs → IDs, ARNs, endpoints, SG IDs
+│   └── locals for expressions, variables for inputs (clear separation)
+├── CI/CD Best Practices
+│   ├── Commit .terraform.lock.hcl → reproducible provider versions
+│   ├── Plan on PR, apply on merge (never both in one step)
+│   └── Scheduled drift detection → daily plan -refresh-only
+└── Debugging
+    ├── terraform state list | grep → find resource addresses
+    ├── terraform plan 2>&1 | grep "must be replaced" → find replacement cause
+    ├── -detailed-exitcode → exit 2 = changes, 0 = no changes (CI scripting)
+    ├── force-unlock <LOCK_ID> → release stuck DynamoDB lock
+    └── terraform console -var-file= → test expressions interactively
+```
+
+## First Principles
+
+- The plan/apply split only works as a safety gate if the plan is deterministic. Running `apply` without a saved plan file means a second plan executes at apply time — the reviewed diff may not match what runs. Save plans with `-out`, store the artifact, apply the artifact.
+- `sensitive = true` is UX polish, not security. Anyone with read access to the state file (S3 object, TF Cloud API) can read the value. Security lives in IAM, KMS, and access controls on the state backend.
+- `for_each` with a map/set creates a stable addressing scheme. `count` creates positional addressing. In infrastructure, stability of identity is critical — you don't want a list reordering to cascade into destroying 10 load balancer target group attachments.
+- Committing `.terraform.lock.hcl` is the equivalent of committing `package-lock.json`. Without it, `init` may resolve `~> 5.0` to `5.0.1` today and `5.3.2` tomorrow — same constraint, different behavior.
+
 Production-tested patterns, anti-patterns, and gotchas for senior engineers.
 
 ***
@@ -211,3 +254,18 @@ terraform force-unlock <LOCK_ID>    # Get lock ID from the error message
 echo 'output "test" { value = formatlist("subnet-%s", var.azs) }' \
   | terraform console -var-file=prod.tfvars
 ```
+
+***
+
+## System Design Perspective
+
+**The plan artifact as a compliance artifact:** In SOC 2 or ISO 27001 audits, you need evidence that changes were reviewed before execution. A saved `plan.tfplan` artifact stored in S3 (with the PR link and approver) is that evidence. Every apply is traceable to a reviewed, approved plan.
+
+**Lock file as reproducibility guarantee:** `.terraform.lock.hcl` stores provider checksums. If a provider binary's hash doesn't match the lock file, `init` fails. This prevents supply-chain attacks where a compromised provider version is silently pulled in. Always commit this file.
+
+**Module version pinning prevents surprise upgrades:** Using `~> 5.0` in production means a provider minor release can change behavior. An exact pin (`5.5.2`) means you consciously chose to upgrade. For a team applying to production multiple times a day, silent provider upgrades are a major risk.
+
+**Scheduled drift detection as operational hygiene:**
+- Run `terraform plan -refresh-only` nightly across all environments. Parse the exit code: 0 = no drift, 2 = drift detected.
+- Alert on drift rather than auto-applying. Drift may indicate a security incident (someone created an IAM role manually) or an operational shortcut that should be formalized in Terraform.
+- After investigating and understanding the drift, `apply -refresh-only` to sync state, then add the resource to Terraform code to prevent future drift.

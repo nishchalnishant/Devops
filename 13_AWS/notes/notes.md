@@ -1,5 +1,61 @@
 # AWS — Deep Dive Notes
 
+```
+AWS Deep Dive Notes
+├── IAM Internals
+│   ├── Policy evaluation flow: Explicit Deny → SCP allows? → Resource-based Allow → Identity-based Allow → Session policy → Implicit Deny
+│   ├── Trust policy: WHO can assume the role (Principal + Action: sts:AssumeRole + Condition)
+│   ├── Permission policy: WHAT the role can do (Action + Resource + Condition)
+│   └── IRSA: associate OIDC provider → create role with federated trust → annotate K8s SA → SDK calls AssumeRoleWithWebIdentity
+├── VPC Architecture
+│   ├── Subnet types: Public (IGW route) → Private (NAT route) → Isolated (no 0.0.0.0/0 route)
+│   ├── Gateway Endpoints (S3/DynamoDB): free, route table prefix list entry, same-region only
+│   ├── Interface Endpoints (PrivateLink): ENI in subnet, private DNS, costs $0.01/hr/AZ
+│   ├── Security Groups vs NACLs: stateful/instance vs stateless/subnet
+│   └── Required endpoints for private EKS cluster: ecr.dkr, ecr.api, s3(gw), eks, sts, ec2
+├── EKS Architecture & Operations
+│   ├── Control plane (AWS VPC): API server (HA), etcd (KMS-encrypted), scheduler, controller-manager
+│   ├── Data plane (your VPC): Managed Node Groups / Fargate / Self-managed
+│   ├── VPC CNI internals: pods get real VPC IPs, warm IP pool on ENIs, max pods = (ENIs × IPs/ENI) - 1
+│   ├── Prefix delegation: /28 per ENI → 16 IPs per prefix → 110 pods on m5.xlarge
+│   └── Upgrade order: upgrade add-ons (VPC CNI) → node group version → check compatibility matrix
+├── S3 Internals
+│   ├── Consistency: strong read-after-write since Dec 2020 (no more eventual consistency)
+│   ├── Storage class hierarchy: Standard → Intelligent-Tiering → Standard-IA → One Zone-IA → Glacier Instant → Glacier Flexible → Deep Archive
+│   ├── Lifecycle policy: Transitions + Expiration + NoncurrentVersionExpiration
+│   └── Security: Block Public Access (account level), bucket policy for encryption enforcement, HTTPS-only condition
+├── Lambda Concurrency & Performance
+│   ├── Account concurrency limit: default 1000/region (shared across all functions)
+│   ├── Reserved concurrency: dedicated pool, prevents other functions from using it
+│   ├── Provisioned concurrency: pre-initialized environments, eliminates cold starts
+│   ├── Burst limit: 3000 initial, then +500/min until account limit
+│   └── Cold start mitigation: provisioned concurrency, smaller package, init outside handler
+├── Lambda + SQS Pattern
+│   ├── Partial batch failure: return batchItemFailures to retry only failed messages
+│   └── Requires FunctionResponseTypes: ReportBatchItemFailures on event source mapping
+├── Multi-Account Organization
+│   ├── Management Account (never deploy workloads here)
+│   ├── Security OU: Log Archive (CloudTrail, Config, VPC Flow Logs) + Security Tooling (GuardDuty, Security Hub)
+│   ├── Infrastructure OU: Network account (TGW, shared VPCs) + Tooling account (CI/CD, ECR)
+│   ├── Workloads OU: Production OU + Non-Production OU + Sandbox OU
+│   └── SCP key patterns: deny non-approved regions, deny leaving Org, protect foundation roles
+├── CloudWatch Advanced
+│   ├── Container Insights: install addon amazon-cloudwatch-observability for EKS
+│   ├── Metric Insights: SQL-like cross-account metric queries
+│   └── Log Insights: find Lambda cold starts via @initDuration in REPORT logs
+└── Key Gotchas
+    ├── SCP denies don't appear in CloudTrail — use simulate-principal-policy to debug
+    ├── IAM NotAction in Allow = "allow everything except" — risk of over-permissioning
+    ├── EBS volumes AZ-locked — snapshot to move across AZs
+    ├── NAT Gateway: one per AZ (cross-AZ traffic costs $0.01/GB)
+    ├── aws:SourceIp doesn't work with VPC endpoints — use aws:SourceVpce instead
+    └── CloudFormation drift detection is eventual and non-blocking
+```
+
+## First Principles
+
+AWS is a collection of primitives: compute (EC2/Lambda), storage (S3/EBS), network (VPC), IAM. EKS = Kubernetes control plane managed by AWS. IAM Roles for Service Accounts (IRSA) solves the pod identity problem without long-lived credentials. Multi-account = blast radius control.
+
 ## IAM Internals
 
 ### Policy evaluation logic
@@ -478,3 +534,17 @@ aws logs start-query \
 | EKS managed node group uses Launch Template | Customizations (userData, ami, tags) require a custom launch template — not all fields are modifiable after creation |
 | `aws:SourceIp` doesn't work with VPC endpoints | Use `aws:SourceVpce` or `aws:SourceVpc` conditions for VPC endpoint-sourced requests |
 | CloudFormation drift detection is eventual | Drift detection job takes time; it doesn't block deployments of drifted stacks automatically |
+
+## System Design Perspective
+
+**VPC Peering vs Transit Gateway:** VPC Peering is direct, non-transitive, and suited for 2-5 VPCs with non-overlapping CIDRs. Transit Gateway is a managed cloud router that enables transitive routing, scales to thousands of VPCs, supports VPN and Direct Connect attachments, and allows inter-region peering. Cost: TGW charges per attachment plus per GB processed; use VPC Endpoints alongside TGW to keep S3/DynamoDB traffic off the TGW.
+
+**Identity Federation (OIDC/SAML):** IRSA (IAM Roles for Service Accounts) uses OIDC federation — the EKS cluster's OIDC issuer is registered in IAM, and pods exchange a projected ServiceAccount JWT for temporary STS credentials via sts:AssumeRoleWithWebIdentity. GitHub Actions and GitLab CI use the same pattern to assume IAM roles without storing access keys. SAML 2.0 is used for AWS SSO federation with enterprise IdPs (Okta, Azure AD).
+
+**Cross-Region DR:** Strategy selection depends on RTO/RPO targets. Backup and Restore (hours RTO, cheapest) uses S3 CRR plus RDS snapshots. Pilot Light (30 min RTO) keeps minimal standby infra running. Warm Standby (minutes RTO) runs a reduced-scale active stack. Active-Active (near-zero RTO) uses Route 53 latency routing plus Aurora Global Database with less than 1s replication lag. All strategies require IaC — without it, failover cannot meet aggressive RTOs.
+
+**Cost Allocation Tagging Strategy:** Enforce mandatory tags (Environment, Team, CostCenter, Owner) via AWS Config Rules or SCPs requiring tags on resource creation. Use AWS Cost Explorer grouped by tag to produce per-team cost reports. Activate cost allocation tags in the Billing Console. Use Tag Policies in AWS Organizations to standardize tag key formats across accounts.
+
+**Managed Identity vs Service Principals (AWS context):** IAM Roles are the equivalent of Managed Identities — they provide temporary credentials without stored secrets. Long-term access keys (equivalent to Service Principals with secrets) should only exist for external systems that cannot assume roles. IRSA and ECS task roles are the pod/task-level equivalent of Azure Workload Identity.
+
+**AWS Organizations SCPs vs Azure Policy:** SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions, act before IAM evaluation, and even the root user cannot exceed them. Azure Policy enforces at the ARM API layer with richer effects (Deny, Audit, DeployIfNotExists, Modify). Both use hierarchical policy inheritance but differ in execution layer: SCPs block at the IAM authorization step; Azure Policy intercepts at the resource provider level and supports auto-remediation.

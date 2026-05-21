@@ -1,5 +1,52 @@
 # MLOps Tips & Tricks
 
+```
+MLOps Tips & Tricks
+├── The #1 Mistake: Treating ML Like Software
+│   ├── Data distribution changes over time — model doesn't adapt
+│   ├── Upstream schema changes cause silent NaN injection
+│   ├── Feature library updates change behavior subtly
+│   └── Labeling team interpretation drift changes ground truth
+├── Anti-Patterns to Avoid
+│   ├── Pickle serialization: version-dependent, security risk → use ONNX/SavedModel
+│   ├── Training on production DB: lock contention, GDPR risk → use read replica/snapshot
+│   ├── One giant notebook: not reproducible, not testable → modular scripts + unit tests
+│   ├── Skipping validation for quick retrains: silent degradation for weeks
+│   └── No rollback plan: can't recover fast → keep previous version registered
+├── Feature Store Gotchas
+│   ├── Point-in-time join: never use a future feature value at training time
+│   ├── Feature TTL: stale online features if materialization falls behind
+│   ├── Training-serving skew: shared library for feature computation, not duplicated code
+│   └── Online store warmup: pre-populate before enabling live traffic
+├── Training Pipeline Tips
+│   ├── Always checkpoint: assume Spot preemption can happen at any time
+│   ├── Gradient checkpointing: memory savings worth the 30% compute overhead
+│   ├── Gradient accumulation: simulate large batch without OOM
+│   └── Separate evaluation set by time, not random split (prevent temporal leakage)
+├── Monitoring Gotchas
+│   ├── PSI only detects distribution shift, not temporal ordering violations
+│   ├── Shadow mode doubles serving cost: budget for it explicitly
+│   ├── Confidence distribution is a leading indicator: watch before accuracy drops
+│   └── Delayed labels: implement proxy metrics for real-time monitoring
+├── LLM-Specific Tips
+│   ├── Pre-allocate KV cache based on max_model_len: OOM mid-request is worse than OOM at startup
+│   ├── OIDC token expires during long training: refresh before artifact push
+│   ├── Semantic caching: deduplicate similar prompts before hitting the model
+│   └── RAG: chunk size affects retrieval quality — test different sizes empirically
+└── Data Practices
+    ├── Version data with DVC or Delta Lake: Git only stores a pointer
+    ├── Always log raw + encoded feature values: interpretability for debugging
+    ├── Schema validation at every pipeline stage: fail fast on schema drift
+    └── Never train directly on production DB: use snapshots or read replicas
+```
+
+## First Principles
+
+- ML systems fail differently from software: a model can be "working" (serving predictions) while being silently wrong (predictions have degraded quality) — both monitoring dimensions are required.
+- Anti-patterns accumulate: each shortcut (no validation, no rollback, no monitoring) is individually manageable; together they make production ML systems unreliable and unmaintainable.
+- Point-in-time correctness is not optional: training on features with future knowledge is data leakage, which produces models that appear accurate in evaluation but fail in production.
+- Every MLOps tip exists because someone paid the cost of not following it in production.
+
 Production-tested patterns, anti-patterns, and gotchas for ML systems in production.
 
 ***
@@ -235,3 +282,24 @@ with mlflow.start_run():
 | Same feature store for training and serving without TTL | Stale features in serving or data leakage in training | Enforce point-in-time queries in training |
 | No rollback plan for model updates | Can't quickly recover from a bad promotion | Keep previous model artifact registered; one-line rollback in serving config |
 | Logging features as floats only | Loses interpretability | Log raw string values + numerical encoded values together |
+
+***
+
+## System Design Perspective
+
+**Production Readiness Checklist for an ML System**
+- Reproducibility: training data versioned, hyperparameters logged, model artifacts stored with commit SHA and data version reference.
+- Monitoring: at least one proxy metric that detects model quality degradation before ground truth labels arrive.
+- Rollback: previous model version stays registered; rollback is a single CLI command or GitOps revert.
+- Feature freshness: SLO on materialization lag; alert if online features are > 2x the expected staleness.
+- Serving reliability: model serving pods have liveness/readiness probes; HPA configured; rollout strategy is RollingUpdate with maxUnavailable=0.
+
+**Technical Debt Patterns in MLOps**
+- The notebook that became production: refactor progressively — extract feature computation into a shared library first, then training script, then serving code.
+- The "works in staging" model: production data distribution differs from staging — run shadow mode in production for 48h before promoting any new model.
+- The undocumented model: write a model card before promoting to production — if you cannot explain what the model does, who trained it, and what its limitations are, it should not be in production.
+
+**Cost Optimization for ML Workloads**
+- Training cost: Spot instances + checkpointing; use GPU profiles (MIG) for small models; auto-terminate training jobs if evaluation metrics stop improving (early stopping).
+- Inference cost: quantize models (INT8) for CPU-serving small models; batch requests for throughput-optimized workloads; scale to zero with KEDA for bursty workloads.
+- Data cost: partition training data by date and entity — never scan the full dataset for a small feature update; use Delta Lake's Z-ordering for frequent access patterns.

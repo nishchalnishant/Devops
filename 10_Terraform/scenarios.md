@@ -1,5 +1,42 @@
 # Production Scenarios & Troubleshooting Drills (Senior Level)
 
+```
+Terraform Production Scenarios
+├── State & Drift Problems
+│   ├── Manual deletion in console  → plan detects, apply recreates
+│   ├── State lock contention       → force-unlock after confirming dead run
+│   ├── Ghost resource (deleted outside TF) → plan -refresh-only + apply
+│   └── Workspace variable leakage  → separate state paths per env
+├── Plan / Apply Failures
+│   ├── Circular dependency         → extract intermediate resource, break cycle
+│   ├── Partial apply               → terraform plan to see what succeeded; fix root cause
+│   ├── Provider drift              → update provider version, re-run plan
+│   └── terraform init fails        → clear .terraform/, reinit with correct source
+├── Resource Identity Problems
+│   ├── for_each key rename         → resource destroyed + recreated (use moved block)
+│   ├── count list reorder          → cascading destroy (switch to for_each)
+│   └── terraform import            → bring orphaned resource under TF control
+├── Performance
+│   ├── Large state bottleneck      → split state by service boundary
+│   ├── Slow plan                   → -parallelism=30, reduce data source queries
+│   └── Provider API rate limits    → exponential backoff in provider, reduce parallelism
+├── Security
+│   ├── Secrets in state            → S3+KMS, restrict s3:GetObject
+│   ├── Secrets in tfvars           → use data.aws_ssm_parameter or Vault lookup
+│   └── apply without review        → always plan -out + apply saved plan
+└── CI/CD Pitfalls
+    ├── Re-plan on apply            → plan -out then apply plan.tfplan
+    ├── apply succeeds but non-functional (race condition) → postcondition / check block
+    └── Drift not caught            → scheduled daily plan -refresh-only in CI
+```
+
+## First Principles
+
+- Every scenario roots in the same truth: Terraform's state must accurately reflect reality. When it doesn't, plans are wrong. Drift, manual changes, and partial applies all corrupt the state-reality relationship.
+- The fix pattern is always: detect (plan/refresh), understand (show/graph), correct (apply/import/mv/rm), prevent (lifecycle rules, CI gates, Sentinel policies).
+- `force-unlock` is safe only when the previous run is confirmed dead. If the run is still executing (slow provider API), force-unlocking causes two concurrent writers — exactly the race condition locking prevents.
+- A partial apply is not automatically a disaster. Terraform is idempotent: re-running apply will create the resources that didn't get created. The real risk is resources that were created but whose dependents failed — they may now be orphaned.
+
 ### Scenario 1: The "Manual Change" Disaster
 **Problem:** Someone deleted a resource in the AWS console.
 **Fix:** `terraform plan` will detect the drift. `terraform apply` will recreate it.
@@ -509,3 +546,21 @@ terraform apply -parallelism=5   # default is 10; lower = slower but fewer orpha
 ```
 
 **Prevention:** Always save plans with `-out=plan.tfplan` in CI. Store the plan artifact. If the apply job is re-triggered, apply the same saved plan — this is idempotent and picks up where it left off.
+
+***
+
+## System Design Perspective
+
+**Blast radius reduction:**
+- One state file per service boundary means a partial apply in the RDS layer cannot leave the EKS layer in an inconsistent state. Smaller scope = smaller blast radius.
+- `prevent_destroy = true` on production databases, KMS keys, and S3 buckets creates a hard stop. Even if someone accidentally includes the resource in a `destroy` plan, Terraform errors before executing.
+
+**CI/CD reliability patterns:**
+- Save the plan artifact: `terraform plan -out=plan.tfplan`, upload to S3 or artifact storage. The apply job downloads and applies the same artifact. If the apply is re-run (pipeline retry), it applies the same deterministic plan — idempotent behavior.
+- Use `check {}` blocks (TF 1.5+) to validate post-apply conditions: health check endpoint returns 200, DNS resolves, load balancer target group has healthy targets. Catch "apply succeeded but non-functional" scenarios before marking the pipeline green.
+
+**Drift at scale:**
+- Scheduled `plan -refresh-only` runs daily across all workspaces. Alert on non-empty plans. Over time, correlate drift events with changes in the cloud console to identify which teams are making manual changes and build playbooks to prevent recurrence.
+
+**State recovery:**
+- S3 versioning on the state bucket provides point-in-time recovery. If state is corrupted, download a previous version, validate it, and `terraform state push` it back. This is the disaster recovery path — document it and test it before you need it.

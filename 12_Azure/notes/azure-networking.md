@@ -1,5 +1,72 @@
 # Azure Networking — Deep Dive
 
+```
+Azure Networking
+├── VNet Architecture & Subnetting
+│   ├── VNet: isolated network, RFC 1918 CIDR, region-scoped
+│   ├── Subnets: divide VNet, NSG per subnet, service endpoints
+│   ├── Enterprise hub-spoke address design (10.x.x.x hierarchy)
+│   ├── Subnet sizing (reserve 5 IPs per subnet for Azure)
+│   └── App Service VNet Integration (delegated subnet /28 minimum)
+├── VNet Peering & Transit
+│   ├── Regional peering (same region, low latency, backbone)
+│   ├── Global peering (cross-region, higher cost)
+│   ├── Non-transitive by default (A↔B, B↔C does NOT mean A↔C)
+│   ├── Azure Route Server (BGP-based transit through NVA)
+│   └── UDRs (user-defined routes to force traffic through hub firewall)
+├── Private Endpoints & Private Link
+│   ├── Private Endpoint: NIC in your subnet with private IP for PaaS service
+│   ├── Supported services: Storage, SQL, KV, ACR, AKS API, Service Bus, etc.
+│   ├── DNS: private DNS zone (e.g., privatelink.blob.core.windows.net) linked to VNet
+│   ├── Private Link Service: expose your own service via PrivateLink
+│   └── Disable public network access after PE creation
+├── Azure DNS Architecture
+│   ├── Azure DNS zones (public): authoritative DNS, hosted in Azure
+│   ├── Private DNS zones: internal resolution within VNet
+│   ├── Multi-region DNS design: one private zone, link to all VNets
+│   ├── Private DNS Resolver: inbound (on-prem → Azure) + outbound (Azure → on-prem)
+│   └── Forwarding rules (resolve on-prem domains from Azure resources)
+├── Network Security & NSGs
+│   ├── NSG: stateful packet filter at NIC or subnet level
+│   ├── Rule priority (100–4096, lower = higher priority)
+│   ├── Default rules: AllowVnetInBound, AllowAzureLoadBalancer, DenyAllInBound
+│   ├── Service Tags (AzureLoadBalancer, Internet, VirtualNetwork, Storage)
+│   ├── ASG (Application Security Groups): group NICs, reference in NSG rules
+│   └── VPC Flow Logs → Log Analytics → traffic analysis
+├── Azure Firewall & NVA
+│   ├── Azure Firewall: managed, stateful, auto-scaling, FQDN filtering
+│   ├── SKUs: Basic / Standard / Premium (IDPS only in Premium)
+│   ├── Network rules (IP+port), Application rules (FQDN), NAT rules (DNAT)
+│   ├── Forced tunneling (default route 0.0.0.0/0 → Firewall)
+│   └── NVA (3rd party): Palo Alto, Fortinet — higher flexibility, more ops burden
+├── Load Balancing
+│   ├── Azure Load Balancer (L4, regional, SKU: Basic vs Standard)
+│   ├── Application Gateway v2 (L7, WAF, path-based routing, autoscaling)
+│   ├── Azure Front Door (global CDN + WAF + health probe failover)
+│   ├── Traffic Manager (DNS-based, global load balancing, no data-plane)
+│   └── Decision: Internet-facing global → FD; Regional L7 → App GW; L4 internal → ALB
+├── Hybrid Connectivity
+│   ├── VPN Gateway (IPSec/IKE, up to 10 Gbps, internet-based)
+│   ├── ExpressRoute (dedicated circuit, up to 100 Gbps, SLA)
+│   ├── Gateway Transit (peered VNets share VPN/ER gateway)
+│   └── ExpressRoute + VPN coexistence (failover)
+├── AKS Networking Patterns
+│   ├── Azure CNI (VNet IPs, no overlay, SG per pod possible)
+│   ├── Azure CNI Overlay (private pod CIDR, better IP conservation)
+│   ├── Private AKS cluster (private API server, requires private DNS)
+│   ├── Egress: NAT Gateway (fixed IP) vs Azure Firewall (FQDN rules)
+│   └── Ingress: AGIC (native, WAF) vs nginx (community, more control)
+└── Troubleshooting
+    ├── Network Watcher: Connection Monitor, IP Flow Verify, Packet Capture
+    ├── DNS: nslookup + dig from within pod/VM (check private zone link)
+    ├── Common issues: NSG blocking, missing private DNS link, PE not approved
+    └── Key Gotchas: NAT GW needs public IP; PE and service endpoint on same subnet causes issues
+```
+
+## First Principles
+
+Compute needs identity (AAD), network isolation (VNet), storage, and managed services. AKS = Kubernetes control plane managed by Azure. Azure DevOps = hosted CI/CD. Azure Policy = guardrails enforced at API level. Cost comes from consumption — control it with budgets and tagging.
+
 ## Table of Contents
 
 1. [VNet Architecture & Subnetting](#1-vnet-architecture--subnetting)
@@ -39,6 +106,45 @@ Spoke VNet B (Non-Prod): 10.2.0.0/16
 ├── 10.2.1.0/24 — App Service VNet Integration
 ├── 10.2.2.0/24 — VMs
 └── 10.2.3.0/24 — Private Endpoints
+```
+
+```mermaid
+graph TD
+    subgraph OnPrem["On-Premises Network"]
+        direction LR
+        Corp[Corp Office] <--> ER[ExpressRoute / VPN]
+    end
+
+    subgraph Azure["Azure Enterprise Landing Zone"]
+        subgraph Hub["Hub VNet (10.0.0.0/16)"]
+            direction TB
+            GW[GatewaySubnet 10.0.4.0/24]
+            FW[AzureFirewallSubnet 10.0.1.0/24]
+            BST[AzureBastionSubnet 10.0.2.0/24]
+            GW <--> FW
+            BST <--> FW
+        end
+
+        subgraph SpokeA["Spoke VNet A - Production (10.1.0.0/16)"]
+            direction TB
+            AKS_Sys[AKS System Pool 10.1.1.0/24]
+            AKS_Usr[AKS User Pool 10.1.2.0/24]
+            PE_Prod[Private Endpoints 10.1.3.0/24]
+        end
+
+        subgraph SpokeB["Spoke VNet B - Non-Prod (10.2.0.0/16)"]
+            direction TB
+            VM_NP[VMs 10.2.2.0/24]
+            PE_NP[Private Endpoints 10.2.3.0/24]
+        end
+    end
+
+    %% Hybrid connection to Hub Gateway
+    ER <--> GW
+
+    %% VNet Peerings to Hub Firewall
+    SpokeA <== Peer ==> FW
+    SpokeB <== Peer ==> FW
 ```
 
 **Subnet Sizing Guidelines:**
@@ -1014,3 +1120,17 @@ az network private-dns link vnet list \
 | NAT Gateway cannot be on same subnet as Firewall | Use separate subnets or UDRs |
 | AKS private cluster needs DNS planning | `--private-dns-zone none` for custom DNS |
 | Service Endpoints ≠ Private Endpoints | Service Endpoints are deprecated for most services |
+
+## System Design Perspective
+
+**VNet Peering vs Transit Gateway (Azure Route Server):** VNet peering is direct, non-transitive, and best for 2-5 VNets. For hub-and-spoke at scale, Azure Route Server enables BGP-based transit through an NVA without UDR maintenance on every spoke. ExpressRoute Gateway Transit allows peered VNets to share a single ER circuit.
+
+**Identity Federation (OIDC/SAML):** Workload Identity Federation eliminates static client secrets by exchanging a short-lived OIDC token from the identity provider (GitHub Actions, AKS) for an Azure access token. Entra ID validates the issuer, audience, and subject claims before granting access. SAML 2.0 is used for SSO to legacy enterprise apps; OIDC is preferred for everything modern.
+
+**Cross-Region DR:** For RTO less than 15 min: Azure Front Door routes traffic globally, paired regions share disaster recovery SLAs, geo-redundant storage (GRS/GZRS) replicates data asynchronously. Use Azure Site Recovery for VM-level replication. IaC (Bicep/Terraform) is mandatory — manual re-creation cannot meet aggressive RTOs.
+
+**Cost Allocation Tagging Strategy:** Enforce mandatory tags (CostCenter, Environment, Team, Owner) via Azure Policy with Deny or Append effect at the Management Group level. Use Azure Cost Management to filter spending by tag. Automate tag inheritance from Resource Group to resources using the Inherit Tags built-in initiative.
+
+**Managed Identity vs Service Principals:** Managed Identities are the default choice for any Azure resource accessing other Azure services — zero credential management, auto-rotation. Use Service Principals only for external systems (on-prem, third-party) that cannot use Managed Identity. Workload Identity Federation is the bridge for Kubernetes pods and CI/CD pipelines.
+
+**Azure Policy vs AWS Organizations SCPs:** Azure Policy enforces guardrails at the ARM layer with effects including Deny, Audit, and DeployIfNotExists (auto-remediation). AWS SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions and act before IAM evaluation. Both use top-down policy inheritance through a hierarchy (Management Group in Azure; Root/OU/Account in AWS).

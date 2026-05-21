@@ -1,5 +1,53 @@
 # Production Scenarios & Troubleshooting Drills (Senior Level)
 
+```
+GitLab CI Scenarios — Troubleshooting Map
+├── Runner Issues
+│   ├── Job stuck in pending — tag mismatch, no runners with matching tags
+│   ├── Shared runner exhaustion — all slots busy, jobs queuing
+│   └── Runner disk full — workspace not cleaned, artifacts accumulating on host
+│
+├── Artifact & Cache Failures
+│   ├── Artifact expired — expire_in too short, manual deploy triggered late
+│   ├── Cache miss on correct runner — runner-local cache, job on different runner
+│   └── Cross-stage artifact missing — dependencies: not declared, job skipped artifact download
+│
+├── Registry Authentication
+│   ├── Silent push failure — docker login succeeded but push unauthorized (wrong scope)
+│   ├── Kaniko / CI_JOB_TOKEN — must use --build-arg not DOCKER_AUTH_CONFIG
+│   ├── Protected variable not injected — job branch not protected
+│   └── Cached credentials in ~/.docker/config.json — stale token on non-ephemeral runner
+│
+├── Git Clone Issues
+│   ├── Timeout on large repos — GIT_DEPTH not set, full history cloned
+│   ├── LFS objects failing — GIT_LFS_SKIP_SMUDGE not set, LFS not configured
+│   └── Submodule auth — CI_JOB_TOKEN not propagated to submodule URL
+│
+├── Variable & Scope Problems
+│   ├── Environment-scoped variable not injected — job not declaring correct environment:
+│   ├── Downstream trigger missing variable — not passed in variables: block
+│   └── CI_JOB_TOKEN scope (GitLab 16+) — cross-project access needs explicit allowlist
+│
+├── Pipeline Logic Bugs
+│   ├── only/except schedule mismatch — schedule pipelines have different CI_PIPELINE_SOURCE
+│   ├── Duplicate MR + branch pipelines — workflow: rules not configured
+│   ├── Child pipeline prematurely passes — strategy: depend missing on trigger job
+│   └── SAST false positives — SAST_EXCLUDED_PATHS not configured
+│
+└── Multi-Project & Downstream Failures
+    ├── Downstream trigger not firing — CI_JOB_TOKEN scope, project allowlist required
+    ├── Downstream pipeline not blocking parent — strategy: depend missing
+    └── Dynamic pipeline artifact not found — artifact path mismatch, expire_in too short
+```
+
+## First Principles
+
+- Every stuck job is a resource starvation or routing problem. Runner exhaustion = no capacity. Tag mismatch = no eligible runner. Protected variable not injected = GitLab filters secrets before the runner even sees the job.
+- Artifacts are ephemeral by design — `expire_in` is not optional in long-lived pipelines. Manual deployment jobs triggered hours or days after build will fail without artifacts unless `expire_in` is set to match the expected human response window.
+- Registry auth failures are almost always a credential scope problem, not a network problem. `CI_JOB_TOKEN` authenticates but only authorizes what its scope allows. Check: same project? Use `CI_JOB_TOKEN`. Cross-project? Use deploy token with correct scope enabled.
+- Environment-scoped variables are invisible to jobs that don't declare `environment:`. The variable is not missing — it's filtered by GitLab before the job starts. This is a feature, not a bug; it's why the same pipeline can safely serve staging and production with different secrets.
+- `strategy: depend` is the only thing that makes a trigger job synchronous. Without it, the trigger fires and the parent job immediately succeeds regardless of what the child pipeline does.
+
 ### Scenario 1: Shared Runner Exhaustion
 **Problem:** Builds are stuck in "Pending" on GitLab.com.
 **Fix:** Register a private runner on an EC2 instance and use Tags to route your jobs to it.
@@ -542,3 +590,19 @@ before_script:
 ```
 
 **Prevention:** Use `CI_JOB_TOKEN` for same-project registry access — it never needs rotation. For cross-project access, use group-level deploy tokens and rotate them via a scheduled pipeline that updates the CI variable automatically.
+
+***
+
+## System Design Perspective
+
+**Diagnosing pipeline performance regression**
+
+When a pipeline suddenly takes twice as long: (1) check if a new job was added without `needs:` — it serialized what was previously parallel; (2) check cache hit rate in job logs — a key change or new runner pool without warm cache causes full dependency reinstalls; (3) check artifact size — large artifacts (>100 MB) have measurable upload/download overhead; (4) check if a `services:` container (postgres, redis) is being initialized every run when it could be externalized.
+
+**Runner isolation security model**
+
+Docker executor with `privileged: false` provides OS-level isolation between jobs. Each job starts in a fresh container with no access to sibling containers or the host filesystem (beyond explicitly mounted volumes). `privileged: true` breaks this — required for docker-in-docker but grants root-equivalent access to the host. Mitigation: use Kaniko for container builds (no privileged required), or use a dedicated privileged runner pool tagged `privileged-build` with network policy restricting where those runners can communicate. Shell executor has no isolation — jobs share the host user context. Never use shell executor for untrusted code (open source forks).
+
+**Troubleshooting CI_JOB_TOKEN scope failures (GitLab 16+)**
+
+Symptom: downstream project API call returns 401 even though `CI_JOB_TOKEN` is valid. Root cause: GitLab 16.0 locked `CI_JOB_TOKEN` to the originating project scope by default. Fix path: in the target project, go to Settings > CI/CD > Token Access > allow tokens from `<originating-project>`. At scale (many consumers of one platform project), use the REST API to automate allowlist configuration: `PUT /api/v4/projects/:id/job_token_scope/allowlist`. This is scriptable in a scheduled pipeline that reads a YAML registry of consumer projects and syncs the allowlist.

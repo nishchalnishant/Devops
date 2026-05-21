@@ -1,5 +1,66 @@
 # MLOps — Machine Learning Operations
 
+```
+MLOps — Machine Learning Operations (Overview)
+├── Why MLOps Exists
+│   ├── Traditional software: deterministic — same code → same output
+│   ├── ML: non-deterministic — model behavior changes with data
+│   └── Three artifacts: Code + Data + Model (all must be versioned)
+├── The Four Pipelines
+│   ├── CI: test code + validate features + lint pipelines
+│   ├── CT (Continuous Training): data trigger → train → evaluate → promote
+│   ├── CD: deploy new model version to serving infrastructure
+│   └── CM (Continuous Monitoring): drift + label monitoring + alerting
+├── Feature Stores
+│   ├── Offline store: S3/BigQuery — training, point-in-time join
+│   ├── Online store: Redis/DynamoDB — inference, P99 < 5ms
+│   ├── Materialization: batch job pushes offline → online
+│   └── Prevents training-serving skew via shared computation library
+├── Continuous Training Pipelines
+│   ├── Triggers: schedule, drift threshold, data volume, business KPI
+│   ├── Validation gate: Great Expectations before training
+│   ├── Evaluation gate: champion vs challenger comparison
+│   └── Delayed label handling: proxy metrics for monitoring
+├── Model Serving
+│   ├── Synchronous REST: low-latency, user-facing
+│   ├── Async batch: throughput-optimized, non-latency-critical
+│   ├── Streaming: Kafka-triggered inference
+│   └── Shadow/Canary/A/B/Blue-Green: progressive rollout strategies
+├── Model Registry & Experiment Tracking
+│   ├── MLflow: 4 components — Tracking, Projects, Models, Registry
+│   ├── W&B: collaborative experiment tracking + sweeps
+│   ├── Staging workflow: None → Staging → Production → Archived
+│   └── Model aliases: @champion, @challenger (MLflow 2.x)
+├── Drift & Monitoring
+│   ├── Data drift (covariate shift): P(X) changes
+│   ├── Concept drift: P(Y|X) changes — world changes, not data
+│   ├── PSI thresholds: < 0.1 OK, 0.1–0.2 monitor, > 0.2 retrain
+│   └── Evidently AI, WhyLabs, Arize AI: monitoring platforms
+├── LLMOps
+│   ├── vLLM: PagedAttention + continuous batching
+│   ├── RAG: chunk → embed → vector DB → retrieve → rerank → LLM
+│   ├── RAGAS: faithfulness, answer_relevancy, context_precision
+│   └── TTFT, TPOT, TPS: key LLM serving metrics
+├── Responsible AI
+│   ├── Fairness: demographic parity, equalized odds
+│   ├── Explainability: SHAP, LIME, Fairlearn
+│   ├── Governance: SR 11-7, ML-BOM, GDPR right-to-explanation
+│   └── Model cards: training data, metrics, limitations, intended use
+└── GPU Infrastructure
+    ├── ZeRO stages: optimizer (S1) + gradients (S2) + params (S3)
+    ├── MIG: partition A100/H100 into isolated GPU instances
+    ├── InfiniBand: high-bandwidth GPU-to-GPU for Tensor Parallelism
+    └── Gradient checkpointing + accumulation: memory optimization
+```
+
+## First Principles
+
+- MLOps exists because ML adds two new dimensions to software operations: data as a first-class versioned artifact, and model behavior that changes over time without code changes.
+- The four pipelines (CI, CT, CD, CM) together form the production ML lifecycle — omitting any one creates a gap that causes silent failures.
+- Feature stores solve the coordination problem: multiple teams need the same features computed correctly — centralize once, serve everywhere, prevent skew.
+- Monitoring must cover infrastructure AND model quality — a model can be "serving" while producing degraded predictions; infrastructure metrics alone won't catch this.
+- Responsible AI is an engineering requirement: fairness metrics, explainability, and model cards are required for regulated industries and increasingly expected across all production ML systems.
+
 ## Why MLOps Exists: The Production ML Problem
 
 Traditional software deployment follows a deterministic path: code is written, tested, and deployed. The same code always produces the same output. Machine learning breaks this model entirely.
@@ -389,3 +450,21 @@ This file is an overview. For deep dives, see:
 | [`mlops-feature-stores-and-pipelines.md`](mlops-feature-stores-and-pipelines.md) | Feature Stores (Feast, Tecton), CT pipeline design, Kubeflow/Airflow |
 | [`mlops-llmops-and-advanced-serving.md`](mlops-llmops-and-advanced-serving.md) | LLMOps, vLLM, RAG pipelines, GPU parallelism, cost control |
 | [`mlops-monitoring-observability.md`](mlops-monitoring-observability.md) | Drift detection, Evidently AI, alerting strategies, runbooks |
+
+***
+
+## System Design Perspective
+
+**Full ML Platform Stack (Production-Grade)**
+- Data: Kafka → Spark Streaming → Delta Lake (versioned, time-travel) → Great Expectations validation.
+- Features: Feast; offline BigQuery; online Redis; materialization scheduled every 15 minutes; freshness alert if lag > 30 minutes.
+- Training: Kubeflow Pipelines orchestration; GPU node pool (A100 MIG for small models, full A100 for large); MLflow Tracking + Registry.
+- Serving: KServe InferenceService for REST + gRPC; vLLM for LLMs; Triton for GPU batch inference; Istio for traffic management.
+- Monitoring: Evidently AI for drift reports; Prometheus + DCGM Exporter for GPU metrics; Grafana dashboards per model endpoint.
+- Governance: model card required in registry before production promotion; SHAP explainability report attached to each model version; fairness evaluation run as part of CT pipeline.
+
+**Scaling Considerations**
+- At 10K req/sec: single-region KServe with HPA on requests/second metric.
+- At 100K req/sec: multi-region with regional model replicas, regional feature stores, global load balancing.
+- At 1M req/sec: hierarchical caching (semantic cache → CDN-level cache for static responses), request batching, model quantization (INT8/INT4).
+- Cost model: profile GPU utilization monthly; right-size instance types quarterly; evaluate quantization tradeoffs annually.

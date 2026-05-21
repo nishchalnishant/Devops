@@ -1,5 +1,45 @@
 # Content from Notes_Git_GitHub.pdf
 
+```
+Git & GitHub — Fundamentals
+├── VCS History
+│   ├── CVCS (Centralized) — single server, single point of failure
+│   └── DVCS (Distributed) — every clone is a full backup
+├── Three-Stage Architecture
+│   ├── Working Directory — files you edit
+│   ├── Staging Area (Index) — git add moves changes here
+│   └── Repository (.git) — git commit snapshots the index
+├── Key Terms
+│   ├── Repository — the .git directory storing all history
+│   ├── Commit — a snapshot (not a diff) with metadata
+│   ├── Tag — a named pointer to a specific commit
+│   ├── Branch — a lightweight movable pointer
+│   ├── Push — send local commits to remote
+│   └── Pull — fetch + merge remote changes
+├── Core Commands
+│   ├── Setup: git config, git init, git clone
+│   ├── Workflow: git add, git commit, git status, git restore
+│   ├── Branching: git branch, git checkout, git switch
+│   ├── Remote: git remote, git fetch, git push, git pull
+│   └── History: git log, git diff
+├── Advanced Operations
+│   ├── cherry-pick — apply single commit to current branch
+│   ├── stash push/pop/drop — temporary work save
+│   ├── rebase — replay commits on a new base
+│   └── squash — combine commits into one
+└── Conflict Resolution
+    ├── Edit conflicted file, remove markers
+    ├── git add to mark resolved
+    └── git commit to complete merge
+```
+
+## First Principles
+
+- **DVCS vs CVCS:** In CVCS (SVN, Perforce), all history lives on one server. Network outage = can't commit. In DVCS (Git), every clone is a full repository. You can commit, branch, and view history offline. The server is just a coordination point.
+- **Snapshots, not diffs:** Git stores complete snapshots of all tracked files at each commit (using content-addressing to deduplicate identical files). This makes operations like branch switching and `git log` fast — no need to reconstruct state by replaying diffs.
+- **Why staging area?** It lets you craft commits with surgical precision. You can edit 3 files but only stage 2 for the next commit, keeping a logical commit history even during messy development.
+- **Why git stash?** When you're mid-work and need to switch context (hotfix, review someone's branch), stash shelves your changes without committing them — preserving both the staged and unstaged state.
+
 ## Page 1
 
 Git & Github

@@ -1,5 +1,56 @@
 # MLOps Monitoring & Observability — Deep Dive
 
+```
+MLOps Monitoring & Observability
+├── Four Layers of ML Observability
+│   ├── Infrastructure: CPU, GPU, memory, pod restarts, latency
+│   ├── Data pipeline: feature freshness, schema changes, null rates
+│   ├── Model quality: accuracy, PSI, confidence distribution
+│   └── Business: CTR, revenue, error rate correlated with model version
+├── Drift Detection
+│   ├── Data drift (covariate shift): P(X) changes
+│   ├── Concept drift: P(Y|X) changes — requires labels to detect
+│   ├── PSI: < 0.1 OK, 0.1–0.2 moderate, > 0.2 retrain
+│   ├── KS test: continuous features; Chi-squared: categorical
+│   ├── Jensen-Shannon / Wasserstein: additional distribution metrics
+│   └── Reference distribution: save at training time — required for comparison
+├── Delayed Label Problem
+│   ├── Proxy metrics: model confidence, output entropy, downstream KPIs
+│   ├── Rolling confidence window: alert if P5 confidence drops near 0.5
+│   └── Cohort analysis: segment by user group, geography, device type
+├── Evidently AI
+│   ├── DataDriftPreset: compares reference vs current feature distributions
+│   ├── ModelPerformancePreset: accuracy, precision, recall with labels
+│   ├── RegressionPerformancePreset: RMSE, MAE, error distribution
+│   └── Reports: HTML or JSON; CI/CD integration via Python API
+├── WhyLabs (whylogs)
+│   ├── Statistical profiles: lightweight sketches of data distributions
+│   ├── Streaming: works with real-time data without storing raw data
+│   └── Privacy-preserving: profiles, not raw feature values
+├── Arize AI
+│   ├── Real-time model monitoring with trace-level prediction logging
+│   ├── SHAP explanation storage with predictions
+│   └── Cohort slicing: monitor accuracy per user segment
+├── Alerting Strategy
+│   ├── Infrastructure: Prometheus AlertManager rules
+│   ├── Drift: tiered — warning (PSI 0.1), critical (PSI 0.2), page (business KPI)
+│   ├── Use rolling windows (5–15 min) to prevent alert fatigue
+│   └── Route alerts: drift → ML team Slack; latency → serving on-call; data → data engineering
+└── Monitoring Runbooks
+    ├── PSI > 0.2: investigate upstream data source → check CT trigger conditions
+    ├── Confidence drop: compare feature distribution to training baseline
+    ├── P99 latency spike: check feature store freshness → check GPU utilization → check batch size
+    └── Business KPI drop: correlate with recent model version or feature change
+```
+
+## First Principles
+
+- ML observability has four distinct layers: infrastructure (serving health), data pipeline (feature quality), model quality (prediction accuracy), and business (downstream impact) — missing any one creates blind spots.
+- Drift detection requires a reference distribution: you cannot measure "how much has the data changed" without saving a snapshot of the training data distribution at model creation time.
+- Delayed labels are the rule, not the exception: design monitoring with proxy metrics from day one; do not plan to monitor accuracy with labels that arrive weeks later.
+- Alert routing matters: drift alerts go to ML engineers, latency alerts go to serving engineers, data freshness alerts go to data engineers — the right person must be paged.
+- Evidently AI, WhyLabs, and Arize are complementary tools: Evidently for batch/offline reports, whylogs for streaming, Arize for real-time trace-level monitoring — choose based on your data ingestion pattern.
+
 ## Table of Contents
 
 1. [The Four Layers of ML Observability](#1-the-four-layers-of-ml-observability)
@@ -942,3 +993,22 @@ kubectl logs <pod-name> -n inference | grep "queue_depth"
 | Feature store staleness | Online store lag causes drift even with Feature Store — monitor freshness |
 | Cohort slicing blind spots | Overall accuracy can hide degradation in specific user segments |
 | P99 latency spikes | Short windows (1m) can miss — use 5m+ windows for alerting |
+
+***
+
+## System Design Perspective
+
+**Monitoring Pipeline Architecture**
+- Prediction logging: every inference request logs (request_id, model_version, features, prediction, confidence, timestamp) to Kafka topic → Flink/Spark streaming → data lake for batch analysis.
+- Real-time monitoring: whylogs statistical profiles aggregated every 5 minutes; PSI computed against reference profile; alert sent to AlertManager if threshold crossed.
+- Label ingestion: when ground truth labels arrive (user outcome, fraud confirmed, etc.), join with prediction logs by entity ID and event timestamp; compute accuracy metrics; update Evidently dashboard.
+
+**Cohort-Based Monitoring Design**
+- Overall accuracy masking: a model degrading only for mobile users might show stable aggregate metrics — always monitor key demographic and behavioral cohorts.
+- Cohort definition: segment by user_type, geography, device_type, account_age — choose segments that are business-meaningful, not arbitrary.
+- Minimum cohort size: don't compute metrics for cohorts < 100 samples — statistical noise will cause false alarms.
+
+**Drift-to-Retrain Automation**
+- Drift detected (PSI > 0.2) → webhook fires → CT pipeline triggered → if challenger passes evaluation gate → promoted to production → drift alert auto-resolves.
+- Circuit breaker: if CT pipeline fails > 2 times in 24h (due to data quality issues), stop auto-triggering and page ML team — prevents runaway retraining loops on corrupt data.
+- Audit trail: every auto-triggered retraining run records: trigger reason, PSI values, training data version, evaluation metrics — for compliance and debugging.

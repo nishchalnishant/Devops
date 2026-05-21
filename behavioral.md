@@ -1,5 +1,63 @@
 # Behavioral & Leadership Interview Guide
 
+```
+Behavioral & Leadership Interview Guide
+├── Answer Framework
+│   ├── STAR: Situation (2-3 sentences) → Task → Action (I, not we) → Result (quantified)
+│   └── Senior-level anchors: scope, influence without authority, system thinking, trade-off reasoning, learning
+├── Story Bank (Model Answers)
+│   ├── 1. Major incident leadership
+│   │   ├── Cascading Redis connection pool failure, Black Friday, 40 engineers watching
+│   │   ├── Role assignment in first 5 min, timeline correlation, config typo root cause
+│   │   └── Restored in 28 min (SLA: 2 hrs), $180k recovered, 3 action items in 2 sprints
+│   ├── 2. Driving tool adoption without authority
+│   │   ├── 15 ways to deploy → ArgoCD + Helm + Backstage golden path
+│   │   ├── Survey → empathy → build → champions → metrics dashboard → low switching cost
+│   │   └── 12/15 teams migrated in quarter, deploy freq 2x→8x/week, CFR 18%→4%
+│   ├── 3. Difficult technical trade-off under pressure
+│   │   ├── SOC2 audit in 2 weeks, root containers on K8s 5.10 with 3 known CVEs
+│   │   ├── Option A (risky rush) vs Option B (compensating control + 90-day plan)
+│   │   └── Passed audit, zero prod incidents, proper migration completed over 90 days
+│   ├── 4. Cost reduction without reliability sacrifice
+│   │   ├── $380k/month AWS bill, no visibility, 60 engineers
+│   │   ├── Tagging + CUR + Grafana → rightsizing → Spot → Savings Plans → serverless batch
+│   │   └── $380k → $207k/month (45.5% reduction), zero SLO violations
+│   ├── 5. Improving reliability for a critical system
+│   │   ├── Payments: 99.5% → 99.95% target, 3 failure pattern clusters (18 months of data)
+│   │   ├── Flagger canary → circuit breakers → HikariCP keepalive → burn-rate alerts
+│   │   └── 99.5% → 99.97%, MTTD 18 min → 3 min, zero SLA penalties in 6 months
+│   ├── 6. Setting SLOs (framework, not story)
+│   │   ├── Start with customer journey → measure 30 days → align to business impact
+│   │   ├── Set error budget → define consequences (budget healthy/50%/exhausted)
+│   │   └── Review quarterly as service and expectations evolve
+│   ├── 7. Pushing back on a business request
+│   │   ├── VP wanted untested schema change on Friday before bank holiday
+│   │   ├── Understood deadline → quantified 40% incident risk → proposed safer alternative
+│   │   └── Staging found migration bug that would have caused 45-min outage; deployed safely
+│   └── 8. Future of DevOps/Infrastructure (5-year view)
+│       ├── AI-augmented operations: runbooks, PromQL, incident triage (60% noise today)
+│       ├── Platform engineering as a product discipline: user research, OKRs, NPS
+│       └── Shift-left security: SBOMs, SLSA, Sigstore, OIDC-first, no long-lived secrets
+├── Question Bank
+│   ├── Failure, conflict, prioritization, influence, scale of ownership
+│   ├── Deprecation, staying current, mentoring, postmortems, first 90 days
+│   └── Each question → key signal the interviewer is testing
+└── First 90 Days Framework
+    ├── Days 1-30: listen and map (1:1s, architecture, unwritten rules, shadow on-call)
+    ├── Days 31-60: identify leverage (ROI list, validate with team, 1 quick win)
+    └── Days 61-90: start building (ship quick win, draft 6-month roadmap with team)
+```
+
+## First Principles
+
+- **Behavioral questions are proxy measures:** interviewers cannot watch you work, so they sample past behavior as the best predictor of future behavior — be specific and factual, not generic
+- **Seniority signals are in the framing, not the facts:** the same incident story can sound junior ("I fixed it") or senior ("I identified the systemic gap and built the guardrail so it cannot recur")
+- **STAR removes ambiguity:** structure forces you to distinguish what the situation was, what your actual responsibility was, what you specifically did, and what measurably changed — without structure, answers sound vague
+- **Quantification is non-negotiable at senior level:** "improved latency" is unmemorable; "P99 dropped from 180ms to 22ms" is a data point the interviewer can anchor on
+- **Influence without authority is the core senior skill:** the bigger your scope, the less you can mandate — you win through data, empathy, demonstration, and building internal champions
+- **Trade-off framing separates senior from mid-level:** every technical decision has costs — naming both sides and explaining why you chose one shows judgment, not just knowledge
+- **Postmortem mindset:** blame prevents learning; systemic thinking finds the real cause; the goal is not to punish but to make the same failure structurally impossible
+
 Staff/Principal/Senior DevOps and SRE interviews are 30-50% behavioral and leadership.
 These questions test how you think, communicate, influence, and handle adversity at scale.
 Each answer below is in **STAR format** (Situation, Task, Action, Result).

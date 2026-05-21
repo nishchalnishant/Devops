@@ -4,6 +4,49 @@ description: Helm scenarios — real-world troubleshooting, chart design, and up
 
 # Helm Scenarios & Troubleshooting
 
+```
+Helm Scenarios & Troubleshooting
+├── Scenario 1: Upgrade Stuck in pending-upgrade
+│   ├── Cause: pipeline lost connectivity mid-upgrade; Helm Secret left in pending state
+│   ├── Diagnosis: helm history → find pending revision; kubectl get secrets
+│   ├── Fix: helm rollback (clears pending) or helm uninstall + reinstall (last resort)
+│   └── Prevention: --atomic flag auto-rolls back on failure/timeout
+├── Scenario 2: Image Pull Error After Upgrade
+│   ├── Cause: wrong image tag in values; tag doesn't exist in registry; pull secret missing
+│   ├── Diagnosis: kubectl describe pod → Events: ImagePullBackOff + error message
+│   ├── Fix: helm rollback to last good revision immediately; then fix values
+│   └── Prevention: validate image exists in registry in CI before helm upgrade
+├── Scenario 3: Subchart Values Not Applied
+│   ├── Cause: missing subchart name prefix in parent values.yaml
+│   ├── Diagnosis: helm get values <release> → compare effective vs expected values
+│   ├── Fix: prefix values with subchart name (redis.auth.password not auth.password)
+│   └── Global values: .Values.global bypasses prefix and propagates to all subcharts
+├── Scenario 4: Hook Job Not Cleaning Up
+│   ├── Cause: hook-delete-policy not set; completed Jobs accumulate
+│   ├── Fix: add helm.sh/hook-delete-policy: hook-succeeded annotation to hook Job
+│   └── Or before-hook-creation: removes old Job before each upgrade
+├── Scenario 5: CRD Not Updated After Chart Upgrade
+│   ├── Cause: Helm only installs CRDs on helm install; never updates on helm upgrade
+│   ├── Fix: kubectl apply -f crds/ manually before helm upgrade
+│   └── Long-term: use Flux HelmRelease with crds: CreateReplace for managed CRD upgrades
+├── Scenario 6: ArgoCD Ignoring Helm Hooks
+│   ├── Cause: ArgoCD uses helm template; hook annotations are ignored in GitOps mode
+│   ├── Fix: replace Helm hooks with ArgoCD sync waves (argocd.argoproj.io/sync-wave)
+│   └── Pre-upgrade DB migration: move to a Job with sync-wave: "-1" in ArgoCD
+└── Scenario 7: Template Rendering Debugging Workflow
+    ├── Step 1: helm template ./chart --values vals.yaml --debug (local render)
+    ├── Step 2: kubectl apply --dry-run=server (API validation without cluster apply)
+    ├── Step 3: helm install --dry-run --debug (show USER-SUPPLIED VALUES + computed values)
+    └── Step 4: kubeconform for K8s schema version validation
+```
+
+## First Principles
+
+- Kubernetes YAML is repetitive across environments. Helm = templating engine + package manager for K8s. Scenarios test operational knowledge: how to diagnose stuck releases, failed hooks, and misconfigured values.
+- `--atomic` prevents stuck states. `helm rollback` restores previous working state from the release Secret. These two commands are the first response to any failed upgrade.
+- ArgoCD uses `helm template` not `helm install` — Helm hooks are ignored. Operational teams migrating to ArgoCD must audit all hooks and replace them with sync waves.
+- CRD upgrade limitation is a production surprise. Document the manual `kubectl apply -f crds/` step in runbooks whenever a chart version bump includes CRD changes.
+
 ***
 
 ## Scenario 1: Helm Upgrade Stuck in `pending-upgrade` State
@@ -255,3 +298,24 @@ helm install debug-release ./chart \
 # Step 5: kubeconform for schema validation
 kubeconform -kubernetes-version 1.29.0 rendered.yaml
 ```
+
+***
+
+## System Design Perspective
+
+**Upgrade Safety Runbook**
+1. `helm diff upgrade` — review all resource changes before applying.
+2. For DB schema changes: run pre-upgrade hook Job manually (`kubectl apply -f migration-job.yaml`) and verify completion before `helm upgrade`.
+3. `helm upgrade --install --atomic --timeout 10m --wait` — atomic ensures auto-rollback.
+4. Post-upgrade: `helm test <release>` to run smoke tests; monitor error rate for 10 minutes.
+5. Rollback: `helm rollback <release> <revision>` — instant restore from Secret history.
+
+**Multi-Chart Upgrade Ordering**
+- Infrastructure layer (cert-manager, ingress-nginx, external-secrets) upgrades before application layer.
+- Use Helmfile `needs:` to enforce this ordering. Upgrades without `needs:` can run in parallel.
+- Never upgrade cert-manager and applications that use it simultaneously — certificate reconciliation may interrupt mid-deploy.
+
+**Helm in a Regulated Environment**
+- Every `helm upgrade` must be traceable: log the chart version, values hash, git SHA, and operator identity to an audit trail (CloudTrail, Azure Monitor).
+- Immutable releases: push chart versions to OCI as immutable artifacts (disable overwrite in Harbor/ECR). No mutable `latest` tag in production.
+- Change approval: `helm diff upgrade` output is attached to the change ticket; reviewer approves the diff, not the chart.

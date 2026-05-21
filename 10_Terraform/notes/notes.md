@@ -1,5 +1,73 @@
 # Terraform — Deep Dive Notes
 
+```
+Terraform Internals & Advanced Patterns
+├── Architecture Internals
+│   ├── Core      → reads .tf, builds DAG, computes diff against state
+│   ├── Parser    → HCL → AST → IR; validates schema against provider
+│   ├── State Manager → reads/writes state (local or remote backend)
+│   └── Provider Broker → spawns provider process, communicates via gRPC
+├── State Internals
+│   ├── JSON format: serial, version, resources[] with instances[]
+│   ├── Each resource has type, name, provider, attributes snapshot
+│   └── S3+DynamoDB locking: conditional PutItem on lock record
+├── Provider gRPC Protocol
+│   ├── GetProviderSchema → resource + data source schemas
+│   ├── PlanResourceChange → compute desired state diff
+│   ├── ApplyResourceChange → execute CRUD against cloud API
+│   └── ReadResource → refresh current state from cloud
+├── Module Design Patterns
+│   ├── Root module calls child modules with input variables
+│   ├── Output chaining: module A outputs → module B inputs
+│   ├── Count/for_each in module call → multiple instances
+│   └── Private module registry or Git tag source
+├── Dynamic Blocks & Templates
+│   ├── dynamic {} → generate repeated nested blocks from list/map
+│   ├── templatefile() → render file with variable substitution
+│   └── for expressions → transform lists/maps inline
+├── Import & Moved Patterns
+│   ├── import {} block (TF 1.5+) → declarative, reviewable in PR
+│   ├── terraform import → imperative, state-only
+│   └── moved {} → rename/relocate without destroy
+├── Provider Aliases (Multi-Region/Account)
+│   ├── provider "aws" { alias = "us_west"; region = "us-west-2" }
+│   └── resource calls provider = aws.us_west
+├── GitOps with Atlantis
+│   ├── PR open → plan posted as PR comment
+│   ├── Merge → apply executes
+│   └── Repo-level locking: one apply at a time per workspace
+├── Terraform Cloud/Enterprise
+│   ├── Remote execution, managed state, RBAC, audit log
+│   ├── Sentinel policies: hard-mandatory / soft-mandatory / advisory
+│   └── VCS integration + cost estimation + private module registry
+├── Testing Pyramid
+│   ├── terraform validate → syntax
+│   ├── terraform test (.tftest.hcl) → unit-level (TF 1.6+)
+│   ├── Terratest → Go integration tests against real infra
+│   └── checkov / trivy → static security scanning
+├── Dependency Graph
+│   ├── Implicit: attribute reference creates edge (A.id → B.vpc_id)
+│   ├── Explicit: depends_on (last resort; blocks parallel plan)
+│   └── terraform graph | dot -Tsvg → visualize
+├── Sentinel Policy Framework
+│   ├── Evaluates plan JSON before apply
+│   ├── Enforcement: hard-mandatory > soft-mandatory > advisory
+│   └── OPA/Conftest: open-source alternative (Rego policies)
+└── Advanced Patterns
+    ├── Conditional resource: count = var.enabled ? 1 : 0
+    ├── Remote state data source: cross-team output consumption
+    ├── SSM loose coupling: fetch VPC ID from Parameter Store
+    └── null_resource + triggers: re-run local-exec on change
+```
+
+## First Principles
+
+- Terraform Core is a graph engine. It parses HCL into a directed acyclic graph of resources, computes the diff between desired state (HCL) and actual state (state file), then walks the graph applying changes in dependency order.
+- Providers are separate processes communicating over gRPC on a Unix socket. Terraform Core does not know how to talk to AWS — the AWS provider does. This is why providers are versioned independently and downloaded at `init` time.
+- The state file is a snapshot of resource attributes at last-known-good. When you run `plan`, Core reads state, reads HCL, diffs them, and queries the cloud for drift. The plan is the union of code-desired state and cloud-actual state.
+- Dynamic blocks solve the "repeated nested block" problem without code duplication. They're the HCL equivalent of a `for` loop over a nested block structure.
+- Atlantis turns the CLI workflow into a git-native workflow. The plan is a PR comment. The apply is triggered by a merge. Every infrastructure change has a code review, just like application code.
+
 ## Why Terraform Internals Matter
 
 Terraform is the industry standard for Infrastructure as Code (IaC). But when things go wrong — state file corruption, provider bugs, drift detection failures, or massive plan times — you need to understand what's happening under the hood.
@@ -583,3 +651,19 @@ resource "null_resource" "db_migration" {
 ```
 
 The resource re-runs its provisioner when any `triggers` value changes — useful for running one-time scripts tied to Terraform state.
+
+***
+
+## System Design Perspective
+
+**gRPC provider protocol as an extension point:** Any system with a CRUD API can have a Terraform provider. Internal platforms (service mesh, internal secrets store, custom DNS) can expose a Terraform-native interface. Platform teams write the provider; application teams write `resource "internal_service" {}` — no knowledge of the underlying API required.
+
+**Dependency graph as an architecture diagram:** `terraform graph | dot -Tsvg` reveals the actual dependency structure of your infrastructure. Long chains indicate sequential bottlenecks (everything waits for one slow resource). Wide graphs indicate parallelizable operations. Use the graph to identify performance bottlenecks in large plans.
+
+**Atlantis vs. Terraform Cloud for enterprise:**
+- Atlantis is fully self-hosted. Data never leaves your network. Required for highly regulated environments (financial services, healthcare). Operational overhead: you manage the Atlantis server, secret rotation, and upgrades.
+- Terraform Cloud is managed. Operational overhead is near zero. Suitable when the organization accepts SaaS for infrastructure tooling. Enterprise tier adds Sentinel, audit logging, SSO, and self-hosted agents.
+
+**null_resource as an anti-pattern indicator:** Every `null_resource` with a `local-exec` provisioner is a gap in Terraform's declarative model. It indicates that the desired operation is not expressible as a resource. Before using it, ask: can this be done with a proper resource (e.g., `aws_lambda_invocation`, `helm_release`)? Use `null_resource` only as a last resort with well-defined `triggers` to control re-execution.
+
+**State as a security boundary:** Everyone with `s3:GetObject` on the state bucket can read all sensitive attributes — database passwords, private keys, connection strings — even those marked `sensitive = true`. State bucket access = secret access. Apply the same IAM controls to the state bucket that you'd apply to your secrets manager.

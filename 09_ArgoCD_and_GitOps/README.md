@@ -1,5 +1,109 @@
 # ArgoCD and GitOps — Deep Theory Notes
 
+```
+ArgoCD and GitOps — Mind Map
+├── GitOps Principles (4 Properties)
+│   ├── Declarative: desired state as files, not imperative scripts
+│   ├── Versioned and immutable: every change is a Git commit (audit log)
+│   ├── Pulled automatically: operator inside cluster polls Git (no inbound credentials)
+│   └── Continuously reconciled: drift detected and corrected on configured interval
+│
+├── Push-Based vs Pull-Based
+│   ├── Push: CI pipeline holds kubeconfig, pushes kubectl apply
+│   └── Pull: ArgoCD holds Git token, pulls and applies — CI server cannot push to cluster
+│
+├── ArgoCD Architecture (5 Components)
+│   ├── argocd-server: API Server — gRPC/REST, RBAC, SSO/OIDC, webhook receiver
+│   ├── argocd-repo-server: renders manifests (Helm, Kustomize, Jsonnet, plain YAML, CMP)
+│   ├── argocd-application-controller: reconciliation loop, computes diff, triggers sync
+│   ├── Redis: manifest render cache; avoids re-cloning on every reconcile cycle
+│   └── Dex (optional): OIDC provider bridge for SSO (GitHub, LDAP, SAML)
+│
+├── Application CRD
+│   ├── source: repoURL + path + targetRevision
+│   ├── destination: server (cluster URL) + namespace
+│   ├── syncPolicy: automated (prune, selfHeal) + syncOptions
+│   └── ignoreDifferences: jsonPointers / jqPathExpressions for non-deterministic fields
+│
+├── Sync Status & Health
+│   ├── Sync: Synced | OutOfSync | Unknown
+│   └── Health: Healthy | Progressing | Degraded | Suspended | Missing | Unknown
+│
+├── Sync Waves & Hooks
+│   ├── argocd.argoproj.io/sync-wave: "N" — resources applied in ascending wave order
+│   ├── PreSync: run before sync (schema migrations, CRD installation)
+│   ├── Sync: applied alongside regular resources
+│   ├── PostSync: run after all resources healthy (smoke tests, notifications)
+│   └── SyncFail: run on sync failure (alert, rollback trigger)
+│
+├── App of Apps Pattern
+│   ├── Root Application points to directory of Application manifests
+│   ├── Each child Application manages an actual workload
+│   └── Use case: bootstrap entire cluster from a single ArgoCD Application
+│
+├── ApplicationSet (7 Generator Types)
+│   ├── list: explicit key-value pairs → one Application per list item
+│   ├── cluster: one Application per registered ArgoCD cluster
+│   ├── git (directories): one Application per directory matching glob
+│   ├── git (files): one Application per matching config file
+│   ├── matrix: cross-product of two generators (apps × clusters)
+│   ├── merge: combine multiple generators with merge key
+│   ├── pullRequest: one ephemeral Application per open PR
+│   └── scmProvider: discover repos from GitHub/GitLab org
+│
+├── AppProject RBAC
+│   ├── sourceRepos: allowed Git repos for this project
+│   ├── destinations: allowed clusters + namespaces
+│   ├── clusterResourceWhitelist: allowed cluster-scoped resources
+│   ├── namespaceResourceBlacklist: forbidden namespace resources
+│   └── syncWindows: restrict sync to maintenance windows
+│
+├── Multi-Cluster (Hub-and-Spoke)
+│   ├── One ArgoCD control plane manages N spoke clusters via cluster secrets
+│   ├── ApplicationSet cluster generator: auto-creates Application per cluster
+│   ├── Controller sharding: ARGOCD_CONTROLLER_REPLICAS for 100+ clusters
+│   └── Ring-based upgrades: promote Helm chart version Ring 0 → 1 → 2 → all
+│
+├── Progressive Delivery
+│   ├── Argo Rollouts: Rollout CRD replaces Deployment for canary/blue-green
+│   ├── AnalysisTemplate: Prometheus SLI queries gate traffic shift
+│   ├── Flagger: watches Deployment, configures mesh VirtualService, metric-gated
+│   └── Traffic providers: Nginx Ingress, Istio VirtualService, AWS ALB
+│
+├── Secret Management
+│   ├── External Secrets Operator: ExternalSecret CRD → fetches from Vault/AWS SM
+│   ├── Sealed Secrets: kubeseal encrypts; controller decrypts into real Secret
+│   └── SOPS + CMP: encrypted files in Git; ArgoCD CMP plugin decrypts at render
+│
+├── ArgoCD Image Updater
+│   ├── Watches container registry for new image tags
+│   ├── Writes updated tag back to Git (write-back: git or argocd)
+│   └── Annotation-driven: argocd-image-updater.argoproj.io/image-list
+│
+├── High Availability Setup
+│   ├── argocd-server: 3+ replicas, stateless, behind load balancer
+│   ├── argocd-repo-server: 3+ replicas, CPU-bound, autoscale on CPU
+│   ├── argocd-application-controller: sharded (ARGOCD_CONTROLLER_REPLICAS)
+│   └── Redis: Redis Sentinel or managed Redis for HA
+│
+└── FinOps & GitOps
+    ├── Infracost: cost delta in CI PRs before Terraform apply
+    ├── Kubecost: per-namespace/label/deployment cost allocation
+    ├── OPA: enforce resource requests/limits in ArgoCD AppProject policy
+    ├── FOCUS spec: cross-cloud billing normalization (BilledCost, EffectiveCost)
+    └── Showback → Chargeback progression: visibility first, billing second
+```
+
+## First Principles
+
+- Declarative state in Git is the source of truth. The cluster is an execution environment, not a state store. Any cluster-local state that isn't in Git is ephemeral and will be corrected.
+- A controller continuously reconciles actual cluster state to desired Git state — eliminating manual `kubectl apply`. The human's job is to commit to Git; the operator's job is to make the cluster match.
+- Pull-based deployment removes the need to push credentials into CI. The cluster reaches out to Git; a compromised CI pipeline cannot push arbitrary workloads to production clusters.
+- Git history is the audit log. Who changed what, when, and why is answered by `git log`. Rollback is `git revert` — no emergency runbook, no manual state reconstruction.
+- Sync waves provide ordered resource application without imperative scripts. CRDs must exist before CRs; namespaces before resources in them; databases before applications that connect to them. Waves encode this ordering declaratively.
+- ApplicationSet is a template + generator = N Applications. The generator defines the input space (clusters, directories, PR numbers); the template defines the Application structure. Adding a new cluster to the fleet requires only registering it — the ApplicationSet creates its Applications automatically.
+- Progressive delivery extends GitOps into the deployment itself. ArgoCD manages the Rollout manifest; Argo Rollouts controls the traffic split and promotion gate. The Rollout spec in Git is the desired delivery strategy; the controller executes it.
+
 ## 1. GitOps Principles
 
 GitOps is an operational model that uses Git as the single source of truth for all desired state — both applications and infrastructure. Four immutable properties define a GitOps system:
@@ -1875,4 +1979,28 @@ argocd app list --output name | xargs -P10 -I{} \
 
 ***
 
-*See also: [Interview Hub](README.md) | [DevOps Hard Questions](interview-questions-hard.md) | [Platform Engineering & FinOps](../06_Advanced_DevOps_and_Architecture/Platform_Engineering_and_FinOps.md) | [eBPF & Service Mesh](advanced-ebpf-and-service-mesh.md)*
+*See also: [Interview Hub](README.md) | [DevOps Hard Questions](interview-questions-hard.md) | [Platform Engineering & FinOps](.././Platform_Engineering_and_FinOps.md) | [eBPF & Service Mesh](advanced-ebpf-and-service-mesh.md)*
+
+***
+
+## System Design Perspective
+
+**Multi-cluster fleet management architecture**
+
+Hub-and-spoke is the standard pattern: one ArgoCD control plane registers N spoke clusters via cluster secrets (each containing the API server URL + service account token). ApplicationSet with a `cluster` generator creates one Application per spoke automatically. Cluster metadata (tier, region, compliance level) is stored as labels on the cluster secret — ApplicationSet label selectors filter which clusters receive which applications. At 200+ clusters, controller sharding (`ARGOCD_CONTROLLER_REPLICAS=N`) distributes the reconciliation loop across N controller instances, each owning a shard of Applications.
+
+**Sync wave ordering for complex deployments**
+
+Sync waves solve the "dependency ordering without imperative scripts" problem. Wave 0: namespace creation, CRD installation (must exist before CRs). Wave 1: cluster-scoped infrastructure (RBAC, storage classes, cert-manager). Wave 2: platform services (external-secrets-operator, ingress controller). Wave 3: application namespaces and ConfigMaps. Wave 4: application Deployments and Services. Wave 5: PostSync smoke tests. The application controller applies resources in ascending wave order and waits for each wave to reach Healthy status before proceeding to the next. A deadlock occurs when a PostSync hook in wave N creates a resource that wave N+1 depends on — break this by splitting into two Applications.
+
+**App of Apps bootstrap pattern**
+
+The App of Apps pattern solves the chicken-and-egg problem of "who creates ArgoCD Applications?" A root Application (created once manually or via Helm) points to a Git directory containing other Application manifests. ArgoCD syncs the root Application, which creates all child Applications, which sync their respective workloads. Adding a new service means committing an Application manifest to the directory — no imperative API calls. The root Application directory is the fleet registry.
+
+**FinOps integration with GitOps**
+
+The GitOps workflow is the natural enforcement point for cost governance. In CI: Infracost runs on every Terraform PR, blocking merges where cost delta exceeds a threshold (OPA policy gate). In the cluster: OPA Gatekeeper or Kyverno enforces that all Deployments have resource requests and limits set — ArgoCD AppProject policies can enforce this at the project level. Kubecost aggregates actual cost by namespace/label and writes to a time-series database — Slack alerts when a namespace exceeds its budget. The progression: showback first (visibility, no consequences), then chargeback (internal billing, team accountability).
+
+**ArgoCD disaster recovery design**
+
+ArgoCD's state is stored in Kubernetes CRDs (Application, AppProject, cluster secrets). Recovery path: (1) restore CRDs from Git (App of Apps means the Application definitions are in Git); (2) restore cluster secrets (encrypted in Git via SOPS or stored in Vault); (3) ArgoCD self-syncs from Git and recreates all workloads. The `argocd admin export` command produces a backup YAML of all Applications and Projects — run this in a scheduled job and store in S3. True recovery relies on Git being intact: if Git is the source of truth and Git is durable, the cluster state is always recoverable.

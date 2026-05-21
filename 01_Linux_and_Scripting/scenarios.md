@@ -1,5 +1,76 @@
 # Production Scenarios & Troubleshooting Drills (Senior Level)
 
+```
+Production Scenarios
+├── Level 1: System Internals & Process Management
+│   ├── Zombie processes: parent not calling wait(), fix by killing parent
+│   ├── Ghost disk space: df vs du discrepancy, file held open post-delete
+│   └── CPU 10% but Load 20: D-state processes, I/O wait, iostat -xz
+├── Level 2: SRE & Kernel Tuning
+│   ├── systemd 203/EXEC: wrong shebang, no +x, CRLF line endings
+│   ├── OOM thrashing: dmesg | grep oom, oom_score_adj for protection
+│   ├── TCP SYN flood: somaxconn, tcp_max_syn_backlog tuning
+│   ├── eBPF profiling: biolatency, periodic cron causing disk saturation
+│   └── HugePages for PostgreSQL: TLB miss reduction, sys CPU spike
+├── Level 3: Platform Engineering & Deep Troubleshooting
+│   ├── CPU steal time (%st): hypervisor taking cycles, migrate instance
+│   ├── "Too many open files" vs file-max: ulimit vs kernel-wide limit
+│   ├── D-state deadlock: NFS hang, umount -f, cannot kill with -9
+│   ├── NIC ring buffer drops: ethtool -G, softirq saturation /proc/softirqs
+│   ├── Dirty page writeback freeze: vm.dirty_ratio, lower background ratio
+│   ├── Rootkit detection: busybox ps, /proc/ direct check, chkrootkit/rkhunter
+│   ├── Clock skew: JWT/Kerberos auth failures, chronyd/ntpd sync
+│   ├── Inode exhaustion: df -h ok, df -i full, millions of tiny files
+│   ├── Shared memory segment leak: /dev/shm, ipcs -m, ipcrm -m
+│   ├── eBPF overhead: detach from high-frequency events, use sampling
+│   ├── SSH hang at motd: /etc/profile.d/ script calling unreachable host
+│   ├── Kernel panic: /var/log/kdump, stack trace, RIP, driver update
+│   ├── AppArmor/SELinux deny: dmesg | grep deny, audit2allow
+│   ├── Heavy SAN/NFS user: iotop -Pa, ionice -c 3
+│   ├── Journal space: journalctl --vacuum-time / SystemMaxUse
+│   ├── Memory fragmentation: /proc/buddyinfo, compact_memory
+│   ├── Executable /tmp: mount -o remount,noexec, /etc/fstab
+│   ├── Soft lockup (NMI watchdog): CPU stuck in kernel loop, driver issue
+│   └── systemd-oomd wrong target: kills cgroup, not largest process
+├── Level 4: Advanced Networking & Storage
+│   ├── Silent packet drops: socket buffer, NIC ring buffer, softirq
+│   │   ├── ss -s: RcvbufErrors
+│   │   ├── ethtool -S: miss/drop/overflow
+│   │   └── Fix: rmem_max, netdev_max_backlog, RSS queues
+│   ├── D-state disk stalls: ext4 journal contention, SSD scheduler (none)
+│   │   ├── iostat -x: %await > 50ms, %util 100%
+│   │   └── Fix: echo none > scheduler, increase nr_requests, XFS for parallel writes
+│   ├── Midnight CPU spike: hidden cron sources, systemd timers
+│   │   ├── /etc/cron.d, /etc/crontab, systemctl list-timers
+│   │   └── Fix: stagger with RandomizedDelaySec, anacron offsets
+│   └── Bash daemon memory leak: fd leak, zombie accumulation, tmp files
+│       ├── Diagnose: /proc/PID/fd count, ps aux awk $8==Z
+│       └── Fix: trap cleanup EXIT, wait -n for background jobs
+├── Level 5: Security & Hardening
+│   ├── SSH brute force: fail2ban, PasswordAuthentication no, iptables rate-limit
+│   │   ├── grep "Failed password" /var/log/auth.log
+│   │   └── Check: new authorized_keys, SUID binaries, cron persistence
+│   └── /var full cascade: du -sh /var/*, lsof +L1 for ghost space
+│       ├── Fix: truncate rotated logs, restart holding process, apt clean
+│       └── Prevent: separate /var partition, logrotate, journald SystemMaxUse
+└── Level 6: Performance Tuning
+    ├── 10Gbps NIC underperforming: TCP buffer, window scaling, BBR, RSS
+    │   ├── Diagnose: sysctl rmem/wmem, ethtool -k (offloads), /proc/interrupts
+    │   └── Fix: rmem_max=128M, tcp_congestion_control=bbr, ethtool -L combined
+    └── inotify watch limit: IDE/webpack registering too many watches
+        ├── Diagnose: /proc/sys/fs/inotify/max_user_watches, per-pid count
+        └── Fix: sysctl max_user_watches=524288, exclude node_modules/.git
+```
+
+## First Principles
+
+- **Every incident has a bottleneck resource.** CPU, memory, disk I/O, network I/O, or file descriptors — only one is the primary constraint. The USE Method (Utilization, Saturation, Errors) applied to each resource reveals which one.
+- **"The disk is full" has three distinct causes:** actual space exhaustion, inode exhaustion, and deleted-but-open files. They look the same from the application's perspective but require completely different fixes.
+- **D-state processes cannot be killed because the kernel itself is blocking them.** `kill -9` is a user-space signal; a process in uninterruptible sleep is deep inside a kernel code path that hasn't reached a signal-check point.
+- **Security incidents follow a pattern:** initial access → persistence → privilege escalation. Checking for new SUID binaries, cron entries, and authorized_keys covers persistence. The attacker's goal is to survive reboots.
+- **Brute force protection is layered:** fail2ban (rate-limiting), key-only auth (no password to guess), `AllowUsers` (no lateral movement), and iptables rate-limiting (hardware-level drop). No single layer is sufficient.
+- **Performance problems at midnight are predictable.** Every system has scheduled maintenance tasks. The design error is not staggering them — they all align at 00:00 because that is the default cron "daily" time.
+
 ## Level 1: System Internals & Process Management
 
 ### Scenario 1: The "Zombies" Are Coming
@@ -551,3 +622,22 @@ echo "fs.inotify.max_user_instances=512"  >> /etc/sysctl.d/10-inotify.conf
 ```
 
 **Structural fix:** Identify and configure the offending watcher to exclude large directories (e.g., `node_modules`, `.git`, build artifacts). In VS Code: `files.watcherExclude` setting. For webpack: `watchOptions.ignored`. This prevents the limit from being hit again after the increase.
+
+## System Design Perspective
+
+**Scalability**
+- All kernel tunables (`somaxconn`, `rmem_max`, `file-max`) have conservative defaults designed for low-spec general-purpose machines. Production systems at any meaningful scale require a sysctl baseline applied at boot via `/etc/sysctl.d/`.
+- The correct level to stop a brute-force attack is at the network perimeter (firewall/WAF), before traffic reaches the SSH daemon. fail2ban is a last-resort defense — the connection cost of 10k attempts/hour still consumes resources.
+- Midnight maintenance windows are an anti-pattern at scale. Use `RandomizedDelaySec` on systemd timers and `anacron` for cron to spread load. At 1000 servers all running `logrotate` at 00:00 simultaneously, the shared NFS/SAN takes a write spike every night.
+
+**Failure Modes**
+- **Ghost disk space cascade:** A service writes to a log file. Logrotate renames and compresses it. The service still writes to the original inode via an open fd. The compressed file takes up space AND the old inode bytes are still counted. Fix: send SIGHUP to force log reopen.
+- **Clock skew auth failures are non-obvious:** JWT/Kerberos tokens are time-bounded. A 5-second skew breaks authentication across all services. This is often misdiagnosed as a "misconfiguration" — the real cause is a stopped NTP daemon.
+- **systemd-oomd kills at the cgroup level:** it evaluates memory pressure per cgroup (slice), not per process. A single leaking child process in a cgroup causes the entire cgroup (including healthy siblings) to be killed. Design: isolate leaky services in their own slice.
+- **ext4 journal contention under parallel fsync:** multiple writers simultaneously waiting on the journal commit is a correctness/consistency design — ext4 cannot safely skip it. The fix is not to disable journaling but to use XFS (which handles concurrent transactions better) or switch to a filesystem better suited for write-heavy parallel workloads.
+
+**Trade-offs**
+- **nobarrier mount option:** disables write barrier which ensures data hits persistent storage before acknowledging writes. Improves performance by 10–30% but risks data corruption on power loss. Only acceptable on storage with battery-backed write cache.
+- **Killing parent to reap zombies:** fixes the zombie leak but may bring down a healthy service. Evaluate whether the parent can be signaled (SIGCHLD) to call `wait()` instead — many daemons respond to SIGCHLD by reaping children.
+- **inotify limit increase vs. structural fix:** raising `max_user_watches` is immediate relief but masks the real problem. A tool watching every file in `node_modules` (200k+ files) is architecturally broken. The real fix is exclusion lists, not a bigger limit.
+- **BBR vs CUBIC congestion control:** BBR (Bottleneck Bandwidth and RTT) outperforms CUBIC on high-latency, high-bandwidth paths (cross-datacenter, satellite links). On local LAN or same-DC links, the difference is negligible and CUBIC is the safer known quantity.

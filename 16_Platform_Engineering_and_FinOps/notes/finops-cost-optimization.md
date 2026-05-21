@@ -4,6 +4,60 @@ description: Cloud FinOps, cost allocation, rightsizing, Kubernetes cost managem
 
 # Platform Engineering — FinOps & Cloud Cost Optimization
 
+```
+FinOps & Cloud Cost Optimization
+├── FinOps Lifecycle
+│   ├── INFORM: allocate costs, build dashboards, establish tagging
+│   ├── OPTIMIZE: rightsizing, Reserved Instances, Spot, autoscaling
+│   └── OPERATE: budgets + alerts, chargeback/showback, anomaly detection
+├── Cost Allocation Foundations
+│   ├── Tagging strategy: team, environment, service, cost-center tags
+│   ├── AWS Cost Allocation Tags: activate in Billing Console
+│   ├── Kubernetes: Kubecost / OpenCost for namespace-level attribution
+│   └── FOCUS spec: multi-cloud billing normalization schema
+├── Rightsizing
+│   ├── AWS Compute Optimizer: ML-based instance size recommendations
+│   ├── CloudWatch metrics: CPU < 10% sustained = overprovisioned
+│   ├── Memory sizing: requires CloudWatch agent or container metrics
+│   └── Approach: downsize in staging first, validate, then prod
+├── Reserved Capacity
+│   ├── Reserved Instances: commit to specific instance type, 30-60% savings
+│   ├── Savings Plans: flexible commitment (Compute SP), 20-50% savings
+│   ├── Spot Instances: 60-90% savings; suitable for stateless/batch
+│   └── Committed Use Discounts (GCP), Azure Reservations: same concept
+├── Kubernetes FinOps
+│   ├── Kubecost: per-namespace, per-label, per-workload cost
+│   ├── Idle cost: requested but unused CPU/memory
+│   ├── Efficiency score: actual usage / requested resources
+│   ├── VPA: Vertical Pod Autoscaler for right-sized requests/limits
+│   └── HPA + KEDA: scale to zero for low-utilization workloads
+├── Waste Elimination
+│   ├── Orphaned volumes: EBS/PD left after instance deletion
+│   ├── Idle load balancers: ALBs with no healthy targets
+│   ├── Zombie environments: dev/staging running 24/7 unnecessarily
+│   ├── Oversized RDS: CloudWatch DatabaseConnections = 0 → downsize
+│   └── CloudCustodian: automated policy-based resource garbage collection
+├── Unit Economics
+│   ├── Cost per API request = monthly spend / monthly requests
+│   ├── Cost per active user = monthly spend / monthly active users
+│   ├── Track trend: cost should decrease as scale increases (efficiency)
+│   └── Use for capacity planning and ROI conversations with leadership
+└── FinOps Tooling
+    ├── AWS Cost Explorer: usage trends, RI recommendations
+    ├── Infracost: pre-commit IaC cost estimation in CI/CD
+    ├── Kubecost / OpenCost: K8s namespace cost
+    ├── CloudHealth / Apptio Cloudability: enterprise multi-cloud FinOps
+    └── CloudCustodian: automated governance policies for cost control
+```
+
+## First Principles
+
+- Cloud cost is variable and invisible by default — it must be made visible before it can be managed.
+- Tagging is the foundation: without consistent tags, cost cannot be allocated, accountability cannot exist, and optimization is guesswork.
+- FinOps is not about minimizing spend — it is about maximizing value per dollar; sometimes the right answer is to spend more on a service that generates more revenue.
+- Rightsizing beats reserved capacity as the first optimization lever: you can't get a discount on waste.
+- Unit economics bridges engineering and business: "cost per transaction" is a language that both engineers and executives understand.
+
 ## The FinOps Model
 
 FinOps (Financial Operations) is the practice of bringing financial accountability to cloud spending. The goal is not to minimize spend — it's to maximize **value per dollar**.
@@ -206,3 +260,23 @@ aws budgets create-budget \
 | **K8s efficiency** | Maximize bin-packing | Set requests accurately first; over-packing causes OOM and poor QoS |
 | **Tagging** | "We'll add tags later" | Tag from day 1 in IaC; retroactive tagging is nearly impossible |
 | **Savings** | Focus on infra discounts only | Data transfer costs (cross-AZ, internet) are often the hidden largest bill |
+
+***
+
+## System Design Perspective
+
+**Enterprise FinOps Platform Architecture**
+- Data pipeline: AWS Cost and Usage Report (CUR) → S3 → Glue crawler → Athena → Grafana; run daily; partition by account, service, and tag.
+- Multi-cloud normalization: adopt FOCUS spec schema; write ETL to map AWS CUR + Azure Cost Management + GCP Billing Export into a unified schema before loading to the data warehouse.
+- Showback automation: weekly Lambda that queries Athena, computes per-team deltas vs prior week, and posts a formatted Slack message to each team's channel — zero manual effort.
+
+**Kubernetes Cost Optimization Architecture**
+- Deploy Kubecost in-cluster with Prometheus integration; expose Grafana dashboards per namespace.
+- VPA in recommendation mode first (observe for 2 weeks) → apply resource request adjustments without disruption.
+- KEDA for event-driven workloads: scale to zero consumer pods when SQS queue is empty — eliminates idle cost for async workloads.
+- Node autoscaler (Karpenter): provision right-sized nodes for actual pod requests; consolidate under-utilized nodes automatically.
+
+**FinOps Governance Integration with IDP**
+- Every Backstage template enforces required cost tags at provisioning time — no resource can be created without team, environment, and service tags.
+- Infracost CI gate: if a PR increases estimated monthly cost by > $500, require a platform team approval before merge.
+- Budget alerts routed to team channels (not a central finance inbox) — teams own their spend and are notified first.

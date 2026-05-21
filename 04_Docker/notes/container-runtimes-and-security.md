@@ -1,5 +1,69 @@
 # Container Runtimes & Security
 
+```
+Container Runtimes & Security
+├── Runtime Landscape
+│   ├── Docker CLI / nerdctl / crictl / kubectl (application layer)
+│   ├── High-Level Runtime: containerd, CRI-O, Docker Engine
+│   │   └── Manages images, snapshots, container lifecycle
+│   ├── Low-Level Runtime: runc, crun, Kata Containers, gVisor
+│   │   └── Creates namespaces, cgroups, pivot_root
+│   └── Linux Kernel: namespaces, cgroups, seccomp, AppArmor
+├── Container Runtime Architecture (Kubernetes path)
+│   ├── kubelet → CRI (gRPC) → containerd → containerd-shim → runc → container
+│   ├── containerd-shim: keeps container alive if containerd restarts
+│   └── OCI Runtime Spec: standard interface for runc and alternatives
+├── Linux Primitives
+│   ├── pid namespace — isolated process tree (container PID 1)
+│   ├── net namespace — isolated network stack (veth pairs)
+│   ├── mnt namespace — isolated filesystem mounts
+│   ├── uts namespace — isolated hostname
+│   ├── ipc namespace — isolated shared memory
+│   ├── user namespace — UID/GID remapping (rootless)
+│   └── cgroups v2 — CPU, memory, I/O limits and accounting
+├── Security Runtimes
+│   ├── gVisor (runsc)
+│   │   ├── User-space kernel written in Go (Sentry)
+│   │   ├── Intercepts all syscalls before reaching host kernel
+│   │   └── Trade-off: ~10-20% overhead; weaker hardware perf
+│   └── Kata Containers
+│       ├── Lightweight VM per container (QEMU/Firecracker)
+│       ├── True hardware-level isolation (dedicated kernel)
+│       └── Trade-off: slower start (~1s vs ~100ms), higher overhead
+├── seccomp (Secure Computing Mode)
+│   ├── Syscall allowlist/denylist applied via BPF filter
+│   ├── Docker's default profile blocks ~44 dangerous syscalls
+│   └── Custom profile: SecurityContext.seccompProfile in K8s
+├── Linux Capabilities
+│   ├── Docker grants ~14 of 38 capabilities by default
+│   ├── --cap-drop ALL + --cap-add only needed capabilities
+│   └── Common needs: NET_BIND_SERVICE (<1024 ports), CHOWN
+├── AppArmor & SELinux
+│   ├── AppArmor: mandatory access control via profiles (Ubuntu default)
+│   └── SELinux: label-based MAC (RHEL/CentOS default)
+├── Rootless Docker & User Namespaces
+│   ├── Daemon runs as non-root user; UID remapping via /etc/subuid
+│   ├── Prevents host root escalation even on container escape
+│   └── Limitation: some features unavailable (host networking, cgroup v1)
+├── Image Supply Chain Security
+│   ├── Scanning: trivy, grype, docker scout — CVE detection in layers
+│   ├── Signing: Sigstore/Cosign — keyless signing via OIDC
+│   ├── SBOM: CycloneDX / SPDX — inventory of all dependencies
+│   └── Admission: OPA/Gatekeeper or Kyverno — enforce signed images at deploy
+└── CRI & dockershim Removal
+    ├── dockershim removed in K8s 1.24 — Docker not supported as CRI
+    ├── Migration path: containerd (already inside Docker) or CRI-O
+    └── docker build still works; only the node-level runtime changed
+```
+
+## First Principles
+
+- **Why was CRI (Container Runtime Interface) created?** Kubernetes originally hardcoded Docker support via dockershim. As alternative runtimes (containerd, CRI-O, Kata) emerged, maintaining per-runtime code in kubelet became untenable. CRI defines a standard gRPC interface: kubelet speaks CRI, any compliant runtime plugs in. Separation of concerns enables runtime substitution without changing orchestration.
+- **Why does containerd-shim exist?** If containerd crashes or is upgraded, all containers managed directly by containerd would die. The shim is a lightweight per-container process that holds the container's stdio FDs and reports exit status — it keeps the container alive independently of containerd's lifecycle.
+- **Why does gVisor intercept syscalls in user space?** The Linux kernel has ~400 syscalls; every syscall is a potential kernel exploit surface. gVisor's Sentry re-implements kernel semantics in Go, intercepting syscalls via ptrace or KVM before they reach the host kernel. Even if a container has a kernel exploit, it only escapes into Sentry (a sandboxed user-space process), not the host kernel.
+- **Why `--cap-drop ALL` as the starting point?** Docker's default capability set is already reduced from full root, but it still includes ~14 capabilities. "Least privilege" means granting nothing by default and adding only what's required. Capabilities like `SYS_ADMIN` or `NET_ADMIN` are extremely powerful — any process in the container that gains them can potentially manipulate the host.
+- **Why keyless signing with Sigstore?** Traditional GPG signing requires managing private keys: rotation, revocation, distribution. Sigstore's Cosign uses short-lived OIDC tokens (from GitHub Actions, Google accounts) tied to a certificate authority. No long-lived private key to leak — the signature is anchored to the identity that ran the CI workflow, providing verifiable provenance without key management overhead.
+
 ## The Container Runtime Landscape
 
 For most of Docker's history, "Docker" meant one thing: the Docker daemon (`dockerd`) that built and ran containers. But Kubernetes needed a standardized interface, and security requirements demanded new isolation models.

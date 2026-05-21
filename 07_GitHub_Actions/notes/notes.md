@@ -1,5 +1,102 @@
 # GitHub Actions & Modern CI/CD
 
+```
+GitHub Actions & Modern CI/CD
+├── Why GitHub Actions
+│   ├── Event-driven — trigger on push, PR, issue comment, release, schedule, workflow_dispatch
+│   ├── Native GitHub integration — no external webhooks, built-in repo access
+│   ├── Matrix builds — parallel OS × language version combinations
+│   ├── Reusable workflows — DRY principle across repositories
+│   └── OIDC authentication — short-lived cloud tokens, zero static secrets
+├── Core Architecture
+│   ├── Workflow → Jobs → Steps hierarchy
+│   ├── Jobs run in parallel by default; sequential via needs:
+│   ├── Steps: shell run: or uses: action
+│   └── Event → Queue → Runner assignment → Execution → Results
+├── Runner Types
+│   ├── GitHub-hosted — managed VMs (ubuntu-latest, windows-latest, macos-latest)
+│   │   ├── Larger runners — 4–64 vCPU options (paid)
+│   │   └── Fresh VM per job — no state leakage between runs
+│   ├── Self-hosted — user-managed infrastructure
+│   │   ├── Required for private network access
+│   │   ├── No per-minute billing; persistent unless ephemeral: true
+│   │   └── Runner groups — scope to org, repo, or environment
+│   └── ARC (Actions Runner Controller) on Kubernetes
+│       ├── RunnerDeployment — pod-per-job, self-destruct after completion
+│       ├── HorizontalRunnerAutoscaler — scale on queue depth via GitHub webhook
+│       └── ephemeral: true — eliminates state accumulation between jobs
+├── Workflow Syntax
+│   ├── Event filters — branches:, paths:, paths-ignore:, types:
+│   ├── Job dependencies — needs: + outputs via GITHUB_OUTPUT
+│   ├── Concurrency — group: + cancel-in-progress: true
+│   ├── Environment variables — env: at workflow / job / step level
+│   └── Expressions — ${{ }}, context objects (github, runner, env, secrets, vars, needs)
+├── OIDC Authentication
+│   ├── AWS — OIDC provider in IAM + trust policy with sub/aud conditions
+│   ├── Azure — Federated credential on App Registration
+│   ├── permissions: id-token: write required in workflow job
+│   └── Short-lived role session (role-duration-seconds configurable)
+├── Reusable Workflows
+│   ├── on: workflow_call: — inputs:, secrets:, outputs:
+│   ├── Caller: uses: org/repo/.github/workflows/file.yml@ref
+│   ├── secrets: inherit — pass all caller secrets (convenient, less explicit)
+│   └── outputs: — return values from called workflow jobs to caller
+├── Matrix Strategy
+│   ├── strategy.matrix — declare axes (os, python-version, etc.)
+│   ├── fail-fast: false — see all combination results before failing
+│   ├── max-parallel: N — cap concurrent jobs
+│   ├── exclude: — remove specific combinations
+│   ├── include: — add extra variables to specific combinations
+│   └── Dynamic matrix — fromJSON(needs.job.outputs.matrix) from prior job
+├── Custom Actions
+│   ├── Composite — using: composite; steps with shell: bash; no Docker overhead
+│   ├── JavaScript — using: node20; fast startup; direct GitHub API access
+│   └── Docker — using: docker; full OS control; slowest startup
+├── Caching
+│   ├── actions/cache — key: hashFiles('**/package-lock.json') + restore-keys fallback
+│   ├── Language setup actions — setup-node, setup-python cache: 'pip' built-in
+│   └── Cache scope — branch-scoped; PRs can read base branch cache but not write back
+├── Environments & Protection Rules
+│   ├── Required reviewers — manual approval gate before job runs
+│   ├── Wait timer — delay before deployment
+│   ├── Deployment branches — restrict which refs can deploy
+│   └── Environment-scoped secrets — only available after environment conditions met
+├── Security Hardening
+│   ├── permissions: {} — disable all GITHUB_TOKEN scopes at workflow level
+│   ├── Per-job explicit grants — contents: read, packages: write, id-token: write
+│   ├── SHA pinning — uses: action@<commit-sha> not @v4 tag
+│   ├── Script injection — use env: vars, never interpolate ${{ }} directly in run:
+│   └── pull_request_target — never checkout untrusted PR code with base permissions
+├── Self-Hosted ARC Deep Dive
+│   ├── RunnerDeployment — defines pod template, ephemeral runner pod per job
+│   ├── HorizontalRunnerAutoscaler — scaleUpTriggers on totalNumberOfQueuedAndInProgressWorkflowRuns
+│   ├── Network isolation — runners in private VPC, egress via proxy
+│   └── Image hardening — Trivy-scanned, Cosign-signed base runner images
+├── Debugging
+│   ├── ACTIONS_STEP_DEBUG: true — verbose step logs
+│   ├── ACTIONS_RUNNER_DEBUG: true — runner diagnostic logs
+│   ├── act tool — run workflows locally using Docker
+│   └── Debug context step — echo github.event_name, github.ref, github.head_ref
+├── Artifact Management
+│   ├── actions/upload-artifact — persist files between jobs or for download
+│   ├── actions/download-artifact — retrieve in subsequent jobs
+│   └── retention-days — default 90; configure per artifact
+└── Key Gotchas
+    ├── pull_request context — github.ref = refs/pull/<n>/merge, not branch name
+    ├── Secrets not available in fork PRs — use pull_request_target with caution
+    ├── GITHUB_TOKEN write access — disabled by default for fork workflows
+    ├── Cache not a security boundary — malicious PR can read base branch cache
+    └── OIDC token TTL — role session configurable but OIDC JWT itself is ~10 min
+```
+
+## First Principles
+
+- GitHub Actions is an event-driven state machine: an event triggers a workflow, which distributes jobs across ephemeral runners, each job running steps sequentially in an isolated environment. Understanding this model explains every constraint — why secrets don't cross jobs without explicit passing, why cache is per-branch, why `needs:` is required for job ordering.
+- The "no stored credentials" problem is solved by OIDC at the identity layer. The cloud provider trusts GitHub's cryptographic assertion about which repo and ref triggered the job — this is configuration-based trust, not shared-secret trust. The JWT is proof of identity.
+- Runners are the trust boundary. GitHub-hosted runners are fresh VMs — nothing from a previous job remains. Self-hosted persistent runners break this guarantee. Ephemeral ARC runners restore it by destroying the pod after each job. Choose runner type based on your trust model, not just cost.
+- Matrix strategy is declarative horizontal scaling. You declare the axes; GitHub generates the cross-product jobs and runs them in parallel. Total pipeline time = slowest combination, not sum. This is free horizontal scaling with no infrastructure management.
+- `pull_request_target` runs with base repo permissions to enable secrets access for external PR workflows — the intentional design enables labeling and commenting from forks. The danger: combining it with `actions/checkout` of the fork's code executes attacker-controlled code with full secrets access. The trigger and the checkout must be evaluated separately.
+
 ## Why GitHub Actions Matters
 
 GitHub Actions transformed CI/CD from a separate system (Jenkins, CircleCI) into an integrated part of the development workflow. Instead of configuring external webhooks and managing separate CI servers, your automation lives alongside your code.

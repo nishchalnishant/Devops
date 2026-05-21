@@ -1,5 +1,80 @@
 # Networking Cheatsheet for DevOps Engineers
 
+```
+Networking Cheatsheet
+├── Interface Management
+│   ├── ip addr — show/add/del IP addresses
+│   ├── ip link — bring interfaces up/down, set MTU
+│   ├── ip route — show/add/del routes, default gateway
+│   ├── ip neigh — ARP/neighbor cache
+│   └── ifconfig / route — legacy equivalents (deprecated)
+├── Connectivity Testing
+│   ├── ping — ICMP reachability check
+│   ├── traceroute / tracepath — hop-by-hop path tracing
+│   ├── mtr — continuous traceroute + ping, shows packet loss per hop
+│   └── hping3 — TCP/UDP/ICMP packet crafting
+├── DNS Troubleshooting
+│   ├── dig — full detail, trace resolution, query specific server
+│   ├── host — simple lookup
+│   ├── nslookup — legacy DNS query
+│   └── dig +trace — shows full recursive resolution path
+├── Network Monitoring
+│   ├── ss / netstat — socket state, listening ports, protocol stats
+│   ├── iftop / nload — real-time per-interface bandwidth
+│   ├── tcpdump — packet capture (filter by host, port, flags)
+│   └── vnstat / bwm-ng — historical bandwidth usage
+├── Socket & Process Analysis
+│   ├── ss -tnp — TCP sockets with process info
+│   ├── lsof -i — open network file descriptors
+│   └── ss -s — summary: TIME_WAIT count, CLOSE_WAIT count
+├── Remote Access
+│   ├── ssh — shell, port forwarding (-L/-R/-D), key auth
+│   ├── scp — secure file copy (being deprecated, use sftp)
+│   └── rsync — delta-efficient sync over SSH
+├── HTTP / API Testing
+│   ├── curl — GET/POST/PUT, headers, auth, status code only
+│   └── wget — download files, recursive fetch
+├── Firewall
+│   ├── iptables — filter/nat/mangle tables, chains, rules
+│   ├── nftables — modern replacement for iptables
+│   └── ufw — simplified front-end for iptables
+├── Performance Benchmarking
+│   ├── iperf3 — TCP/UDP throughput testing
+│   ├── ethtool — NIC settings, statistics, speed/duplex
+│   └── nicstat — NIC utilization and error rates
+├── SSL/TLS Diagnostics
+│   ├── openssl s_client — inspect cert, test TLS versions
+│   └── nmap --script ssl-enum-ciphers — cipher enumeration
+├── Container / Kubernetes
+│   ├── docker network — list, inspect networks
+│   ├── kubectl get ep / svc / networkpolicy — K8s network resources
+│   ├── kubectl exec ... -- curl/nslookup — test from inside pod
+│   └── kubectl debug --image=nicolaka/netshoot — debug pod
+├── Advanced / eBPF
+│   ├── hubble observe — Cilium flow visibility (L3-L7)
+│   ├── bpftool — list eBPF programs and maps
+│   └── cilium monitor — live eBPF packet monitoring
+├── BGP / Anycast
+│   ├── vtysh / birdc — BGP routing table inspection
+│   └── calicoctl node status — BGP peer health (Calico)
+└── System Tuning
+    ├── nf_conntrack_max — connection tracking table size
+    ├── ip_local_port_range — ephemeral port range
+    ├── tcp_tw_reuse — reuse TIME_WAIT sockets
+    ├── tcp_fin_timeout — reduce TIME_WAIT duration
+    └── tcp_congestion_control=bbr — better throughput on lossy links
+```
+
+## First Principles
+
+- A network interface needs an IP address (L3) to route packets and a MAC address (L2) for local delivery — `ip addr` manages both.
+- Every path has a gateway: packets destined off-subnet go to the default gateway. If no route exists, the kernel drops the packet silently — `ip route` exposes this.
+- DNS is a prerequisite for almost everything: if name resolution is broken, services appear down even when IPs respond. Diagnose DNS first with `dig`, not `ping hostname`.
+- A listening socket is useless if the process is dead or bound to loopback-only: `ss -tlnp` reveals what is listening on which address — `0.0.0.0` (all) vs `127.0.0.1` (local only).
+- Packet capture is ground truth: logs can lie, but `tcpdump` shows exactly what bytes traversed the wire — use it to confirm whether traffic is actually sent/received before blaming application code.
+- TLS certificates have expiry dates; services never send reminders. Proactive monitoring (`openssl s_client`) and automated renewal (`cert-manager`) prevent silent outages.
+- sysctl tuning is stateless across reboots unless persisted to `/etc/sysctl.conf` — settings applied at runtime disappear on restart.
+
 Quick reference for network commands, troubleshooting, and common tasks.
 
 ***
@@ -445,5 +520,24 @@ sysctl -p
 | `curl --http3 https://example.com` | Force HTTP/3 request |
 | `tshark -V -Y quic` | Deep QUIC packet analysis |
 | `tcpdump -nn -i eth0 udp port 443` | Capture QUIC traffic |
+
+***
+
+## System Design Perspective
+
+**Scalability**
+- `nf_conntrack_max` is a global kernel limit. On a Kubernetes node running hundreds of pods, each TCP connection occupies a conntrack entry. Default of 65,536 is dangerously low — increase to 1M+ on busy nodes.
+- `ip_local_port_range` caps outbound connection concurrency per host. With the default `32768-60999`, a single NAT Gateway IP can only hold ~28k concurrent outbound connections before port exhaustion occurs.
+- eBPF-based tools (Hubble, cilium monitor) have near-zero overhead because they run in-kernel — unlike tcpdump which requires a copy of every packet to userspace via a libpcap socket.
+
+**Failure Modes**
+- Wireless (`iwconfig`) commands are often absent on server images. Attempting to diagnose a server's "wireless" issue with `iwlist scan` wastes time — check `ip link` to confirm interface type first.
+- `iptables-save` output is silently lost on reboot unless written to a file and restored via a systemd unit or `iptables-persistent`. Manual rules are ephemeral.
+- BGP sessions (port 179 TCP) are dropped silently by security groups that block all TCP. Verify BGP peer connectivity with `nc -zv peer-ip 179` before blaming the routing protocol.
+
+**Trade-offs**
+- `tcpdump` vs `ss`: ss gives socket state at a moment in time (zero overhead); tcpdump captures actual payloads but adds CPU and memory cost proportional to traffic rate.
+- Verbose logging (`curl -v`) reveals TLS handshake details and redirect chains but is too noisy for automation — use `-s -o /dev/null -w "%{http_code}"` in scripts instead.
+- Connection pooling (HTTP adapters, database pools) reduces TIME_WAIT accumulation dramatically but adds complexity in managing pool lifecycle and connection health checks.
 
 ***

@@ -1,5 +1,60 @@
 # Content from k8_troubleshooting_interview.pdf
 
+```
+Kubernetes Scenarios & Troubleshooting Interview
+├── Error States (Pod-Level)
+│   ├── CrashLoopBackOff — exit code clue → OOMKill/app crash/misconfig
+│   ├── ImagePullBackOff — wrong image/tag, missing imagePullSecrets, registry down
+│   ├── Pending — no resources, taint mismatch, PVC AZ mismatch, quota full
+│   ├── NodeNotReady — kubelet stopped, disk/memory pressure, CNI failure
+│   ├── Unauthorized (403) — RBAC missing verb/resource for ServiceAccount
+│   ├── FailedScheduling — scheduler cannot place pod (logs reason in events)
+│   ├── OOMKilled (exit 137) — memory limit hit → kernel SIGKILL
+│   └── ContainerCreating stuck — volume mount failure, CNI error
+├── Deployment Strategies
+│   ├── Rolling Update — maxUnavailable + maxSurge; zero-downtime default
+│   ├── Recreate — all old pods killed before new ones start; downtime
+│   ├── Blue-Green — two full deployments; traffic switch via Service selector
+│   └── Canary — split traffic (10%/90%) via Ingress weights or two Deployments
+├── Cluster Health Checklist (30 points)
+│   ├── Node status — all Ready?
+│   ├── Control plane pods — apiserver/etcd/scheduler/controller-manager running?
+│   ├── PodDisruptionBudgets — none blocking operations?
+│   ├── ResourceQuota — namespaces near limits?
+│   ├── Certificate expiry — kubeadm certs check-expiration
+│   └── etcd DB size — below 8GB?
+├── Troubleshooting Runbook (9 core scenarios)
+│   ├── Pod stuck Pending — resources / taints / PVC / affinity
+│   ├── Pod CrashLoopBackOff — logs --previous / exit code / debug container
+│   ├── Service unreachable — endpoints / label selector / NetworkPolicy
+│   ├── Node NotReady — kubelet / disk pressure / CNI
+│   ├── DNS failure — CoreDNS pods / nslookup test
+│   ├── PVC Pending — StorageClass / provisioner / AZ mismatch
+│   ├── HPA not scaling — metrics-server / CPU requests missing
+│   ├── Ingress 502/504 — upstream health / timeout annotations
+│   └── etcd issues — leader changes / disk latency / DB size
+├── SRE Scenario Questions (20 scenarios)
+│   ├── Production deployment rollback
+│   ├── Node memory pressure cascade
+│   ├── Certificate expiry causing API server failures
+│   ├── Namespace quota breach blocking new pods
+│   └── Multi-tenant cluster RBAC breach scenario
+└── Advanced Control Plane Scenarios (15-26)
+    ├── API server latency spike — APF / watch cache / etcd disk
+    ├── etcd leader election storm — disk fsync latency on leader
+    ├── Webhook timeout blocking pod creation — failurePolicy: Fail
+    ├── Cluster upgrade regression — deprecated API removal
+    └── Karpenter vs Cluster Autoscaler node provisioning race
+```
+
+## First Principles
+
+- You have many containers across many machines — **partial failures are the default**; troubleshooting means finding which part of the distributed system diverged from desired state.
+- Machines fail — **probes detect unhealthy pods**; events record the reason; `kubectl describe` surfaces the causal chain.
+- Traffic reaches pods via Service endpoints — **a running pod not in endpoints is invisible** to the Service; label selector mismatches are the silent killer.
+- Config and secrets externalized — **misconfigured env vars or missing Secrets** cause CrashLoopBackOff; always check `kubectl describe pod` for volume mount and env errors.
+- Declarative desired state — **drift between spec and actual state** is the root of most incidents; `kubectl diff` and Argo sync status quantify the gap.
+
 ## Page 1
 
 TROUBLESHOOTING TECHNIQUES 
@@ -1431,3 +1486,11 @@ apiserver_request_duration_seconds
 **Symptom:** Pods fail to start because the image was deleted right after being pulled.
 **Diagnosis:** The disk is near `ImageGCHighThresholdPercent`, causing the kubelet to aggressively prune images.
 **Fix:** Increase the disk size or lower the `ImageGCLowThresholdPercent`.
+
+## System Design Perspective
+
+- **Canary vs Blue-Green — the key trade-off:** Blue-Green requires 2x compute capacity and a hard traffic switch (10ms of downtime or TCP connection drops at switchover). Canary is resource-efficient but requires a data layer that tolerates two schema versions simultaneously. The database migration strategy determines which deployment pattern is feasible.
+- **Why CrashLoopBackOff has exponential back-off:** Without back-off, a crashing container would restart instantly in an infinite tight loop, consuming CPU/memory on every restart and flooding the API server with events. Exponential back-off (10s → 20s → 40s → ... → 5m cap) rate-limits the damage. The downside: a fix deployed to a pod already at 5m back-off won't be visible for up to 5 minutes.
+- **VXLAN MTU mismatch is a fleet-wide latent risk:** If CNI MTU is not set correctly (1450 for VXLAN on 1500 MTU networks), cross-node pod communication silently drops large packets. TCP connections work but are slow (retransmits). UDP applications (DNS) may appear to hang. This is configuration debt that can hide for months until a workload sends a large payload.
+- **LoadBalancer per Service cost model:** Each `type: LoadBalancer` Service provisions a cloud load balancer (hourly cost + per-LCU charges). 50 services = 50 load balancers. An Ingress controller with a single LB fronting all HTTP services reduces this to one. This is a FinOps concern, not just an architectural preference.
+- **Deployment strategy selection framework:** Use Rolling Update for stateless services (default). Use Recreate only when two versions cannot run simultaneously (lock-based DBs, exclusive resource ownership). Use Blue-Green when you need instant rollback without draining traffic (financial transaction services). Use Canary when you need production traffic testing with controlled blast radius (ML model serving, feature flags).

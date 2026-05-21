@@ -1,5 +1,85 @@
 # System Design for DevOps & SRE Interviews
 
+```
+System Design for DevOps & SRE
+├── Problem 1: Global CI/CD System
+│   ├── Scale: 500 teams, 3 regions, 99.9% uptime, <10 min builds
+│   ├── Components: SCM → CI Orchestrator → Build Workers → Artifact Registry → CD
+│   ├── Regional Design: Active-Active workers, artifact replication, cache sharing
+│   ├── Trade-offs: CI engine choice, build isolation, artifact storage, secret distribution
+│   └── Reliability: Karpenter autoscaling, queue alerts, circuit breaker, DR <15 min RTO
+├── Problem 2: Multi-Tenant Kubernetes Platform (200 Teams)
+│   ├── Self-service in <30 min via Backstage portal
+│   ├── Namespace isolation: ResourceQuota, LimitRange, RBAC, NetworkPolicy, OPA
+│   ├── Cluster topology: shared dev/staging, dedicated PCI clusters
+│   ├── Backstage → GitHub → ECR → K8s → ArgoCD flow
+│   └── Cost: VPA recommendations, Karpenter spot pools, Kubecost show-back
+├── Problem 3: Observability Stack (500 Microservices)
+│   ├── 100k RPS, 10M time series, <5 min MTTD SLO
+│   ├── Metrics: Prometheus → Thanos → S3 ($115/mo for 5TB)
+│   ├── Logs: Promtail → Loki → S3 (structured JSON, label schema)
+│   ├── Traces: OpenTelemetry Collector → Tempo (tail sampling, 100% errors / 0.1% success)
+│   ├── Grafana: unified UI across all three backends
+│   └── Alert design: multi-window multi-burn-rate SLO alerts
+├── Problem 4: Zero-Downtime Blue/Green for Stateful App
+│   ├── Payments API: 5k RPS, P99 <10ms, PostgreSQL
+│   ├── Expand/Contract pattern: additive schema changes first
+│   ├── Traffic shift: weighted target group or RollingUpdate maxSurge
+│   ├── Zero dropped requests: connection draining, pre-stop hooks, PDB
+│   └── Rollback: instant traffic switch, schema stays backward compatible
+├── Problem 5: FinOps at Scale (150 Teams)
+│   ├── CUR → S3 → Athena + Kubecost → data warehouse → Grafana
+│   ├── Tagging governance: mandatory tags enforced by SCP + Config rule
+│   ├── Right-sizing: Compute Optimizer, VPA + Goldilocks, RDS metrics
+│   ├── Budget guardrails: 80% → Slack, 90% → email VP, 100% → auto-scale-down
+│   └── Unit economics: cost per API request query
+├── Problem 6: Self-Healing Infrastructure
+│   ├── Detection: synthetic probes, Prometheus, K8s probes, CloudWatch, Loki
+│   ├── Remediation library: CrashLoop, NotReady node, OOM, cert expiry, disk, DB
+│   ├── Architecture: Alert → Router → known failure? → runbook or page
+│   ├── Verify health after remediation → close or escalate
+│   └── Guardrails: non-prod only auto, rate-limit 3/hour, all actions to CloudTrail
+├── Problem 7: Secrets Management Platform
+│   ├── Vault 3-node HA Raft cluster
+│   ├── Auth: Kubernetes, AWS IAM, GitHub OIDC, LDAP/OIDC
+│   ├── Engines: KV v2, Database (dynamic creds), PKI, AWS/GCP
+│   ├── Dynamic credentials: TTL-based, Vault agent sidecar renewal
+│   ├── Team isolation: path-scoped HCL policies
+│   └── HA/DR: Raft quorum, KMS auto-unseal, cross-region standby, daily snapshots
+├── Problem 8: Multi-Cloud Networking (AWS + Azure)
+│   ├── Connectivity: Megaport Cloud Router via co-location (<8ms, no internet)
+│   ├── AWS Direct Connect + Azure ExpressRoute via shared facility
+│   ├── Security: mTLS, PrivateLink, centralized firewall, unified DNS
+│   ├── CIDR planning: 10/8 (AWS) + 172.16/12 (Azure), no overlap
+│   └── Trade-offs: internet VPN vs DX vs Megaport (latency, cost, security)
+├── Problem 9: ML Model Serving Platform
+│   ├── Model Registry → self-service deploy → Triton/TorchServe/vLLM
+│   ├── KServe CRD + Istio VirtualService for A/B and canary
+│   ├── KEDA autoscaling on GPU queue depth, Karpenter GPU pools
+│   ├── Triton dynamic batching: 10x throughput improvement
+│   ├── P99 <100ms: warm-up, gRPC pooling, INT8 quantization, vLLM prefix cache
+│   └── Rollback: kubectl patch + shadow mode validation
+└── Problem 10: Chaos Engineering Practice
+    ├── Maturity stages: Game Days → Staging automation → Production → Continuous
+    ├── Experiment design: Steady State → Hypothesis → Inject → Observe → Conclude
+    ├── Common experiments: pod kill, latency injection, CPU exhaust, network partition
+    ├── Guardrails: SLO gate >5x burn → abort, <5% blast radius, business hours only
+    └── Each experiment: documented abort procedure, reliability debt tracking
+```
+
+## First Principles
+
+- **Why systems fail:** large distributed systems fail in predictable ways — the failure modes are always compute, storage, network, or coordination contention
+- **Start with load:** understand requests/sec, data size, read/write ratio, and peak multiplier before drawing any boxes
+- **Bottleneck is singular:** at any given moment, one thing is the constraint — identify it first (CPU throttle, disk I/O, connection pool, downstream latency)
+- **Scaling:** vertical scaling (bigger machine) has a ceiling and a single point of failure; horizontal scaling (more machines) requires stateless services or explicit sharding/replication strategy
+- **State is the hard problem:** stateless services scale trivially; stateful services require decisions about consistency, replication lag, failover time, and partition tolerance
+- **CAP theorem as constraint:** in a network partition you choose between Consistency (CP) and Availability (AP) — most production systems choose AP with eventual consistency
+- **Reliability is probabilistic:** 99.9% uptime = 43.8 min/month downtime; error budgets quantify how much failure is acceptable before it becomes a business problem
+- **Observability first:** you cannot fix what you cannot see — instrument before you optimize; metrics → logs → traces form a hierarchy from fast detection to deep investigation
+- **Design for failure:** assume every component will fail; design rollback paths, circuit breakers, bulkheads, and graceful degradation before adding features
+- **Trade-offs are the answer:** in system design there is no universally correct choice — the correct answer always depends on the dominant constraint (cost, latency, consistency, team size)
+
 Senior DevOps/SRE interviews include open-ended system design problems. Each problem below
 follows the same structure: **Clarify → Estimate → Design → Deep Dive → Trade-offs**.
 
@@ -566,3 +646,69 @@ to proactively find weaknesses before incidents do."
 - **Blast radius**: experiments scoped to < 5% of traffic in production
 - **Business hours only**: no chaos during peak traffic, on-call only experiments at night
 - **Runbook**: every experiment has a documented abort procedure
+
+## Missing Coverage
+
+The following distributed systems and system design topics are not covered in the scenarios above. Each is commonly tested in senior DevOps, SRE, and platform engineering interviews and should be studied separately.
+
+### Data Distribution And Partitioning
+- **Consistent hashing** — how to distribute data across nodes so adding or removing a node minimizes key remapping; used in distributed caches (Memcached, Redis Cluster) and load balancers
+- **Virtual nodes (vnodes)** — variation of consistent hashing that improves load balance when nodes have different capacities
+- **Range partitioning vs hash partitioning** — trade-offs between query locality and hotspot risk
+
+### Distributed Coordination And Clocks
+- **Vector clocks** — tracking causality across distributed nodes without synchronized physical clocks; used in DynamoDB and Riak
+- **Lamport timestamps** — partial ordering of events in a distributed system
+- **Hybrid logical clocks (HLC)** — combining physical and logical time for better causality tracking
+
+### Consensus Algorithms
+- **Raft** — leader election, log replication, and membership changes; used in etcd (which underpins Kubernetes)
+- **Paxos** — the foundational consensus protocol; multi-Paxos used in Google Chubby and Spanner
+- **Zab (ZooKeeper Atomic Broadcast)** — consensus used in Apache ZooKeeper
+- **Why consensus matters operationally** — etcd quorum loss causes Kubernetes control plane failure; understanding raft election timeouts and quorum requirements is a production incident skill
+
+### Distributed Transactions And Consistency
+- **Two-phase commit (2PC)** — coordinator/participant protocol; blocking failure mode when coordinator crashes
+- **Three-phase commit (3PC)** — adds a pre-commit phase to avoid coordinator blocking; still vulnerable to network partitions
+- **Saga pattern** — long-running transaction decomposed into local transactions with compensating actions; used in microservices to avoid distributed locks
+- **Outbox pattern** — reliable event publishing by writing to a local outbox table atomically with the business transaction, then publishing asynchronously
+- **CAP theorem examples** — CP systems (HBase, Zookeeper), AP systems (Cassandra, CouchDB), and the partition tolerance trade-off with concrete operational consequences
+
+### Consistency Models
+- **Read-your-writes consistency** — guarantee that a process always reads what it just wrote; violated by eventually consistent systems with replica lag
+- **Monotonic reads** — a reader never sees an older version of data after seeing a newer one
+- **Bounded staleness** — configurable maximum replication lag before a read is rejected
+- **Strong vs eventual consistency trade-offs in practice** — when to choose each and the latency cost of strong consistency
+
+### Messaging And Event Architecture
+- **Event sourcing** — storing the sequence of events as the source of truth rather than current state; enables full audit trail and temporal queries
+- **CQRS (Command Query Responsibility Segregation)** — separating the write model from the read model; optimizes each independently
+- **At-least-once vs exactly-once delivery** — idempotency requirements for consumers; exactly-once is expensive and often approximated
+- **Back-pressure** — how a consumer signals to a producer that it is overwhelmed; implemented via bounded queues, reactive streams, or explicit credit protocols
+- **Log compaction** — Kafka's mechanism for retaining the latest value per key while discarding intermediate events
+
+### Resilience Patterns
+- **Circuit breaker** — stops sending requests to a failing downstream after a threshold; allows recovery time before retrying; states: closed, open, half-open
+- **Bulkhead pattern** — isolating resource pools (thread pools, connection pools) per downstream so one slow dependency does not exhaust resources for all
+- **Retry with exponential backoff and jitter** — avoiding thundering herd on recovery; jitter randomizes retry intervals
+- **Timeout hierarchy** — client timeout must be shorter than server timeout, which must be shorter than LB timeout; mismatches cause cascading failures
+- **Fallback and graceful degradation** — returning stale data, cached responses, or reduced functionality rather than hard failures
+
+### Rate Limiting Algorithms
+- **Token bucket** — allows bursts up to bucket capacity; tokens replenished at a fixed rate
+- **Leaky bucket** — smooths traffic to a constant output rate; excess requests are dropped or queued
+- **Fixed window counter** — simple but vulnerable to boundary burst (double rate at window edge)
+- **Sliding window log** — precise but memory-intensive; stores timestamps of all requests
+- **Sliding window counter** — approximation combining fixed window counts; balances accuracy and memory
+
+### Database Internals Relevant To Operations
+- **Write-ahead logging (WAL)** — durability guarantee; used in PostgreSQL, MySQL, and Kafka
+- **MVCC (Multi-Version Concurrency Control)** — readers do not block writers; used in PostgreSQL and CockroachDB
+- **LSM tree vs B-tree storage** — LSM (RocksDB, Cassandra) optimizes writes; B-tree (PostgreSQL, MySQL) optimizes reads; affects operational tuning
+- **Read replicas and replication lag** — operational consequence of async replication; affects read-your-writes consistency
+- **Connection pooling** — PgBouncer, RDS Proxy; why direct connections to PostgreSQL at scale cause OOM on the database server
+
+### Load Shedding And Admission Control
+- **Load shedding** — deliberately dropping requests when a system is overloaded to protect core functionality; distinct from rate limiting (which is per client)
+- **Admission control** — rejecting new work at the entry point before it consumes resources inside the system
+- **Priority queues under load** — separating critical (health checks, payments) from non-critical (analytics, reporting) traffic and shedding low-priority first

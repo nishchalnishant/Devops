@@ -1,5 +1,68 @@
 # Docker — Commands Cheat Sheet
 
+```
+Docker Cheatsheet
+├── Build
+│   ├── docker build / docker buildx build (multi-platform)
+│   ├── BuildKit cache mounts (--mount=type=cache)
+│   ├── Secret mounts (--mount=type=secret)
+│   ├── SSH mounts (--mount=type=ssh for private repos)
+│   └── --target (build only up to a specific stage)
+├── Run
+│   ├── -d (detach), -it (interactive), --rm (auto-remove)
+│   ├── -p hostPort:containerPort (DNAT via iptables)
+│   ├── -v name:path (volume) / -v hostPath:path (bind mount)
+│   ├── --network (bridge/host/none/custom)
+│   ├── Resource limits: -m, --cpus, --pids-limit
+│   ├── Security: --cap-drop, --cap-add, --security-opt, --read-only
+│   ├── --health-cmd / --health-interval (HEALTHCHECK)
+│   ├── --init (tini as PID 1 for signal handling)
+│   └── --restart (no/on-failure/always/unless-stopped)
+├── Lifecycle
+│   ├── ps (running) / ps -a (all) / ps -q (IDs only)
+│   ├── start / stop / kill / restart / pause / unpause / rm
+│   └── docker update --restart --memory (update running container)
+├── Exec & Inspect
+│   ├── docker exec -it container bash
+│   ├── docker inspect (full JSON metadata)
+│   ├── docker top / docker stats / docker diff / docker port
+│   └── docker cp (copy files in/out)
+├── Logs
+│   ├── docker logs -f (follow) / --tail / --since / --until
+│   └── --timestamps flag
+├── Image Management
+│   ├── pull / tag / push / rmi / prune
+│   ├── save / load (tar archive for air-gapped transfer)
+│   ├── history (layer inspection) / inspect / manifest
+│   └── docker scout (CVE scanning, recommendations, SBOM)
+├── Registry
+│   └── login / push / search
+├── Network
+│   ├── network ls / inspect / create (--driver, --subnet, --gateway)
+│   ├── network connect / disconnect / rm / prune
+│   └── Internal networks (--internal flag, no gateway)
+├── Volume
+│   └── volume ls / create / inspect / rm / prune
+├── Compose
+│   ├── up / down / stop / start / restart
+│   ├── ps / top / logs / exec / run
+│   ├── build / pull / config (validate) / events
+│   └── -p (project name) / --profile
+└── System
+    ├── docker system df (disk usage breakdown)
+    ├── docker system prune (aggressive cleanup)
+    ├── docker info / docker events (daemon events stream)
+    └── docker context (remote build targets)
+```
+
+## First Principles
+
+- **Why separate build from run commands?** Build produces an immutable artifact. Run is ephemeral. Separating them enables: build once, run anywhere; immutable image tagging; rollback by pointing to a previous image tag.
+- **Why does `-p` use iptables DNAT?** Docker manages iptables NAT rules on the host. `-p 8080:80` adds a DNAT rule: packets arriving at host:8080 are rewritten to container-ip:80. This is transparent to both the container and external clients.
+- **Why `docker inspect` over `docker ps`?** `ps` gives summary info. `inspect` gives the full JSON spec: mount paths, environment variables, network settings, cgroup limits, security options. It's the source of truth for debugging misconfigured containers.
+- **Why `docker system prune` carefully?** It removes stopped containers, dangling images, unused networks, and (with `-a`) all unused images. In a CI environment with large images cached for speed, running this incorrectly kills your build cache.
+- **Why multi-platform builds (`buildx`)?** ARM64 (Apple Silicon, AWS Graviton) and AMD64 are the dominant architectures. An image built for one won't run on the other. `buildx` with QEMU emulation (or native builders) produces a multi-platform manifest so `docker pull` automatically selects the right architecture.
+
 ## Build
 
 ```bash

@@ -1,5 +1,65 @@
 # Jenkins Master Engineering Hub: The Ultimate Deep-Dive
 
+```
+Jenkins Master Engineering Hub
+├── Remoting Protocol & Agent Connectivity
+│   ├── JNLP4 / WebSocket / SSH — agent-controller communication
+│   ├── TCP port 50000 — JNLP inbound agent port
+│   └── Agent lifecycle: register → allocate → execute → disconnect
+├── Scalability Models
+│   ├── Static VM/physical agents — persistent, accumulate state
+│   ├── Cloud agents (EC2 Fleet, Azure VM) — on-demand, 2-5min startup
+│   ├── K8s ephemeral pod agents — clean per build, ~15-30s startup
+│   └── Sidecar containers — DinD, Trivy, kubectl in same Pod
+├── Complex Pipeline Control Flow
+│   ├── when{} with beforeAgent: true — skip agent allocation on skip
+│   ├── parallel vs matrix — static vs dynamic parallel branches
+│   ├── milestones — prevent older build from deploying after newer
+│   └── Manual input() gates — submitter, parameters, milestone combo
+├── Shared Libraries (JSL)
+│   ├── vars/ — global steps, call() method
+│   ├── src/ — Groovy classes (NotificationService, DockerUtils)
+│   ├── resources/ — shell scripts, YAML templates
+│   ├── Global library — available to all jobs
+│   └── Folder-level library — scoped to folder
+├── JCasC Full Configuration
+│   ├── securityRealm — LDAP, SAML, OIDC
+│   ├── authorizationStrategy — RBAC roles
+│   ├── clouds — K8s pod templates
+│   ├── credentials — usernamePassword, vault
+│   └── globalLibraries — shared lib registry
+├── Credentials & Secrets
+│   ├── withCredentials binding types
+│   ├── Vault sidecar pattern — inject via env, no plugin needed
+│   └── OIDC WebIdentityToken — AWS keyless auth
+├── Deployment Patterns
+│   ├── Blue/Green — switch traffic at load balancer
+│   ├── Canary — route % traffic via Flagger/Istio
+│   └── Immutable image digests — no mutable tags in production
+├── Cloud Integrations
+│   ├── AWS EC2 Fleet, EKS, IRSA
+│   ├── Azure VM Scale Sets, AKS, Workload Identity
+│   └── K8s RBAC for Jenkins service account
+├── Performance Tuning
+│   ├── JVM G1GC — -Xms4G -Xmx8G, GC pause targets
+│   ├── buildDiscarder logRotator — cap build history
+│   ├── DORA metrics via Prometheus — deployment freq, MTTR
+│   └── Disk retention — cleanWs, artifact TTL
+└── Troubleshooting Matrix
+    ├── OOM → heap increase, build discard, GC tuning
+    ├── Slow UI → plugin audit, executor pressure, DB queries
+    ├── Agent disconnects → network, JNLP port, K8s quota
+    └── Queue congestion → agent scale-out, concurrency limits
+```
+
+## First Principles
+
+- JNLP exists because agents are often behind firewalls that block inbound connections. The agent initiates an outbound connection to the controller on port 50000 (or WebSocket on 443). This reversal of the typical client/server model is what makes Jenkins work in restricted network environments.
+- `beforeAgent: true` in `when{}` is a performance optimization with correctness implications. Without it, Jenkins spins up a K8s pod (15-30s overhead), evaluates the condition, then destroys the pod without doing work. With it, the condition is evaluated first, and pod startup is skipped entirely.
+- Milestones prevent out-of-order deployment: if build #5 finishes before build #4, a milestone at the deploy stage will cancel build #4's deploy, ensuring the newer build's state is always what reaches production.
+- The Vault sidecar pattern (injecting secrets via environment file, not Jenkins plugin) decouples secret management from the CI tool. Jenkins doesn't hold the secret — it only holds the Vault token. The secret is fetched at runtime and exists only in memory.
+- DORA metrics (deployment frequency, lead time, MTTR, change failure rate) measured via Jenkins Prometheus metrics give objective evidence of pipeline health. Without metrics, "the pipeline is slow" is opinion.
+
 This document is a comprehensive, production-grade manual for Jenkins at the Senior/Staff Engineer level. It bridges the gap between basic automation and complex Platform Engineering, focusing on scalability, security, and internal mechanics.
 
 ***

@@ -1,5 +1,54 @@
 # Scenario-Based MLOps Interview Drills
 
+```
+MLOps Scenario Drills
+├── Incident Triage Framework
+│   ├── Step 1: separate platform health from model correctness
+│   ├── Step 2: identify active artifact versions (code, data, features, model, config)
+│   ├── Step 3: check rollout history and recent data/schema/feature changes
+│   ├── Step 4: use service health AND model quality metrics
+│   ├── Step 5: mitigate safely before optimizing
+│   └── Step 6: close with reproducibility, rollback, and prevention
+├── Accuracy Degradation Scenarios
+│   ├── Sudden drop: check schema change, upstream data pipeline failure
+│   ├── Gradual drift: check PSI on key features → trigger CT pipeline
+│   ├── Silent failure: model serving stale version → check model registry
+│   └── Delayed label lag: use proxy metrics (confidence distribution)
+├── Training Pipeline Failures
+│   ├── OOM during training: reduce batch size, enable gradient checkpointing
+│   ├── Spot preemption: resume from last checkpoint
+│   ├── Data validation failure: Great Expectations gate blocks corrupt data
+│   └── Evaluation regression: challenger < champion → block promotion
+├── Serving Latency Scenarios
+│   ├── P99 spike: trace feature retrieval vs model inference vs network
+│   ├── Feature store staleness: materialization job fell behind
+│   ├── Cold start: model not loaded → warm-up strategy
+│   └── GPU OOM during inference: reduce max_batch_size or max_model_len
+├── LLMOps Scenarios
+│   ├── Hallucination spike: RAG retrieval quality degraded → check embedding model
+│   ├── TTFT regression: KV cache eviction rate too high → increase GPU memory
+│   ├── Cost spike: semantic cache miss rate increased → investigate prompt patterns
+│   └── Prompt injection: guardrails policy not covering new attack vector
+├── Data Quality Scenarios
+│   ├── Training-serving skew: feature computed differently in offline vs online
+│   ├── Label leakage: feature derived from future data → PSI normal, AUC too high
+│   ├── Schema change: upstream column renamed → NaN in key feature
+│   └── Point-in-time violation: features joined on wrong timestamp
+└── First 5-Minute Checklist
+    ├── Confirm: availability vs latency vs cost vs prediction quality problem
+    ├── Check: recent deployments (model version, feature version, code)
+    ├── Check: data pipeline health (are features fresh?)
+    └── Mitigate: can you rollback to the previous model version?
+```
+
+## First Principles
+
+- Every MLOps incident has two potential root causes: infrastructure (serving, data pipelines, features) or model correctness (drift, training data quality, evaluation leakage) — diagnose each layer independently.
+- The fastest mitigation for model degradation is rollback to the previous production model version — don't debug while users are impacted.
+- Training-serving skew is the most insidious MLOps bug: it looks like model drift but is actually a code bug — compare feature values at serving time vs training time to confirm.
+- Silent failures (stale model version, stale features, NaN-silently-replaced-with-default) are worse than loud failures — instrument every assumption.
+- LLMOps incidents are often memory incidents: KV cache pressure, GPU OOM, or context length exceeding preallocated buffers — monitor GPU memory utilization as a leading indicator.
+
 Use these drills for MLOps, ML platform, model-serving, inference, training-platform, and LLMOps interviews.
 
 ## How To Answer MLOps Scenarios
@@ -627,3 +676,22 @@ Say:
 **Symptom:** ML training jobs are stuck in `Pending` for hours.
 **Diagnosis:** The Kubernetes cluster has run out of GPU-enabled nodes.
 **Fix:** Use the **Cluster Autoscaler** with GPU node groups. Implement "Multi-Instance GPU" (MIG) on A100s to slice one physical GPU for multiple small jobs.
+
+***
+
+## System Design Perspective
+
+**ML Incident Runbook Architecture**
+- Tier 1 (automated): model serving health check → if P99 > SLO for 5 min → auto-scale serving replicas → page on-call if still degraded.
+- Tier 2 (on-call): on-call runs diagnostic playbook: check feature freshness → check model version → compare PSI against baseline → escalate if model rollback is needed.
+- Tier 3 (ML team): ML engineer reviews drift analysis, evaluates retraining, coordinates with data engineering if upstream schema changed.
+
+**Chaos Engineering for ML Systems**
+- Feature store failure: disable online store → serving falls back to default values → validate that fallback behavior is safe (not causing harmful predictions).
+- Model serving failure: kill serving pod → traffic should route to secondary replica or return 503 → validate that downstream systems handle 503 gracefully.
+- Data pipeline delay: stop materialization job → monitor feature staleness → validate alerting fires before features exceed TTL.
+
+**Rollback Architecture**
+- Model rollback: MLflow registry has previous production version tagged; rollback = update the GitOps manifest to reference the previous version SHA; ArgoCD deploys in < 2 minutes.
+- Feature rollback: if a new feature causes issues, remove it from the serving payload and update the model to not use it — requires a model that was trained both with and without the feature (planned rollback capability).
+- Data rollback: Delta Lake time travel — query `VERSION AS OF N` to restore previous training dataset snapshot for debugging or retraining.

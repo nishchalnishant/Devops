@@ -1,5 +1,57 @@
 # MLOps Deep-Dive: Feature Stores & ML Pipeline Orchestration
 
+```
+Feature Stores & ML Pipelines
+├── Feature Store Architecture
+│   ├── Offline store: S3/BigQuery — historical features for training
+│   ├── Online store: Redis/DynamoDB — latest values for real-time inference
+│   ├── Materialization job: batch copy offline → online on schedule
+│   └── Feature registry: catalog of feature definitions + metadata
+├── Point-in-Time Correctness
+│   ├── Problem: naive join uses current feature values at training time
+│   ├── Solution: join features at the event_timestamp of each training row
+│   ├── Implementation: Feast historical retrieval, BigQuery AS OF, Hive time-travel
+│   └── Violation = label leakage → inflated eval metrics, fails in production
+├── Training-Serving Skew Prevention
+│   ├── Root cause: different code for feature computation at training vs serving
+│   ├── Fix: shared Python library used by both offline pipeline and serving code
+│   ├── Validation: shadow deployment + log comparison of feature values
+│   └── Detection: PSI between training feature distribution and serving distribution
+├── Feast Feature Store
+│   ├── Feature views: define features + data source + entity key
+│   ├── feast apply: materialize feature definitions to registry
+│   ├── feast materialize-incremental: push new values to online store
+│   └── Feature retrieval: training (get_historical_features), serving (get_online_features)
+├── CT Pipeline Orchestration
+│   ├── Kubeflow Pipelines (KFP): K8s-native, Python SDK, component isolation
+│   ├── Apache Airflow: DAG-based, strong data engineering ecosystem
+│   ├── Prefect / Metaflow: developer-friendly, less K8s-native
+│   └── Choose KFP for K8s-first orgs; Airflow when data engineering owns pipelines
+├── CT Pipeline Stages
+│   ├── Trigger: data arrival, drift alert, schedule, KPI drop
+│   ├── Data validation: Great Expectations — schema, null rates, distribution
+│   ├── Feature engineering: Spark/Beam → offline store
+│   ├── Training: K8s Job / SageMaker / Vertex AI + MLflow logging
+│   ├── Evaluation: champion vs challenger on held-out time-split set
+│   └── Promotion: auto-promote if metrics gate passes; deploy via GitOps
+├── Delayed Label Problem
+│   ├── Problem: ground truth labels arrive days/weeks after prediction
+│   ├── Proxy metrics: model confidence, output entropy, downstream KPIs
+│   └── Holdout strategy: reserve recent data for evaluation; don't train on it immediately
+└── Data Lineage
+    ├── OpenLineage: open standard for lineage event emission
+    ├── Marquez: lineage metadata store and API
+    └── ML Metadata (MLMD): KFP's artifact lineage tracker
+```
+
+## First Principles
+
+- Feature stores exist because feature computation is expensive and error-prone: compute once, store, serve to any model — centralization prevents duplication and skew.
+- Point-in-time correctness is the most important correctness property of a feature store: violating it is data leakage, which makes models appear better than they are in evaluation but fail in production.
+- CT pipelines are not CI/CD pipelines: they require data validation, model evaluation, and promotion gates that have no equivalent in standard software deployment.
+- Pipeline orchestration choice is an organizational decision: Airflow if data engineering owns the pipelines; Kubeflow Pipelines if ML engineering owns them and runs K8s.
+- OpenLineage + MLMD are complementary: OpenLineage tracks data asset lineage; MLMD tracks ML artifact lineage — together they provide full audit trail from raw data to production prediction.
+
 > [!IMPORTANT]
 > This is one of the highest-yield MLOps interview topics at the senior level. Feature Stores and CT Pipelines are where infrastructure engineering and ML diverge most sharply from standard DevOps. Master this file before any ML Platform or Senior MLOps interview.
 
@@ -622,3 +674,25 @@ print('Online value:', online)
 | Label Leakage | Using future information to train a model, causing inflated evaluation metrics |
 | OpenLineage | Open standard for emitting data lineage events across tools |
 | Feast | Most common OSS Feature Store; Redis online, S3/BigQuery offline |
+
+***
+
+## System Design Perspective
+
+**Feature Store for a Recommendation System**
+- Entity: user_id; features: last_purchase_category (string), avg_session_duration_30d (float), preferred_device (enum).
+- Offline store: Parquet on S3 partitioned by date and user_id; point-in-time join at purchase event timestamp for training.
+- Online store: Redis hash per user_id; materialized every 15 minutes; P99 lookup < 3ms.
+- Freshness monitoring: alert if materialization job completes > 20 minutes late — stale recommendations signal is a silent accuracy bug.
+
+**CT Pipeline for a Fraud Detection Model**
+- Trigger: 10k new labeled transactions OR PSI > 0.15 on `transaction_amount` feature.
+- Validation: Great Expectations checks: no nulls in `user_id`, `transaction_amount` > 0, schema matches latest version.
+- Training: XGBoost on Spark; log all hyperparameters + training data version to MLflow.
+- Evaluation: AUC on last 7 days of labeled data (time-split, not random); challenger must be > champion by 0.5% AUC.
+- Promotion: auto-promote to staging → 24h shadow deployment → if false-positive rate is acceptable, promote to production.
+
+**Pipeline Failure Handling Design**
+- Data validation failure: page data engineering on-call; block training until data quality is confirmed — never train on corrupted data.
+- Training job OOM: reduce batch size, enable gradient checkpointing, or upgrade instance type; retry once automatically before paging.
+- Evaluation regression: block promotion; alert ML team; do NOT rollback training data — the previous champion model stays in production.

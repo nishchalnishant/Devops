@@ -1,3 +1,46 @@
+```
+DevOps Learning Curriculum — Notes Overview
+├── DevOps Foundations
+│   ├── What is DevOps: culture + collaboration + automation
+│   ├── Career alignment: T-shaped skills, automation mindset
+│   └── Core terms: infrastructure, scaling, monitoring, automation
+├── Prerequisites
+│   ├── Python / Shell scripting: automation, data processing
+│   ├── Networking: TCP/IP, DNS, HTTP/S, load balancing, firewalls
+│   └── Cloud: AWS, GCP, Azure — fundamentals and compute/storage/network services
+├── Linux & Operating Systems
+│   ├── Linux administration: users, permissions, processes, systemd
+│   ├── Shell scripting: bash, cron, pipes, redirects
+│   └── Performance: top, vmstat, iostat, netstat, strace
+├── Containers
+│   ├── Docker: images, containers, Dockerfile, networking, volumes
+│   ├── Container registries: Docker Hub, ECR, GCR, Harbor
+│   └── Container security: image scanning, non-root, read-only FS
+├── Container Orchestration
+│   ├── Kubernetes: Pods, Deployments, Services, Ingress, RBAC
+│   ├── Helm: package management for K8s
+│   └── ArgoCD / GitOps: declarative continuous delivery
+├── CI/CD Pipelines
+│   ├── Jenkins: shared libraries, declarative pipelines
+│   ├── GitHub Actions: workflows, OIDC, reusable actions
+│   └── GitLab CI: runners, pipeline YAML, security scanning
+├── Infrastructure as Code
+│   ├── Terraform: providers, state, modules, workspaces
+│   └── Ansible: playbooks, roles, inventory, idempotency
+└── Platform Engineering Topics
+    ├── IDP: self-service platforms, Backstage, Crossplane
+    ├── DORA metrics: Deployment Frequency, Lead Time, CFR, MTTR
+    └── FinOps: tagging, rightsizing, unit economics
+```
+
+## First Principles
+
+- DevOps is fundamentally about shortening feedback loops: the faster code reaches production and feedback returns to developers, the faster software improves.
+- Every DevOps tool exists to solve a specific friction point: Docker solves "works on my machine," Kubernetes solves container orchestration at scale, Terraform solves infra consistency across environments.
+- Automation is not a goal — reproducibility and reliability are the goals; automation is the means.
+- Learn systems, not tools: the underlying concepts (immutability, idempotency, declarative state) transfer across tools; specific CLI flags do not.
+- Platform engineering is the culmination of DevOps maturity: instead of each team applying DevOps individually, the platform team industrializes it for everyone.
+
 ### 1. DevOps Terms
 
 This section covers the foundational concepts and terminology essential for understanding the field.
@@ -8562,3 +8605,17 @@ Community involvement is not mandatory, but it helps you stay sharp and gives yo
 - I can speak clearly about reliability, rollback, and blast radius.
 - I have resume bullets with measurable outcomes.
 - I have at least one dashboard, one pipeline, and one infrastructure example I can discuss confidently.
+
+***
+
+## System Design Perspective
+
+**DevOps Learning System Design**
+- Progress through layers: OS fundamentals → networking → containers → orchestration → IaC → platform engineering. Each layer depends on the previous.
+- Hands-on beats reading: build a real CI/CD pipeline for a side project; deploy to Kubernetes; write a Terraform module — theory without practice does not internalize.
+- Capstone project architecture: a complete system that demonstrates end-to-end DevOps — GitHub repo → GitHub Actions CI → Docker build → ECR → Terraform EKS → ArgoCD → Prometheus/Grafana — covers every layer in one project.
+
+**Career Readiness Design**
+- T-shaped skill model: deep expertise in one area (Linux, K8s, or IaC) as the vertical; broad familiarity with all DevOps layers as the horizontal.
+- Interview preparation: DORA metrics, incident war stories, system design answers, and one measurable automation win — these are the four pillars of a strong DevOps interview.
+- Continuous learning system: subscribe to tool changelogs, set up a homelab or cloud sandbox for experimentation, participate in CNCF community channels.

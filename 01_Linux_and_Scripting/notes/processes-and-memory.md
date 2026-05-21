@@ -1,5 +1,95 @@
 # Linux Processes and Memory Management
 
+```
+Linux Processes and Memory Management
+├── Process Lifecycle
+│   ├── Boot chain: BIOS → GRUB → kernel → PID 1 (systemd) → services → shells → apps
+│   ├── fork(): COW clone — parent and child share read-only pages until write
+│   ├── exec(): replaces process image with new program
+│   └── wait() / waitpid(): parent reaps zombie, retrieves exit code
+├── Process States
+│   ├── R (Running): on CPU or in run queue
+│   ├── S (Interruptible sleep): waiting for I/O, signal, or timer
+│   ├── D (Uninterruptible sleep): blocked on kernel I/O — cannot be killed
+│   ├── Z (Zombie): exited, waiting for parent to call wait()
+│   ├── T (Stopped): paused by SIGSTOP or SIGTSTP
+│   └── t (Tracing stop): paused by debugger
+├── Zombie Processes
+│   ├── Hold process table slot; no CPU or memory used
+│   ├── Persist until parent calls wait()
+│   └── Fix: send SIGCHLD to parent, or kill parent → PID 1 reaps
+├── Signals
+│   ├── SIGHUP (1): daemon config reload
+│   ├── SIGINT (2): Ctrl+C — interrupt from terminal
+│   ├── SIGQUIT (3): Ctrl+\ — quit + core dump
+│   ├── SIGKILL (9): force kill — uncatchable, unblockable
+│   ├── SIGTERM (15): polite termination — default kill signal
+│   ├── SIGSTOP (19): pause — uncatchable
+│   ├── SIGCONT (18): resume stopped process
+│   ├── SIGCHLD (17): child state change notification
+│   └── SIGUSR1/2 (10/12): user-defined, application-specific
+├── CPU Scheduling: CFS
+│   ├── Tracks vruntime (virtual runtime) per process
+│   ├── Red-Black Tree — lowest vruntime = next to run
+│   ├── Nice values: -20 (highest) to +19 (lowest); default 0
+│   ├── Only root can set negative nice values
+│   ├── nice -n 10 cmd: start with lower priority
+│   ├── renice -n 5 -p PID: change running process
+│   └── Real-time policies: SCHED_FIFO, SCHED_RR, SCHED_DEADLINE
+├── Memory Management
+│   ├── Virtual Address Space
+│   │   ├── 128 TB per process on x86-64
+│   │   ├── Page table maps virtual pages to physical frames
+│   │   └── Memory regions: Text (code), Data/BSS, Heap, Stack, mmap
+│   ├── Page Faults
+│   │   ├── Minor: page in memory, not yet mapped (COW first access)
+│   │   └── Major: page not in RAM, must read from disk — high = memory pressure
+│   ├── Swap
+│   │   ├── Anonymous pages (heap/stack) moved to swap when RAM exhausted
+│   │   ├── Thrashing: more time moving pages than doing work
+│   │   └── vm.swappiness: 0 (avoid) to 100 (aggressive); DB=10
+│   ├── OOM Killer
+│   │   ├── Triggered when RAM + swap exhausted
+│   │   ├── oom_score (0–1000): RSS proportion, child memory, elapsed time, adj
+│   │   ├── oom_score_adj -1000: never kill (protect sshd, critical services)
+│   │   ├── oom_score_adj +500: prefer to kill (non-critical processes)
+│   │   └── dmesg | grep -i "oom\|killed process": verify kill events
+│   └── Huge Pages
+│       ├── Standard: 4 KB pages — high TLB pressure for large workloads
+│       ├── Explicit huge pages: 2 MB, pre-allocated via nr_hugepages, MAP_HUGETLB
+│       ├── THP: kernel auto-promotes aligned pages — convenient but causes latency spikes
+│       └── Disable THP for Redis, MongoDB: echo never > .../transparent_hugepage/enabled
+├── Linux Boot Process
+│   ├── 1. BIOS/UEFI: POST, detect hardware, select boot device
+│   ├── 2. GRUB: loads vmlinuz and initramfs into RAM, passes kernel cmdline
+│   ├── 3. Kernel Initialization
+│   │   ├── Decompresses itself
+│   │   ├── Initializes CPU, memory, device drivers
+│   │   ├── Mounts initramfs (temp root with drivers)
+│   │   ├── Mounts real root filesystem
+│   │   └── Starts PID 1 (systemd)
+│   └── 4. systemd (PID 1)
+│       ├── Reads unit files, resolves dependency graph
+│       ├── Starts services in parallel
+│       └── Activates default target (multi-user.target / graphical.target)
+└── Inodes
+    ├── Data structure on disk: permissions, owner, timestamps, size, block pointers
+    ├── Filename stored in directory entry (dentry), which maps name → inode number
+    ├── Hard links: multiple dentries → same inode (data not duplicated)
+    ├── Symbolic links: own inode, content = target path string
+    ├── File deletion: decrements link count; space freed when count=0 AND no open FDs
+    └── Inode exhaustion: df -i to check; common with millions of tiny files
+```
+
+## First Principles
+
+- **A process needs isolation:** without virtual address spaces, process A can read and overwrite process B's memory. The kernel creates the illusion that each process owns all of RAM by maintaining page tables that translate virtual to physical addresses.
+- **fork() is cheap because of COW:** if fork() copied all memory immediately, creating a child process to run a one-line command would be enormously expensive. Copy-on-Write defers the copy to the moment of first write — paying only for what's actually modified.
+- **D-state exists because I/O cannot be interrupted.** When a process calls `read()` on a disk or NFS mount, the kernel must complete the I/O call atomically — partial reads would corrupt data. The process is placed in D-state (uninterruptible) for exactly this duration. SIGKILL cannot interrupt kernel I/O paths.
+- **Zombie processes are a necessary protocol.** When a child exits, it must leave its exit code somewhere for the parent to collect. The process table entry is that "somewhere." Without zombies, parent processes couldn't determine if their children succeeded or failed.
+- **Swap is not just "slow RAM."** It's a mechanism to preserve the kernel's **page cache** (disk read cache) at the cost of slower anonymous memory access. The kernel prefers to evict heap/stack pages to swap rather than evict cached disk data, because disk reads are sequential and cacheable — random heap access patterns are not.
+- **The OOM Killer is a last resort, not a policy.** Proper resource management (cgroup memory limits) prevents OOM kills by applying them at the container/service level predictably. The OOM Killer firing in production means the capacity planning assumption was wrong.
+
 ## Process Lifecycle
 
 Every process originates from `fork()` (which clones the parent) followed by `exec()` (which replaces the process image). The chain starts at PID 1 (systemd/init).
@@ -231,3 +321,26 @@ df -i /                 # Inode usage on filesystem
 | OOM killer | Kills highest-score process when memory exhausted |
 | Huge pages | 2MB pages reduce TLB pressure for large workloads |
 | Inodes | File metadata; separate from filename (dentry) |
+
+## System Design Perspective
+
+**Scalability**
+- Process creation via `fork()` + `exec()` is the model for all Unix program execution. This is why containerization was achievable without changing the kernel — containers just add namespace and cgroup constraints to the existing process model.
+- The CFS scheduler scales to thousands of threads on hundreds of CPUs by using per-CPU run queues with load balancing. The Red-Black Tree ensures O(log n) scheduling decisions regardless of thread count.
+- For high-throughput services, `SCHED_FIFO` (real-time) guarantees CPU time but can starve other processes. Reserve it for audio, trading, and safety-critical systems. For databases, `nice` priority + CPU pinning (`taskset`) is usually sufficient without the risks of real-time scheduling.
+
+**Failure Modes**
+- **THP latency spike pattern:** A database shows normal P50 latency but P99 spikes every few minutes. No disk I/O. No GC. The cause is `khugepaged` compacting memory to form 2MB huge pages — this stops-the-world briefly. Disable THP and the spike disappears. This is one of the most commonly misdiagnosed database performance issues.
+- **Swap thrashing cycle:** Once swap use exceeds ~50%, the system enters a vicious cycle: swapping causes high I/O wait → I/O wait causes more processes to block → more blocked processes means less RAM freed → more swapping. Recovery requires reducing the workload or adding RAM; you cannot tune your way out once thrashing starts.
+- **OOM Killer killing the wrong process:** The OOM Killer scores by memory size, not by "importance." A 4GB Postgres instance will be killed before a 10MB sshd process that is the root cause of the leak. Use `oom_score_adj=-1000` to protect critical services. This is not optional in production.
+- **Zombie accumulation from poorly written daemons:** A daemon that spawns child processes (e.g., per-request workers) but never calls `wait()` accumulates zombies. The process table has a fixed size (~32k entries on default kernels). When full, no new processes can be created — `fork()` returns EAGAIN, and the system appears frozen.
+
+**Trade-offs**
+- **Explicit HugePages vs THP:** Explicit huge pages are pre-allocated at boot (reducing available RAM for other uses) but are fully predictable. THP is dynamic but introduces `khugepaged` interference. For latency-sensitive databases: explicit huge pages. For general workloads: THP (or THP disabled).
+- **vm.swappiness=0 vs 1:** Setting swappiness to 0 tells the kernel to avoid swapping "as much as possible" — but the kernel can still swap when necessary. Setting it to 1 achieves near-identical behavior with slightly more predictable behavior under edge conditions. Databases typically use 1–10.
+- **Huge page sizes (2MB vs 1GB):** 1GB huge pages offer even better TLB coverage but must be allocated at boot time (they cannot be reclaimed dynamically). 2MB pages can be managed dynamically. For most workloads, 2MB is the right choice; 1GB is only for dedicated high-memory applications (Oracle, SAP HANA).
+
+**Why These Design Choices Were Made**
+- **The inode/dentry separation** solves the "same data, multiple names" problem efficiently. Hard links are free — just a new dentry pointing to an existing inode. Without this separation, every hard link would require data duplication.
+- **GRUB's two-stage design** (MBR → GRUB core → GRUB modules) exists because the MBR is only 446 bytes — too small for a full bootloader. Stage 1 in the MBR just knows how to load stage 2 from a known disk location. This solved the bootstrap problem of "the thing that loads programs is itself a program."
+- **systemd's parallel startup** replaced SysVinit's sequential scripts because modern servers have dozens of independent services. Sequential startup on a server with 40 services meant 2–3 minute boot times. systemd's dependency graph allows safe parallelism, reducing boot time to under 10 seconds.

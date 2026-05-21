@@ -1,5 +1,72 @@
 # Ansible — Deep Dive Notes
 
+```
+Ansible Internals & Advanced Patterns
+├── Architecture
+│   ├── Fork model: N worker processes (default 5) → one SSH per host per fork
+│   ├── Module execution: Python script uploaded → executed → JSON returned → cleaned up
+│   ├── Pipelining: batch steps in one SSH connection (requires no requiretty)
+│   └── Connection plugins: ssh (default), paramiko, local, docker, winrm
+├── Inventory Deep Dive
+│   ├── Static: INI with [group] + range notation (web[01:05].example.com)
+│   ├── Dynamic EC2: aws_ec2 plugin → keyed_groups by tags + filters
+│   ├── Variable precedence: defaults → inventory → group_vars → host_vars → task vars → extra vars
+│   └── ansible-inventory --graph / --list → debug inventory structure
+├── Role Structure Details
+│   ├── defaults/main.yml: lowest precedence, document role API here
+│   ├── vars/main.yml: high precedence, internal constants
+│   ├── tasks/main.yml: entry point (import_tasks sub-files for structure)
+│   └── Key distinction: defaults for tunables, vars for fixed internal values
+├── Task Execution Model
+│   ├── serial: controls batch size for rolling updates
+│   ├── max_fail_percentage: stop play if % of hosts fail
+│   ├── import_tasks: static, parse-time, tags propagate
+│   └── include_tasks: dynamic, runtime, tags don't propagate
+├── Vault Internals
+│   ├── AES-256-CTR encryption with PBKDF2-HMAC-SHA256 key derivation
+│   ├── Multiple vault IDs: --vault-id dev@dev-pass --vault-id prod@prod-pass
+│   └── ansible.cfg vault_identity_list: default vault IDs for decrypt
+├── Performance Tuning
+│   ├── forks: parallel SSH connections (50-100 for large fleets)
+│   ├── gathering: smart (cache) → only gather if not cached
+│   ├── fact_caching: redis → 8h TTL, skip setup on repeat runs
+│   ├── pipelining: True → batch module steps in one SSH connection
+│   └── ControlMaster + ControlPersist: reuse SSH connections for 60s
+├── Callback Plugins
+│   ├── stdout_callback: yaml → human-readable, default_callback: timer
+│   ├── json callback → machine-readable output for CI parsing
+│   └── Custom callback → post results to S3, Slack, monitoring system
+├── Parallelism Patterns
+│   ├── serial: "25%" → rolling update batch control
+│   ├── throttle: N → limit concurrency for one task (DB migrations)
+│   ├── run_once: → execute on one host, delegate_facts for others
+│   └── delegate_to: control-node → run task on different host
+├── Jinja2 Advanced
+│   ├── Filter chaining: var | default('x') | upper | replace(' ', '_')
+│   ├── loop_control: label / loop_var → clean output, avoid conflicts
+│   ├── dict2items: iterate over dict as list of {key, value}
+│   └── lookup('file', path) / lookup('env', 'HOME') → external data
+├── AWX Architecture
+│   ├── Django web app + Celery workers + Redis queue + PostgreSQL
+│   ├── Execution Environments: OCI containers with Ansible + collections
+│   ├── ansible-builder: build EE images from requirements files
+│   └── Workflow templates: multi-job pipelines with conditional branching
+└── Key Gotchas
+    ├── set_fact + run_once: fact set on one host only (use delegate_facts)
+    ├── handlers only fire at end of play (use flush_handlers for mid-play)
+    ├── include_tasks: dynamic, cannot be targeted by tags at parse time
+    ├── state: latest on packages breaks idempotency
+    └── changed_when: false needed on read-only command tasks
+```
+
+## First Principles
+
+- Ansible's fork model is a worker pool. The control node forks N child processes, each managing one SSH connection to one host. The bottleneck at low forks is sequential waiting; the bottleneck at high forks is SSH connection setup overhead and kernel resource limits.
+- Pipelining removes the biggest single overhead in Ansible's default transport: the per-task SSH connection setup. With pipelining, one SSH connection handles multiple task executions. The requirement (no `requiretty` in sudoers) is why it's not the default — many base OS images have `requiretty` set.
+- Fact caching separates the "what do we know about this host" problem from the "what do we need to configure" problem. Facts (OS version, IP addresses, CPU count) don't change between runs. Caching them in Redis eliminates the most time-consuming phase of Ansible execution (the `setup` module runs on every host before any tasks).
+- Vault uses AES-256-CTR with PBKDF2 key derivation. The vault password is the single secret that protects all other secrets. In CI, the vault password must be injected from a secrets manager — never stored in the repository or pipeline environment in plaintext.
+- AWX's Execution Environment model solves the "works on my laptop" problem for Ansible. The EE is an OCI image with a pinned Ansible version, pinned collections, and pinned Python packages. Every job run against the same EE produces the same execution environment — identical to Docker's reproducibility guarantee for application code.
+
 ## Why Ansible Matters in DevOps
 
 Ansible is the industry-standard configuration management and automation tool. Unlike Puppet or Chef (agent-based, pull model), Ansible is **agentless** and uses a **push model** — no software to install on targets, just SSH access.
@@ -503,3 +570,25 @@ molecule test
 | `loop` vs `with_items` | `with_items` flattens one level; `loop` does not. Use `loop` + `flatten(1)` filter for equivalence |
 | `when` on `include_tasks` | The `when` condition runs on the control node before inclusion; variables from set_fact inside the include are not yet available |
 | Vault-encrypted `defaults/` | Encrypting `defaults/main.yml` works but kills role reusability — prefer `group_vars/prod/secrets.yml` |
+
+***
+
+## System Design Perspective
+
+**Fork model and kernel limits:** At forks=100, you have 100 SSH child processes. Each SSH process consumes file descriptors (stdin, stdout, stderr, socket). Linux default `nofile` ulimit is often 1024. At forks=100 with 10 open files each, you hit the limit. Before increasing forks, raise `ulimit -n 65536` on the control node and set `MaxSessions` + `MaxStartups` in sshd_config on managed nodes.
+
+**Pipelining as the highest-ROI tuning:** Enabling pipelining alone can reduce playbook execution time by 30-50% on large inventories. The implementation: instead of SSH → upload module → close → SSH → execute → close → SSH → cleanup → close, pipelining batches: SSH → upload + execute + cleanup → close. Three round trips become one. The only blocker is `requiretty` in sudoers, which is trivially disabled.
+
+**Fact caching architecture choices:**
+- JSON file cache: simple, no dependencies, but one file per host = many small files, no TTL enforcement beyond file mtime.
+- Redis cache: fast, TTL-enforced, shared across control nodes (useful if you have multiple Ansible control nodes for HA). Requires a Redis instance, but typically already present in an organization's infrastructure.
+- memcached: similar to Redis but less flexible. Less commonly used.
+- For AWX: fact caching is configured per-organization and stores facts in the AWX database or Redis. Execution Environments inherit the fact cache configuration.
+
+**AWX workflow templates as change management:**
+- A workflow template is a visual DAG of job templates with conditional branching (success/failure/always). Example: database-migration-job → (on success) → rolling-deploy-job → (on success) → smoke-test-job → (on failure) → rollback-job.
+- This workflow is the automation equivalent of a change management runbook. Every step is audited. Approval nodes (AWX feature) require a human to approve before proceeding — creating a "plan + human review + apply" pattern analogous to Terraform's plan/apply gate.
+
+**Callback plugins as observability hooks:**
+- The `json` stdout callback produces machine-readable output. Parse it in CI to extract per-task timing, changed task count, and failure details. Post summaries to Slack or a dashboard.
+- Custom callbacks can post results to a CMDB, update a monitoring system's maintenance window, or register a deployment event in an observability platform. This is how Ansible integrates into a broader DevOps toolchain rather than being a standalone automation island.

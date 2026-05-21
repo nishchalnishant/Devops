@@ -1,5 +1,64 @@
 # Helm Cheatsheet
 
+```
+Helm Cheatsheet
+├── CLI — Repository & Release Management
+│   ├── helm repo add / update / list / remove / search
+│   ├── helm install: from local dir, repo, or OCI registry
+│   ├── helm upgrade --install: idempotent install+upgrade in CI/CD
+│   ├── helm rollback <name> <revision>: restore previous state
+│   ├── helm list --all-namespaces: discover all releases
+│   └── helm history <name>: view all revisions with status
+├── Templating Functions (Sprig + Helm built-ins)
+│   ├── {{ .Values.key | default "fallback" }}: safe defaults
+│   ├── {{ .Values.key | quote }}: wrap in quotes for strings
+│   ├── {{ .Values.data | toYaml | indent 4 }}: render map as YAML block
+│   ├── {{ required "key is required" .Values.key }}: fail-fast validation
+│   ├── {{ include "chart.fullname" . | trunc 63 }}: named template + trim
+│   └── {{ tpl .Values.configTemplate . }}: render string as template
+├── Values Override Patterns
+│   ├── Precedence: values.yaml < -f files (L→R) < --set flags
+│   ├── --set: dot-path (image.tag), list (servers[0]=a), escaped commas
+│   ├── --set-string: force string type (avoids int coercion)
+│   ├── --set-file: read value from file (certificates, SSH keys)
+│   └── Environment layering: base values.yaml + env-specific overlay file
+├── Lifecycle Hooks
+│   ├── pre-install: DB schema creation before app pods start
+│   ├── post-upgrade: smoke test after upgrade completes
+│   ├── pre-rollback: backup before restoring previous version
+│   ├── test: helm test runs; validates deployed release health
+│   ├── Weight annotation: helm.sh/hook-weight: "-5" (lower = earlier)
+│   └── Delete policy: hook-succeeded cleans up completed jobs automatically
+├── Debugging Commands
+│   ├── helm template ./chart --debug: render templates locally
+│   ├── helm install --dry-run --debug: simulate against cluster API
+│   ├── helm diff upgrade (plugin): preview changes before applying
+│   ├── helm get manifest <name>: see what Helm deployed to cluster
+│   └── helm get values <name>: see effective values for a release
+├── OCI & Repositories
+│   ├── helm push ./chart-1.0.0.tgz oci://registry.io/charts
+│   ├── helm pull oci://registry.io/charts/app --version 1.0.0
+│   └── helm registry login registry.io --username user
+├── Plugin Ecosystem
+│   ├── helm-diff: show upgrade diff before applying
+│   ├── helm-secrets: encrypt values with SOPS/Vault
+│   ├── helm-unittest: unit test chart templates
+│   └── helm-docs: auto-generate README from values.yaml comments
+└── Helmfile Quick Reference
+    ├── helmfile sync: apply all releases
+    ├── helmfile diff: preview all changes
+    ├── helmfile apply: diff + apply (interactive confirmation)
+    └── needs: field: dependency ordering between releases
+```
+
+## First Principles
+
+- Kubernetes YAML is repetitive across environments. Helm = templating engine + package manager for K8s. Without Helm, teams copy-paste manifests and manually diff environments — this creates configuration drift.
+- Chart = versioned package. Values = environment-specific overrides. Release = deployed instance of a chart. The cheatsheet is a reference for the mechanics; the mental model is these three concepts.
+- Hooks = lifecycle actions (pre-install, post-upgrade). They are K8s Jobs with annotations — not new resource types. Hook weight controls execution order within a phase.
+- `helm upgrade --install` is the CI/CD idiom: idempotent install+upgrade in a single command, no need to check if the release exists.
+- `helm template --dry-run --debug` is the debugging idiom: render templates and check for errors before touching the cluster.
+
 Quick reference for Helm CLI commands, template functions, and production patterns.
 
 ***
@@ -318,3 +377,21 @@ ingress:
 | Hook job keeps running | Previous hook job not cleaned up | Add `helm.sh/hook-delete-policy: hook-succeeded` |
 | `helm upgrade` hangs | Resource stuck in non-ready state | `kubectl describe` the resource; check events |
 | NOTES.txt not showing | Template rendering error | `helm template` to debug |
+
+***
+
+## System Design Perspective
+
+**CI/CD Helm Integration Pattern**
+- Pipeline: `helm dependency update` → `helm lint` → `helm template | kubeval` → `helm diff upgrade` → `helm upgrade --install --atomic --timeout 5m --wait`
+- `--atomic`: on timeout or failure, automatically rolls back to previous revision — safe for production pipelines.
+- Chart version bump: automate via `helm-docs` + `ct lint` (chart-testing) in PR checks; enforce SemVer bump policy (patch for value changes, minor for new optional features, major for breaking).
+
+**Secrets Management Pattern**
+- Never store secrets in values files. Use External Secrets Operator: ESO fetches from Vault/AWS SM and creates K8s Secrets; chart references secrets by name via `secretRef`, not inline values.
+- `helm-secrets` plugin with SOPS: encrypts specific values.yaml keys; decrypted at render time. Suitable for smaller teams without a secrets manager.
+
+**Multi-Tenant Chart Design**
+- Single chart, namespace-per-tenant model: `helm install tenant-a ./app -n tenant-a --set tenant=tenant-a`
+- NetworkPolicy + ResourceQuota templates inside the chart enforced per namespace.
+- Library chart for shared helpers: reduces duplication across 10+ service charts in a monorepo; bump library chart version triggers downstream chart version bumps.

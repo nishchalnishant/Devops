@@ -1,5 +1,52 @@
 # MLOps (Machine Learning Operations)
 
+```
+MLOps (Machine Learning Operations)
+├── Core Concept: Three Artifacts
+│   ├── Code: training scripts, feature engineering, model architecture
+│   ├── Data: training datasets, feature values, labels
+│   └── Model: trained weights + preprocessing transforms + metadata
+├── MLOps Maturity Levels
+│   ├── L0 (Manual): laptop → email model to engineer → deploy manually
+│   ├── L1 (Pipeline Automation): Kubeflow/SageMaker pipeline; no CT
+│   └── L2 (CI/CD/CT): automated retrain on drift/schedule + auto-promotion
+├── Core Components
+│   ├── Feature Store: offline (S3/BigQuery) + online (Redis/DynamoDB)
+│   ├── Model Registry: versioned catalog (MLflow); None→Staging→Production→Archived
+│   ├── Experiment Tracker: logs params, metrics, artifacts per run (MLflow, W&B)
+│   └── Serving Layer: KServe, Triton, TF Serving, vLLM (LLMs)
+├── Four Pipelines
+│   ├── CI: test code, validate features, lint pipelines
+│   ├── CT (Continuous Training): trigger → train → evaluate → register
+│   ├── CD: deploy new model version to serving infra
+│   └── CM (Continuous Monitoring): drift detection, label monitoring, alerts
+├── Data Drift & Model Degradation
+│   ├── Data drift (covariate shift): P(X) changes
+│   ├── Concept drift: P(Y|X) changes — world changes, model doesn't
+│   ├── Detection: PSI, KS test, Jensen-Shannon, Chi-squared
+│   └── CT trigger: drift threshold, schedule, data volume, business KPI drop
+├── Deployment Strategies
+│   ├── Shadow: challenger runs in parallel; predictions not returned to users
+│   ├── Canary: small % of live traffic to challenger
+│   ├── A/B testing: statistical significance gate before full rollout
+│   └── Blue/Green: full traffic swap with instant rollback capability
+└── LLMOps Extensions
+    ├── Prompt versioning and registry
+    ├── RAG pipeline: chunk → embed → vector DB → retrieve → rerank → LLM
+    ├── RAGAS metrics: faithfulness, answer_relevancy, context_precision
+    ├── vLLM: PagedAttention + continuous batching for high-throughput serving
+    └── Cost per token as primary LLM serving metric
+```
+
+## First Principles
+
+- ML models are code + data + config — all three must be versioned and reproducible, or you cannot debug degraded models.
+- Models degrade silently over time (data drift, concept drift) — monitoring model behavior is as critical as monitoring infrastructure.
+- Feature computation is expensive — cache computed features in a feature store to avoid duplication between training and serving, and to prevent training-serving skew.
+- Serving needs latency SLOs: batch vs real-time is not a technical choice, it is a latency trade-off — real-time serving requires online feature stores and fast model runtimes.
+- Continuous Training is not Continuous Deployment: retraining a model requires data validation, performance evaluation, and promotion gates — not just CI passing.
+- LLMOps adds unique challenges: prompt versioning, KV cache management, cost per token, and RAG pipeline quality — none of which exist in standard MLOps.
+
 MLOps is the application of DevOps principles to Machine Learning. It bridge the gap between Data Science (building models) and Engineering (running models in production), focusing on automation, scalability, and reliability of ML systems.
 
 #### 1. The ML Lifecycle vs. Software Lifecycle
@@ -85,3 +132,25 @@ with mlflow.start_run():
 ***
 
 This is Section 17: MLOps. For a senior role, you should focus on **LLMOps (Generative AI operations)**, **Multi-model serving**, and **GPU cost optimization**.
+
+***
+
+## System Design Perspective
+
+**ML Platform Architecture (Mid-Size Organization)**
+- Data layer: Delta Lake or Iceberg on S3/GCS for versioned training data; Great Expectations for data validation at ingestion.
+- Feature layer: Feast or Tecton for feature store; offline store backed by S3/BigQuery; online store backed by Redis or DynamoDB; materialization job runs on a schedule.
+- Training layer: Kubeflow Pipelines or SageMaker Pipelines for orchestration; MLflow for experiment tracking and model registry; GPU node pool (Karpenter) for training jobs.
+- Serving layer: KServe for standard models; vLLM for LLMs; Triton for GPU-accelerated batch inference.
+- Monitoring layer: Evidently AI for drift detection; Prometheus for serving latency and throughput; custom dashboards for model quality metrics.
+
+**LLM Serving at Scale**
+- vLLM with PagedAttention: non-contiguous KV cache blocks enable high GPU utilization and concurrent request handling.
+- Model routing: small models for simple queries (cost optimization), large models for complex queries — route based on query complexity classifier.
+- RAG pipeline: document ingestion → chunking → embedding → vector DB (Pinecone, Weaviate, Qdrant) → ANN retrieval → cross-encoder reranking → LLM prompt assembly.
+- Semantic caching: cache LLM responses for semantically similar queries to reduce cost and latency.
+
+**Distributed Training Architecture**
+- For models > single GPU: PyTorch FSDP or DeepSpeed ZeRO Stage 3 for parameter sharding across GPUs.
+- Checkpointing to S3 every N steps — enables resumption on Spot instance preemption.
+- InfiniBand networking for GPU-to-GPU communication in large clusters (essential for Tensor Parallelism).

@@ -1,5 +1,69 @@
 # Routing, Subnetting, and Network Design
 
+```
+Routing, Subnetting, and Network Design
+├── Subnetting and CIDR
+│   ├── Subnet — divides a network into smaller broadcast domains
+│   ├── CIDR — /prefix notation replaces class-based allocation
+│   ├── Quick reference — /8 (16M hosts) to /32 (1 host)
+│   ├── Subnetting math — 2^(32-prefix) addresses, -2 usable (net+broadcast)
+│   └── VPC design — plan for future growth; CIDR cannot be shrunk
+├── Routing Fundamentals
+│   ├── Routing decision — longest prefix match wins
+│   ├── Metrics — hop count, bandwidth, latency, load, reliability, cost
+│   ├── Default route — 0.0.0.0/0, gateway of last resort
+│   └── Next-hop — packet rewritten with next-hop MAC at each router
+├── Static Routing
+│   ├── Manual configuration, no protocol overhead
+│   ├── Best for small/stable topologies
+│   ├── Fails silently — no automatic failover
+│   └── Commands — ip route add, route add (Linux)
+├── Dynamic Routing Protocols
+│   ├── RIP — Distance Vector, hop count metric, max 15 hops, slow convergence
+│   ├── OSPF — Link State, Dijkstra, areas, fast convergence, no hop limit
+│   ├── EIGRP — Cisco proprietary, hybrid, DUAL algorithm
+│   └── BGP — Path Vector, AS-level routing, Internet backbone
+├── Routing Algorithms
+│   ├── Distance Vector (Bellman-Ford)
+│   │   ├── Each node knows distance to all destinations via neighbors
+│   │   ├── Periodic full table exchange with neighbors
+│   │   ├── Count-to-infinity problem — slow convergence on failures
+│   │   └── RIP uses this with 30s update interval
+│   └── Link State (Dijkstra)
+│       ├── Each node floods LSPs (Link State Packets) to all routers
+│       ├── Every router builds identical topology map
+│       ├── Dijkstra's SPF computes shortest path tree
+│       └── OSPF uses this — fast convergence, scales to large networks
+├── OSPF Deep Dive
+│   ├── Hello packets — neighbor discovery, dead interval 4x hello
+│   ├── LSAs — Type 1 (router), Type 2 (network), Type 5 (external)
+│   ├── Areas — backbone (Area 0) + stub areas reduce LSA flooding
+│   └── Packet types — Hello, DBD, LSR, LSU, LSAck
+├── BGP Deep Dive
+│   ├── eBGP — between different ASes (TCP session, TTL=1 by default)
+│   ├── iBGP — within same AS (must be full mesh or use route reflectors)
+│   ├── Path selection (in order) — LOCAL_PREF → AS_PATH → ORIGIN → MED
+│   ├── Communities — tag routes for policy propagation
+│   └── RPKI — cryptographic origin validation, prevents hijacking
+└── Network Topologies (with Trade-offs)
+    ├── Bus — shared coax, simple, one break = full outage
+    ├── Ring — token passing, predictable latency, one break = full outage (single ring)
+    ├── Star — central switch, easy to manage, hub = SPOF
+    ├── Tree (hierarchical) — core/aggregation/access layers, scalable, branch failure isolated
+    ├── Full Mesh — every node connected, maximum redundancy, O(n²) links
+    └── Hybrid — Star-of-Stars (most enterprise LANs), core mesh + access stars
+```
+
+## First Principles
+
+- Without subnetting, all devices on the internet would be in one broadcast domain — every ARP request would go to every device. **Subnetting** creates isolation: routers separate broadcast domains, and only devices within the same subnet see each other's broadcasts.
+- A router must decide where to send a packet given only the destination IP. **Longest prefix match** is the algorithm: the most specific route (highest prefix length) wins. This allows a default route (/0) to coexist with specific routes (/24, /32) without ambiguity.
+- Static routing requires a human to update every router when topology changes — this does not scale. **Dynamic routing protocols** (OSPF, BGP) automate topology discovery and route recalculation. The trade-off is protocol complexity and CPU/memory overhead.
+- Distance Vector protocols (RIP) share routing tables with neighbors — each router knows next-hop but not full topology. This causes **slow convergence**: when a link fails, the news propagates hop-by-hop. Link State protocols (OSPF) flood topology information to everyone, so every router can independently compute the full graph.
+- BGP does not optimize for shortest path — it optimizes for **policy**. An AS can prefer a longer path through a trusted provider over a shorter path through an untrusted one. This design choice makes BGP the protocol for the internet, where economic and political relationships determine routing.
+- OSPF areas exist to limit LSA flooding — a flat OSPF network with 1000 routers would flood topology updates to all 1000 every time any link changes. **Area hierarchy** confines LSAs to their area; only summaries cross area boundaries, reducing CPU and bandwidth overhead.
+- Network topology is a **failure blast radius decision**: full mesh ensures any single link failure is invisible, but requires O(n²) links — 100 nodes need 4,950 links. Hierarchical tree (core/agg/access) limits redundancy to critical tiers, accepting that access-layer failures isolate individual users rather than network segments.
+
 ## Subnetting and CIDR
 
 ### What is a Subnet?
@@ -599,3 +663,22 @@ Where:
 | **Mesh Topology** | Full redundancy, expensive |
 | **Tree Topology** | Hierarchical, scalable |
 | **Hybrid Topology** | Combination of multiple topologies |
+
+***
+
+## System Design Perspective
+
+**Scalability**
+- VPC CIDR allocation is permanent — you cannot resize a VPC's primary CIDR after creation (you can add secondary CIDRs, but not remove or extend the primary). Allocating a /20 when you need a /16 forces painful VPC recreation later. The correct approach: always allocate larger than current need and use subnets to carve the space incrementally.
+- OSPF scales via area hierarchy: Area 0 (backbone) connects all other areas. Within a single area, every router maintains the full LSDB and runs Dijkstra on every topology change. Splitting a 500-router flat OSPF domain into 10 areas of 50 each reduces per-router SPF computation by 10x.
+- BGP route reflectors solve the iBGP full-mesh requirement: n routers in a full iBGP mesh need n(n-1)/2 sessions. With a route reflector, each router has only one session. At 100 routers, this reduces sessions from 4,950 to 99.
+
+**Failure Modes**
+- Static routing fails silently: if the next-hop router goes down, packets are forwarded to a dead address with no error. The failure is only visible via packet loss, not via routing protocol convergence. For any path requiring HA, dynamic routing with health monitoring is required.
+- OSPF count-down after area mismatch: routers in different areas will not form full adjacency (they reach 2-Way state but not Full). Mismatched area IDs, hello/dead intervals, or MTU values prevent adjacency. The symptom is routes disappearing between areas; the diagnosis is checking OSPF neighbor state with `show ip ospf neighbor`.
+- BGP route flapping: a neighbor alternating between up/down causes repeated withdraw/announce cycles that ripple across the internet. Route dampening suppresses flapping prefixes, but excessive dampening delays recovery after a legitimate fix. The default dampening parameters (half-life 15 min, suppress 2000, reuse 750) are conservative — routes can stay suppressed for up to 60 minutes.
+
+**Trade-offs**
+- OSPF vs BGP for data center routing: OSPF converges faster (sub-second with BFD) and is simpler to configure for intra-DC routing. BGP scales better and supports rich policy. Modern DC networking (Clos fabric / BGP Unnumbered) uses eBGP between every ToR and spine, eliminating OSPF's area complexity while getting BGP's policy flexibility.
+- Subnetting granularity: a /30 (2 usable hosts) per point-to-point link wastes only 2 addresses but creates many routing table entries. /31 (RFC 3021, 2 addresses, no broadcast) saves one address per link. In cloud environments with hundreds of subnets, using /28 per tier (public, private, database) balances address waste against routing complexity.
+- Full mesh vs partial mesh topology: full mesh provides maximum redundancy but costs O(n²) in links, ports, and configuration. Partial mesh (each node connected to 2-3 neighbors) is the practical compromise — it survives any single link failure while requiring only O(n) links. Most enterprise core networks use dual-homed star (each access switch connected to two aggregation switches), which is a partial mesh at the aggregation layer.

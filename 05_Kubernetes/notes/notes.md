@@ -1,5 +1,106 @@
 # Kubernetes — Deep Theory Notes
 
+```
+Kubernetes Deep Theory Notes
+├── Control Plane Components
+│   ├── kube-apiserver
+│   │   ├── Request path: AuthN → AuthZ → Mutating Webhooks → Validate → Validating Webhooks → etcd
+│   │   ├── Horizontally scalable; stateless; all state in etcd
+│   │   ├── APF — FlowSchema buckets; prevents CI bots starving kubelet heartbeats
+│   │   └── Audit logging — every API call with identity, requestObject, timestamp
+│   ├── etcd (Raft)
+│   │   ├── Quorum: 3-node=1 failure; 5-node=2 failures; odd numbers only
+│   │   ├── Disk fsync <10ms — NVMe SSD required
+│   │   ├── Default quota 2GB → cluster read-only when exceeded
+│   │   ├── Key format: /registry/<resource-type>/<namespace>/<name>
+│   │   └── Compact → Defrag cycle; automated offsite snapshots mandatory
+│   ├── kube-scheduler
+│   │   ├── Phase 1 Filter: CPU/RAM, taints, nodeSelector, affinity, PVC zone, max pods
+│   │   ├── Phase 2 Score: LeastAllocated, NodeAffinity, TopologySpread, ImageLocality
+│   │   └── Scheduling Framework: PreFilter/Filter/PostFilter/Score/Bind plugins
+│   └── kube-controller-manager (~30 controllers)
+│       ├── Node — heartbeat watch; NotReady after 40s; evict after 5m
+│       ├── ReplicaSet — maintain desired pod count
+│       ├── Deployment — manage ReplicaSets for rolling updates
+│       ├── HPA — poll Metrics API; adjust replicas
+│       └── Job / CronJob / Namespace / ServiceAccount controllers
+├── Data Plane Components
+│   ├── kubelet
+│   │   ├── Watches API server for pods assigned to its node
+│   │   ├── Calls CRI (containerd gRPC socket) to pull + start containers
+│   │   ├── Runs probes; reports PodStatus
+│   │   └── NodeLease heartbeat every 10s (kube-node-lease namespace)
+│   ├── kube-proxy modes
+│   │   ├── iptables — O(n) sequential DNAT; degrades at 10k+ rules
+│   │   ├── IPVS — hash table O(1); better algorithms (least-conn, src-hash)
+│   │   └── eBPF (Cilium) — kernel-bypass; socket-level; fastest
+│   └── Container Runtime (CRI)
+│       ├── containerd → containerd-shim → runc (OCI) → namespaces + cgroups
+│       ├── CRI-O — lightweight; strict OCI compliance
+│       └── Secure runtimes: gVisor (user-space kernel) / Kata (micro-VM per pod)
+├── Pod Lifecycle
+│   ├── Phases: Pending → Running → Succeeded/Failed/Unknown
+│   ├── Exit codes: 0=clean, 1=app error, 137=OOMKill, 139=segfault, 143=SIGTERM
+│   ├── Probes: liveness (restart) / readiness (remove endpoints) / startup (slow apps)
+│   ├── Init containers — sequential pre-conditions; block main container start
+│   ├── preStop hook — runs before SIGTERM; blocks termination; drain connections
+│   └── QoS: Guaranteed (req==lim) → Burstable → BestEffort (evicted first)
+├── Scheduling
+│   ├── Topology Spread Constraints — maxSkew across zones/nodes; DoNotSchedule/ScheduleAnyway
+│   ├── Taints: NoSchedule / PreferNoSchedule / NoExecute + tolerationSeconds
+│   ├── Node Affinity — hard/soft; by node labels
+│   ├── Pod Anti-Affinity — spread replicas; topologyKey: kubernetes.io/hostname
+│   └── PriorityClass + Preemption — evict lower-priority pods to fit high-priority
+├── Networking
+│   ├── CNI model — flat pod network; unique IP per pod; no NAT
+│   ├── Flannel (VXLAN) / Calico (BGP/eBPF) / Cilium (eBPF, L7 policy) / Weave
+│   ├── Services: ClusterIP / NodePort / LoadBalancer / ExternalName / Headless
+│   ├── EndpointSlices — ≤100 endpoints each; replace monolithic Endpoints objects
+│   ├── CoreDNS — <svc>.<ns>.svc.cluster.local; ndots:5 default
+│   ├── Ingress (L7) → Gateway API (role-separated; traffic splitting; L4+L7)
+│   └── NetworkPolicy — additive allow; default-deny pattern; CNI must enforce
+├── Storage
+│   ├── PV lifecycle: Provision → Bind → Mount → Release → Reclaim (Delete/Retain)
+│   ├── Access modes: RWO (single node) / ROX (multi read) / RWX (multi r/w) / RWOP
+│   ├── WaitForFirstConsumer — prevents AZ zone mismatch on PV provisioning
+│   ├── CSI: CreateVolume / NodeStageVolume / NodePublishVolume
+│   └── VolumeSnapshots — snapshot + restore as CRDs
+├── RBAC
+│   ├── Role/ClusterRole + RoleBinding/ClusterRoleBinding — four objects
+│   ├── Allow-only; no Deny rules; implicit deny on unmatched
+│   └── IRSA/Workload Identity — OIDC federation; pod-scoped short-lived tokens
+├── Admission Controllers
+│   ├── MutatingAdmissionWebhook — inject sidecars, set defaults, add labels
+│   ├── ValidatingAdmissionWebhook — enforce required labels, block :latest
+│   ├── OPA Gatekeeper — Rego; ConstraintTemplate + Constraint
+│   ├── Kyverno — YAML-native; validate/mutate/generate
+│   └── PSA — privileged/baseline/restricted at namespace via labels
+├── CRDs & Operators
+│   ├── CRD — extends K8s API; objects stored in etcd with schema validation
+│   ├── Operator — custom controller; domain-specific reconciliation loop
+│   └── Maturity: Install → Upgrades → Lifecycle → Insights → AutoPilot
+├── Autoscaling
+│   ├── HPA — Metrics API; formula: ceil(cur × curMetric/desiredMetric); 15s poll
+│   ├── VPA — historical recommendations; 24h data; evicts to apply; Off/Initial/Auto
+│   ├── KEDA — event-driven; scale to zero; Kafka/SQS/Prometheus/Redis triggers
+│   └── Cluster Autoscaler vs Karpenter — node group vs EC2 Fleet; 2-5m vs 30-60s
+├── Multi-Tenancy
+│   ├── Soft: Namespace + RBAC + ResourceQuota + NetworkPolicy + OPA
+│   └── Hard: vcluster — virtual control plane per tenant; host enforces limits
+└── API Mechanics
+    ├── Watch cache — in-memory; LIST resourceVersion=0 hits cache not etcd
+    ├── Server-side Apply — field ownership; conflict on shared fields (409)
+    └── etcd Raft — leader election; log replication; quorum required for writes
+```
+
+## First Principles
+
+- Kubernetes stores all desired state in **etcd** (Raft-consistent, quorum-based) — every component reads from and writes to the API server, which is the only gateway to etcd.
+- Every controller runs a **reconciliation loop**: watch API server for events → read current state → compute diff → act to close the gap → update status. This is the foundational pattern for the entire system.
+- Containers need isolated network identity — the **CNI plugin** provisions a unique IP per pod and programs routing so all pods can reach all pods without NAT.
+- Resource **requests** drive scheduling (where a pod lands) and QoS class (eviction order); resource **limits** drive runtime enforcement (OOMKill for memory, CPU throttling for CPU).
+- **Admission webhooks** intercept requests before they reach etcd — they are the enforcement point for organisational policy (required labels, image scanning, privilege restrictions).
+
 ## Table of Contents
 
 1. [Control Plane Components](#control-plane-components)

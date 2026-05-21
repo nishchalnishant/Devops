@@ -1,5 +1,56 @@
 # Docker Networking — Deep Dive
 
+```
+Docker Networking — Deep Dive
+├── Why Networking Exists
+│   ├── Containers are isolated (net namespace) — no connectivity by default
+│   └── Three needs: container↔container, container↔host, container↔external
+├── Six Network Types
+│   ├── Default Bridge (docker0)
+│   │   ├── 172.17.0.0/16, iptables MASQUERADE for outbound NAT
+│   │   ├── No DNS (IP-only communication between containers)
+│   │   └── All containers share it — no isolation
+│   ├── User-Defined Bridge (recommended)
+│   │   ├── Embedded DNS 127.0.0.11 → container name resolution
+│   │   ├── Scoped isolation, dynamic attach/detach
+│   │   └── Multiple bridges = multiple isolated segments
+│   ├── Host
+│   │   ├── Shares host net namespace: no veth, no NAT, no port mapping
+│   │   └── Performance: zero overhead; Risk: no isolation (Linux only)
+│   ├── Overlay (Swarm)
+│   │   ├── VXLAN UDP 4789, 50-byte overhead per packet
+│   │   └── L2 across hosts — containers on different hosts share a broadcast domain
+│   ├── Macvlan
+│   │   ├── Real MAC per container, appears as physical NIC on LAN
+│   │   └── Host isolation: host can't reach macvlan containers (split-horizon fix needed)
+│   └── None
+│       └── Loopback only — hermetic builds, air-gapped batch jobs
+├── Architecture (default bridge)
+│   ├── Container netns ← veth pair → docker0 bridge → host NIC → external
+│   └── Port map: iptables DNAT (-p 8080:80 → container-ip:80)
+├── Container DNS
+│   ├── 127.0.0.11:53 in every container on user-defined networks
+│   └── Resolves: container names, aliases, Swarm service VIPs → upstream on miss
+├── Network Comparison Table
+│   └── isolation / DNS / multi-host / performance / use case
+├── Troubleshooting
+│   ├── nsenter -t PID -n (enter container netns from host)
+│   ├── nicolaka/netshoot (tcpdump, dig, iperf3, mtr)
+│   └── docker network inspect + bridge link show
+└── Security
+    ├── icc=false (disable ICC on default bridge)
+    ├── --internal (no gateway — containers can't reach internet)
+    └── Bind to specific IP (-p 127.0.0.1:8080:80 vs 0.0.0.0)
+```
+
+## First Principles
+
+- **Why do containers need virtual networking infrastructure?** A container's net namespace is empty except for loopback. Docker creates a veth pair (virtual ethernet cable): one end in the container's namespace, one end attached to a bridge on the host. The bridge routes traffic between containers and NATs traffic to the outside world.
+- **Why does default bridge have no DNS while user-defined bridges do?** `docker0` is legacy — it predates Docker's embedded DNS resolver (127.0.0.11). DNS was added to user-defined bridges without breaking the default for backward compatibility. This is why every production setup should use `docker network create`.
+- **Why VXLAN overhead matters for overlay networks?** VXLAN adds 50 bytes of encapsulation per packet. With MTU=1500, the inner payload becomes ~1450 bytes. Packets larger than this get silently fragmented — causing degraded throughput and intermittent failures. Always set `--opt com.docker.network.driver.mtu=1450` on overlay networks.
+- **Why is host networking unavailable on Docker Desktop (macOS/Windows)?** Docker Desktop runs a Linux VM — the "host" of the container is the VM, not your Mac/Windows machine. Host networking gives the container access to the VM's network interfaces, not your laptop's.
+- **Why is `--internal` useful for databases?** An internal network has no gateway route — containers can communicate with each other but cannot make outbound connections. This prevents a compromised database container from exfiltrating data to the internet.
+
 ## Why Docker Networking Exists
 
 By default, containers are isolated processes. Without networking, they cannot communicate with each other, the host, or the outside world. Docker's networking layer provides **connectivity**, **isolation**, and **service discovery** — three pillars essential for microservices architectures.

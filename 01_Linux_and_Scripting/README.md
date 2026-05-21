@@ -1,5 +1,78 @@
 # Linux Operating System
 
+```
+Linux Operating System
+├── Installation & Setup
+│   ├── Distro choice: Ubuntu/Debian (dev) vs RHEL/Rocky (enterprise)
+│   ├── Initial config: hostname, timezone (timedatectl), networking (nmcli)
+│   └── Security first: disable root SSH, firewall (ufw/firewalld)
+├── Command Line Interface (CLI)
+│   ├── Navigation: pwd, ls -la, cd
+│   ├── System monitoring: top, htop, df -h, free -m
+│   └── Process management: ps aux | grep, kill -9 <PID>
+├── Filesystem & Permissions
+│   ├── FHS: /etc (configs), /var/log (logs), /bin & /sbin (binaries)
+│   ├── Permissions: rwx = read(4), write(2), execute(1)
+│   ├── chmod/chown: User, Group, Others (e.g., 755, 644)
+│   ├── Hard links: point to inode, survive original deletion
+│   └── Soft links: point to filename path, break on deletion
+├── Package Management
+│   ├── APT (Debian/Ubuntu): apt update, apt install
+│   ├── YUM/DNF (RHEL/CentOS): yum install, dnf upgrade
+│   └── Used inside Dockerfiles and Ansible Playbooks
+├── Virtualization
+│   ├── Type 1 hypervisor: VMware ESXi, KVM (bare metal)
+│   ├── Type 2 hypervisor: VirtualBox (hosted)
+│   └── VMs vs Containers: full OS vs application layer only
+├── Text Processing Power Tools
+│   ├── grep: search strings in files/logs
+│   ├── find: locate files by name, size, date
+│   ├── sed: stream editor — in-place find/replace
+│   └── awk: column-based data processing
+├── System Internals (SRE Level)
+│   ├── Kernel: bridge between software and hardware
+│   ├── Syscalls: open(), read(), write(), fork()
+│   ├── VFS: everything is a file (/proc, /sys)
+│   ├── Process parent/child: fork(), PID 1 = systemd
+│   ├── Zombie processes: child exited, parent not reaped
+│   ├── Orphan processes: parent died, adopted by PID 1
+│   └── OOM Killer: oom_score decides which process dies
+├── Boot Process
+│   ├── BIOS/UEFI → GRUB → Kernel → systemd (PID 1)
+│   └── systemd: parallel service startup, replaces SysVinit
+├── Advanced Debugging
+│   ├── strace -p <pid>: trace system calls
+│   ├── tcpdump -i eth0: capture network packets
+│   ├── df -i: check inode exhaustion
+│   └── lsof | grep deleted: find open-but-deleted files
+├── SRE Power Tools (Quick Reference)
+│   ├── iostat: disk I/O statistics
+│   ├── ss / netstat: socket and network stats
+│   ├── journalctl -u <svc>: service logs via systemd
+│   ├── lsof: open files and ports
+│   └── nice / renice: CPU priority management
+├── Troubleshooting Workflow
+│   ├── Sluggish server: check top, %wa (I/O wait), free -m (swap)
+│   ├── dmesg -T: kernel messages (OOM, TCP drops, hardware errors)
+│   └── ps aux | grep 'Z': zombie process count
+└── Production Best Practices
+    ├── No manual SSH in prod: use Ansible or AWS SSM
+    ├── Log rotation: logrotate to prevent disk fill
+    ├── Kernel hardening: SELinux/AppArmor, disable unused services
+    └── Anti-pattern: running services as root
+```
+
+## First Principles
+
+- A computer has hardware (CPU, RAM, disk, network) that needs a manager — that is the **kernel**.
+- Multiple programs running simultaneously cannot be allowed to stomp on each other's memory — the kernel enforces **process isolation** via virtual address spaces.
+- Programs cannot directly control hardware (that would be chaos) — they must ask the kernel politely via **system calls** (`open()`, `read()`, `write()`, `fork()`).
+- Users need protection from each other on shared systems — the kernel enforces **permissions** (rwx for owner/group/others) and **user IDs**.
+- Executing arbitrary programs is risky — the kernel separates **Kernel Space** (ring 0, full hardware access) from **User Space** (ring 3, restricted), and crossing the boundary costs a context switch.
+- "Where are my files?" needs a consistent answer regardless of disk type — the **Virtual File System (VFS)** provides a unified interface; everything (hardware, processes, sockets) is exposed as a file.
+- When RAM is full, the system must not crash — the kernel uses **swap** as overflow, and the **OOM Killer** as a last resort with a scoring algorithm.
+- Service management must be deterministic and recoverable — **systemd** (PID 1) manages dependencies, parallelizes startup, and restarts failed services.
+
 Linux is the "natural habitat" of a DevOps engineer. These notes cover the transition from a casual user to a system power-user.
 
 #### 1. Installation / Setup
@@ -238,3 +311,27 @@ When answering Linux questions, mention "Everything is a file."
 
 ***
 
+## System Design Perspective
+
+**Scalability**
+- Linux kernel defaults are tuned for general-purpose workloads, not high-scale production. `net.core.somaxconn`, `fs.file-max`, and `ulimit -n` must be raised before a proxy or database hits thousands of concurrent connections.
+- The kernel scheduler (CFS) distributes CPU fairly across all processes. For latency-sensitive workloads, CPU pinning (`taskset`) and isolated cores (`isolcpus`) remove scheduler interference.
+
+**Failure Modes**
+- **Disk full (inode exhaustion):** Disk space is free but `touch` fails — you've run out of inodes. Common with millions of tiny cache/session files. Fix: `df -i`, then find and delete offending directories.
+- **Deleted-file ghost space:** A process holds an open file descriptor to a deleted file. `df` still shows it used. Fix: `lsof +L1`, then restart the holding process.
+- **OOM cascade:** OOM Killer terminates the highest-score process, which may be the wrong one. Protect critical services with `oom_score_adj=-1000`.
+- **D-state deadlock:** A process in uninterruptible sleep (waiting on NFS or failing disk) cannot be killed even with `kill -9`. Fix requires resolving the underlying I/O, not the process.
+- **Load average vs CPU:** High load + low CPU = I/O bottleneck, not CPU. Treating them as equivalent is a common diagnosis mistake.
+
+**Trade-offs**
+- **Swap:** Having swap prevents OOM kills but causes thrashing if heavily used. Databases should set `vm.swappiness=1–10` to keep data in RAM; the trade-off is faster OOM kill over slow thrash.
+- **systemd vs SysVinit:** systemd parallelizes boot and provides cgroup-based resource tracking. The trade-off: more complexity, harder to debug, but dramatically faster startup and better dependency management.
+- **Permissions granularity:** POSIX permissions (rwx owner/group/other) are simple but coarse. ACLs add per-user/group entries at the cost of complexity. SELinux/AppArmor add mandatory access control — much more secure but operationally harder.
+- **Huge Pages:** Reduce TLB misses for large databases (PostgreSQL, Oracle) by using 2MB pages. Trade-off: pre-allocated huge pages cannot be used for other workloads; THP (Transparent Huge Pages) automates this but introduces latency spikes — disable for Redis and MongoDB.
+
+**Why These Design Choices Were Made**
+- The **single-rooted filesystem** (`/`) was designed for simplicity: one namespace, predictable paths, trivial to mount network filesystems at any subtree.
+- **"Everything is a file"** was a deliberate Unix design decision so the same `read()`/`write()` interface works for disks, sockets, processes (`/proc`), and devices — reducing API surface area dramatically.
+- **Copy-on-Write for fork()** solves the problem that most forks are immediately followed by `exec()` — copying all pages would be wasteful. COW defers the cost to the first write.
+- **PID 1 adopts orphans** prevents zombie accumulation when parent processes die unexpectedly — a safety net for process table cleanliness.

@@ -1,5 +1,61 @@
 # MLOps Deep-Dive: LLMOps & Advanced Model Serving
 
+```
+LLMOps & Advanced Model Serving
+├── LLMOps vs Standard MLOps
+│   ├── Model size: MB-GB (standard) vs 7B–700B+ params (LLM)
+│   ├── Hardware: CPU/single GPU (standard) vs multi-GPU/multi-node (LLM)
+│   ├── Latency metric: P99 ms (standard) vs TTFT + TPOT (LLM)
+│   ├── Memory bottleneck: compute (standard) vs KV cache (LLM)
+│   └── Output: structured prediction (standard) vs free-form text (LLM)
+├── vLLM & PagedAttention
+│   ├── KV cache: key-value attention activations stored in GPU memory
+│   ├── Problem: standard allocation reserves contiguous memory per request
+│   ├── PagedAttention: non-contiguous blocks; paged like OS virtual memory
+│   ├── Continuous batching: process tokens from multiple requests in parallel
+│   └── Result: 2-4x throughput improvement vs naive serving
+├── LLM Serving Metrics
+│   ├── TTFT: Time To First Token — user-perceived latency start
+│   ├── TPOT: Time Per Output Token — generation throughput
+│   ├── TPS: Tokens Per Second — overall throughput
+│   ├── KV cache hit rate: % of attention keys reused across requests
+│   └── Cost per token: primary LLM serving economic metric
+├── Model Parallelism
+│   ├── Tensor Parallelism: split weight matrices across GPUs on same node
+│   ├── Pipeline Parallelism: split model layers across GPUs/nodes
+│   ├── Data Parallelism: replicate model, split input batch
+│   └── ZeRO Stage 3: shard parameters across data parallel ranks
+├── RAG Pipeline Architecture
+│   ├── Indexing: chunk documents → embed → store in vector DB
+│   ├── Retrieval: embed query → ANN search → cross-encoder rerank → top-k
+│   ├── Generation: retrieved context + query → LLM prompt → response
+│   └── RAGAS evaluation: faithfulness, answer_relevancy, context_precision, context_recall
+├── Prompt Engineering & Versioning
+│   ├── Prompt registry: version control for system prompts (like model versions)
+│   ├── Few-shot examples: versioned alongside prompts
+│   ├── A/B testing prompts: treat prompt changes as model changes
+│   └── Prompt injection defense: input validation, output filtering, guardrails
+├── LLMOps Tooling
+│   ├── vLLM: OSS high-throughput serving with PagedAttention
+│   ├── Triton: NVIDIA multi-framework inference server (batching, model ensembles)
+│   ├── LangChain / LlamaIndex: RAG pipeline orchestration
+│   ├── Guardrails AI / NeMo Guardrails: input/output safety validation
+│   └── Semantic caching: cache responses by embedding similarity, not exact match
+└── Fine-Tuning Approaches
+    ├── Full fine-tuning: update all parameters; expensive; best accuracy
+    ├── LoRA/PEFT: train small adapter matrices; 10-100x cheaper
+    ├── DPO: fine-tune on preference data without separate reward model
+    └── RLHF: reinforcement learning from human feedback; most complex
+```
+
+## First Principles
+
+- LLM serving is a memory management problem: GPU memory is consumed by model weights + KV cache + activations — PagedAttention optimizes KV cache allocation to maximize concurrency.
+- RAG quality is retrieval quality: a great generator with poor retrieval produces confident-sounding wrong answers — invest in chunking, embedding model quality, and reranking.
+- Continuous batching is the key LLM throughput technique: unlike standard batching, it allows new requests to join a batch mid-generation, dramatically improving GPU utilization.
+- Prompt versioning is not optional at production scale: an undocumented prompt change is equivalent to an undocumented model change — treat prompts as code artifacts.
+- RAGAS provides quantitative evaluation for RAG systems: run it on a representative evaluation set after every RAG pipeline change to detect quality regressions before they reach users.
+
 > [!IMPORTANT]
 > LLMOps is now a required topic at the Senior and Staff MLOps level. Every modern ML platform interview will probe your understanding of how LLM serving differs from standard ML serving. This file covers LLMOps patterns, RAG pipeline engineering, and production-grade model serving infrastructure.
 
@@ -631,3 +687,25 @@ Prompt injection is when a user or upstream system inserts text into an LLM prom
 | LLM-as-judge | Using a strong LLM to evaluate quality of another LLM's outputs |
 | vLLM | OSS high-throughput LLM serving engine with PagedAttention |
 | Triton | NVIDIA's multi-framework, multi-model inference server |
+
+***
+
+## System Design Perspective
+
+**LLM Inference Platform (Production)**
+- Entry: API gateway (Kong) → request validation (content filtering, rate limiting) → LLM serving cluster.
+- Serving: vLLM instances behind a load balancer; session-based routing for conversational workloads (same session → same instance for KV cache reuse).
+- Semantic cache: Faiss or Redis vector index; cache hit → return cached response; cache miss → forward to vLLM.
+- Monitoring: TTFT and TPOT per model per request type; KV cache hit rate; GPU memory utilization; alert if TTFT > SLO for 5 consecutive minutes.
+- Cost tracking: instrument tokens generated per request; report cost per 1K tokens per model per team.
+
+**RAG Pipeline Design Decisions**
+- Chunk size trade-off: small chunks (128 tokens) → precise retrieval but missing context; large chunks (512+ tokens) → more context but noisier retrieval → test empirically with RAGAS.
+- Embedding model: domain-specific fine-tuned embedding models outperform general-purpose models for specialized corpora (legal, medical, code).
+- Reranker: cross-encoder reranker (e.g., BGE-reranker) runs a second pass on top-20 candidates to reorder by relevance — adds latency but significantly improves precision.
+- Hybrid search: combine dense vector search (semantic) with sparse BM25 (keyword) using RRF fusion — handles both conceptual and exact-match queries.
+
+**Multi-Tenant LLM Platform**
+- Per-tenant LoRA adapters: base model shared on GPU; LoRA adapter swapped per request using adapter fusion — enables fine-tuned models per tenant without duplicating 70B+ base model.
+- Rate limiting: Kong rate-limiting plugin per Consumer (tenant) — prevent a single tenant from starving others.
+- Cost isolation: tag inference requests with tenant ID; compute per-tenant token usage and cost monthly.

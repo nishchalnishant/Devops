@@ -1,5 +1,62 @@
 # Jenkins Cheatsheet
 
+```
+Jenkins Cheatsheet
+├── Pipeline DSL — Top-Level Blocks
+│   ├── pipeline{} — root block (Declarative)
+│   ├── agent — where to run (any, none, label, docker, kubernetes)
+│   ├── environment — build-wide env vars + credentials binding
+│   ├── parameters — UI-exposed inputs (string, boolean, choice, password, file)
+│   ├── options — build behavior (timeout, retry, buildDiscarder, disableConcurrentBuilds)
+│   ├── triggers — cron, pollSCM, upstream
+│   ├── tools — auto-install Maven, JDK, Node
+│   ├── stages{} — required container for all stages
+│   └── post{} — always/success/failure/unstable/changed/fixed/regression/aborted/cleanup
+├── Stage Control
+│   ├── when{} — branch, tag, environment, expression, not, allOf, anyOf, changeRequest
+│   ├── agent per-stage — override global agent
+│   ├── options per-stage — stage-level timeout, retry
+│   └── parallel{} — run stages simultaneously on separate agents
+├── Common Steps
+│   ├── sh / bat — shell execution, returnStdout, returnStatus
+│   ├── checkout scm / git url — source checkout
+│   ├── withCredentials[] — usernamePassword, string, sshUserPrivateKey, file, certificate
+│   ├── withVault() — HashiCorp Vault secret injection
+│   ├── stash / unstash — pass files between agents
+│   ├── archiveArtifacts / junit / publishHTML — reporting
+│   ├── input() — manual approval gate
+│   ├── retry(n) / timeout() / sleep() — flow control
+│   └── cleanWs() — workspace cleanup
+├── Shared Libraries
+│   ├── @Library('name@version') _ — import at top
+│   ├── vars/ — global callable steps (call() method)
+│   ├── src/ — Groovy classes
+│   └── resources/ — scripts, templates
+├── Groovy Utilities
+│   ├── sh(returnStdout: true).trim() — capture output
+│   ├── readYaml / readJSON / writeYaml — file I/O
+│   ├── httpRequest() — REST API calls
+│   └── currentBuild.result / displayName / description
+├── Jenkinsfile Templates
+│   ├── Multi-Branch — branch-conditional push/deploy
+│   ├── PR-Triggered — validate, security scan, comment results
+│   └── Release — version validation, tag, build, sign, deploy
+└── Quick Reference
+    ├── Built-in env vars — BUILD_NUMBER, BUILD_URL, JOB_NAME, WORKSPACE, BRANCH_NAME
+    ├── lock(resource:) — exclusive resource locking
+    ├── Script Console — Manage Jenkins → Groovy execution
+    └── Validate Jenkinsfile — curl pipeline-model-converter/validate
+```
+
+## First Principles
+
+- A cheatsheet is only useful if you understand the execution model: pipeline blocks declare intent, the Jenkins engine translates them into distributed execution across agents.
+- `agent` determines *where* — without it no step can run. `stages` determines *what* — without it nothing executes. Everything else is behavior control.
+- `when{}` is evaluated before allocating an agent for the stage (with `beforeAgent: true`) — this prevents wasting a K8s pod startup on a stage that will be skipped.
+- `post{}` conditions run after the agent is released — cleanup steps like `cleanWs()` should always be there to prevent disk exhaustion on persistent agents.
+- Credentials must never appear in the pipeline source. `withCredentials` injects them as scoped env vars masked from logs; they expire when the block exits.
+- `parallel{}` increases throughput but consumes multiple agent slots simultaneously — plan agent capacity around your maximum expected concurrency.
+
 ## Pipeline DSL Quick Reference
 
 ### Top-Level Blocks
@@ -793,3 +850,38 @@ directories and files.
 
 ***
 
+## System Design Perspective
+
+**Pipeline scalability:**
+- Build throughput is limited by agent count, not the controller. Add agents to scale; never run builds on the controller (`numExecutors: 0`).
+- Kubernetes pod agents scale to zero when idle and to N pods under load. The K8s scheduler places pods across nodes automatically — Jenkins pipelines get distributed computing for free.
+- `disableConcurrentBuilds(abortPrevious: true)` is essential for PR pipelines — without it, every commit stacks a new build behind the previous one, flooding the queue.
+
+**Agent/runner architecture trade-offs:**
+
+| Agent Type | Best For | Trade-off |
+|:---|:---|:---|
+| `agent any` | Simple pipelines | Non-deterministic — could land on any agent |
+| `agent { label 'gpu' }` | Specialized hardware | Bottleneck if only one GPU agent exists |
+| `agent { docker { image } }` | Reproducible toolchains | Docker daemon required on agent |
+| `agent { kubernetes { yaml } }` | Scale + isolation | ~15-30s pod startup overhead |
+
+**Failure recovery:**
+- `retry(3)` handles transient failures (network flakes, artifact fetch timeouts). Combine with `timeout()` to prevent hung retries from consuming agents indefinitely.
+- `post { always { cleanWs() } }` is non-negotiable on persistent agents — without it, disk fills up and all builds on that agent begin failing.
+- Stage-level `timeout` is safer than pipeline-level timeout — it fails the specific hung stage rather than killing the entire build.
+
+**Parallel execution strategies:**
+- Use `parallel{}` for independent workloads: `unit-test`, `integration-test`, `lint`, `security-scan` can all run simultaneously, cutting total CI time to the duration of the slowest branch.
+- `failFast true` on a parallel block aborts all branches when one fails — good for fast feedback, bad if you want all test results before deciding.
+- Dynamic parallel (Scripted loop over a list) generates branches at runtime — use for multi-region deploys or matrix-like testing across environment combinations.
+
+**Caching strategies:**
+- Maven/Gradle caches (`~/.m2`, `~/.gradle`) on ephemeral K8s agents are lost per build. Mount a shared PVC (`ReadWriteMany`) or use a remote cache (Gradle build cache, Maven remote repository mirror) to preserve dependency downloads.
+- Docker layer caching: use `--cache-from` with a registry-hosted image or BuildKit's `--cache-to type=registry` to persist build cache across ephemeral agents.
+- `stash`/`unstash` transfers build outputs between agents within the same pipeline run — cheaper than re-downloading from an artifact repository.
+
+**Security boundaries:**
+- `withCredentials` scope is the tightest available — credentials exist in memory only for the duration of the block and are never written to disk.
+- Pin shared library versions (`@Library('lib@v2.1.0')`) — a `main`-branch library means a library commit can immediately break every pipeline in the org.
+- Lock shared resources with `lock(resource: 'staging-db')` to prevent race conditions when multiple parallel builds hit the same environment.

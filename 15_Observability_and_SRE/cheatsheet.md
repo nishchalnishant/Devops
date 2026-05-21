@@ -1,5 +1,55 @@
 # Observability & SRE Cheatsheet
 
+```
+Observability & SRE Cheatsheet
+├── Prometheus
+│   ├── Query API (curl /api/v1/query, /api/v1/query_range)
+│   ├── promtool (check rules, lint, test)
+│   ├── Key PromQL patterns
+│   │   ├── Counters: rate(), increase()
+│   │   ├── Gauges: avg_over_time(), max_over_time()
+│   │   ├── Histograms: histogram_quantile(0.99, ...)
+│   │   ├── Aggregations: sum by(), topk()
+│   │   ├── Error rate: rate(5xx) / rate(total)
+│   │   └── SLO burn rate: job:http_errors:rate1h > (14.4 * 0.001)
+│   └── Kubernetes metrics: kube_pod_*, container_cpu_*, node_*
+├── Alertmanager
+│   ├── API (silences: GET/POST/DELETE)
+│   ├── amtool (silence add/expire, config check)
+│   └── Route testing: amtool config routes test
+├── Grafana API
+│   ├── Dashboard CRUD (GET/POST /api/dashboards/db)
+│   ├── Import from JSON
+│   └── Datasource management
+├── Loki LogQL
+│   ├── Label filter: {app="api"} |= "error"
+│   ├── JSON parse: | json | level="error"
+│   ├── Rate: rate({app="api"}[5m])
+│   └── logcli query / labels / series
+├── Tracing (Jaeger / Tempo)
+│   └── HTTP API: /api/traces/{traceID}, /api/services
+├── Node Exporter Key Metrics
+│   ├── CPU: node_cpu_seconds_total
+│   ├── Memory: node_memory_MemAvailable_bytes
+│   ├── Disk: node_disk_io_time_seconds_total
+│   └── Network: node_network_receive_bytes_total
+├── SRE Practices
+│   ├── SLI/SLO/Error Budget/Burn Rate
+│   ├── Incident severity: P0-P3 (response time matrix)
+│   └── MTTR, MTBF, MTTD definitions
+├── On-Call Runbook Checklist (6 steps)
+│   ├── Detect → Triage → Mitigate → Investigate → Resolve → Follow-up
+│   └── Blameless postmortem within 48h
+├── kubectl top & Metrics Server
+│   └── Resource requests vs limits vs actual usage
+└── curl HTTP Testing
+    └── Response time breakdown (DNS/TCP/TLS/TTFB/Total)
+```
+
+## First Principles
+
+You can't fix what you can't see. Three pillars: logs (what happened), metrics (how much/how fast), traces (where time was spent across services). SLOs define acceptable failure rates — alerts fire when burn rate exceeds budget. On-call needs runbooks to act on alerts.
+
 Quick reference for Prometheus, Grafana, logging, tracing, alerting, and SRE practices.
 
 ***
@@ -339,6 +389,16 @@ curl -H "Authorization: Bearer $TOKEN" https://api.company.com/data
 curl -X POST https://api.company.com/events \
   -H "Content-Type: application/json" \
   -d '{"event": "deploy", "version": "v1.2.3"}'
+
+## System Design Perspective
+
+**Cardinality Challenges:** Prometheus PromQL patterns with labels like `{url=...}` or `{user_id=...}` create unbounded series. Design: cap label cardinality at the instrumentation layer — use route templates (`/api/users/:id`), not actual values. Use recording rules to pre-aggregate expensive queries; a query that runs in milliseconds on a recording rule takes seconds on raw metrics.
+
+**Sampling Strategies in Tracing:** The Jaeger/Tempo API cheatsheet shows how to query traces, but collecting 100% of traces is not scalable. Design: use OTel Collector tail sampling — route all spans to the Collector, make sampling decisions after the full trace is assembled (10-second decision window), keep 100% of error and high-latency traces.
+
+**Log Aggregation at Scale:** Loki LogQL patterns work for debugging, but the cost model matters. Log filtering at the Promtail/OTel agent level before logs reach Loki dramatically reduces storage and query cost. For compliance retention beyond 30 days, ship raw logs to S3 (Loki's `ruler` can still alert) and use query federation to search across both hot (Loki) and cold (S3/Athena) tiers.
+
+**Alerting Fatigue and Routing Design:** Alertmanager routes in this cheatsheet show how to configure routing, but the design principle matters more: route Sev-1 (multi-window fast burn) to PagerDuty for immediate page; route Sev-3 (slow burn, ticket) to a Slack channel; use `inhibit_rules` so infrastructure alerts suppress dependent service alerts. Measure alert signal-to-noise ratio: target < 5 actionable alerts per on-call shift.
 
 # Follow redirects + show final URL
 curl -L -w "%{url_effective}\n" https://short.link/abc

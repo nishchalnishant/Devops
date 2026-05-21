@@ -4,6 +4,72 @@ description: Dockerfile best practices, multi-stage builds, layer caching, image
 
 # Docker — Dockerfile Best Practices & Image Optimization
 
+```
+Dockerfile Best Practices & Image Optimization
+├── The Problem with Naive Dockerfiles
+│   ├── Full base image (GBs) instead of slim/alpine/distroless
+│   ├── COPY . before deps install → cache-busting on every code change
+│   ├── Running as root (UID 0)
+│   └── No .dockerignore → bloated context, secrets in image
+├── Multi-Stage Builds
+│   ├── Stage 1 (builder): full toolchain — gcc, pip, maven, go
+│   ├── Stage 2 (runtime): copy only compiled artifact / installed packages
+│   ├── Result: build tools never enter production image
+│   └── COPY --from=builder: selective artifact transfer between stages
+├── Layer Cache Optimization
+│   ├── Copy dependency manifests first (requirements.txt, package.json)
+│   ├── Run install command (pip install, npm ci) — cached until manifest changes
+│   ├── Copy application source code last (changes most frequently)
+│   └── Any layer change invalidates all downstream layers
+├── Base Image Selection
+│   ├── python:3.11 (~900MB) — full Debian, development headers
+│   ├── python:3.11-slim (~150MB) — Debian without dev tools
+│   ├── python:3.11-alpine (~50MB) — musl libc (compatibility risks)
+│   └── gcr.io/distroless/python3 — no shell, no package manager (minimal CVEs)
+├── Security Hardening
+│   ├── USER 1000:1000 — run as non-root (last USER directive before CMD)
+│   ├── COPY --chown=user:group — set ownership at copy time
+│   ├── Read-only filesystem at runtime (--read-only + --tmpfs /tmp)
+│   ├── No secrets in ENV or ARG (baked into image layers)
+│   └── --mount=type=secret for build-time secrets (zero trace)
+├── BuildKit Features
+│   ├── --mount=type=cache — persist pip/npm cache across builds
+│   ├── --mount=type=secret — inject secrets without layer trace
+│   ├── --mount=type=ssh — forward SSH agent for private repos
+│   ├── Parallel stage execution (independent stages run concurrently)
+│   └── Remote cache: --cache-from registry-based CI caching
+├── RUN Instruction Hygiene
+│   ├── Chain with && in single RUN to minimize layers
+│   ├── Clean up package cache in same RUN (rm -rf /var/lib/apt/lists/*)
+│   ├── --no-install-recommends: skip optional apt dependencies
+│   └── Avoid installing debugging tools in production images
+├── .dockerignore
+│   ├── .git/, node_modules/, __pycache__, *.log, .env
+│   ├── Test files, coverage reports, docs
+│   └── Build context size directly affects build speed and image security
+├── HEALTHCHECK
+│   ├── HEALTHCHECK CMD curl -f http://localhost:8080/health
+│   ├── Enables orchestrator (Docker Compose, Swarm) to detect app-level failures
+│   └── --interval, --timeout, --start-period, --retries
+├── Image Scanning & Signing
+│   ├── trivy image myimage:tag — CVE scan against NVD database
+│   ├── docker scout cves — Docker Desktop integrated scanning
+│   ├── cosign sign — attach Sigstore signature to registry image
+│   └── In CI: fail build if CRITICAL CVEs found
+└── Multi-Platform Builds
+    ├── docker buildx build --platform linux/amd64,linux/arm64
+    ├── QEMU binfmt_misc for cross-architecture emulation
+    └── Push multi-arch manifest: docker buildx build --push
+```
+
+## First Principles
+
+- **Why does layer ordering have such a large impact on build times?** Docker's cache invalidation is cascading — changing layer N causes Docker to re-execute N, N+1, N+2, ... to the end of the Dockerfile. `COPY . /app` followed by `pip install` means every single code change triggers a full dependency reinstall. Reversing the order (copy manifest → install deps → copy code) makes deps layer stable across 99% of builds.
+- **Why do multi-stage builds eliminate build tools from production images?** A build stage is just an intermediate image that Docker discards after `COPY --from=builder` extracts the artifact. The compiler, test frameworks, and dev headers that compiled the binary never enter the final image — they cannot be exploited in production because they simply aren't there.
+- **Why avoid secrets in ENV?** `ENV` values are baked into the image layer manifest and are visible to anyone who runs `docker inspect` or `docker history`. Even if you unset them in a subsequent `RUN`, the value remains in the prior layer's metadata. BuildKit's `--mount=type=secret` mounts the secret only during that RUN instruction — it never appears in any layer.
+- **Why prefer distroless for production despite debugging difficulty?** Attack surface is proportional to installed software. A shell means an attacker who achieves code execution can run arbitrary commands, exfiltrate data, and pivot to other services. No shell = no interactive exploitation. Use a `:debug` distroless variant with a BusyBox shell pinned to non-production environments only.
+- **Why does `--no-install-recommends` matter for apt?** `apt-get install curl` without this flag installs curl plus all packages apt considers "recommended" — documentation, man pages, optional locale packs. In containers you typically need only the binary. This flag alone can reduce image size by 20-40% for packages with many recommendations.
+
 ## The Problem with Naive Dockerfiles
 
 ```dockerfile

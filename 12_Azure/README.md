@@ -1,5 +1,71 @@
 # Azure Cloud Services
 
+```
+Azure Cloud Services
+├── Core Architecture
+│   ├── Management Groups → Subscriptions → Resource Groups → Resources
+│   ├── Regions (paired regions for HA/DR)
+│   ├── Availability Zones (independent datacenters per region)
+│   └── Azure Resource Manager (ARM) — control plane for all operations
+├── Identity & Access (Entra ID)
+│   ├── Tenants, Users, Groups, Service Principals
+│   ├── Managed Identities (system-assigned / user-assigned)
+│   ├── Workload Identity Federation (OIDC, no static credentials)
+│   ├── RBAC (Owner, Contributor, Reader, custom roles)
+│   └── Conditional Access + PIM (Just-in-Time)
+├── Compute
+│   ├── Virtual Machines (VM sizes: B/D/E/F/N series)
+│   ├── App Service (PaaS web hosting, deployment slots)
+│   ├── Azure Kubernetes Service (AKS)
+│   ├── Azure Container Apps (managed K8s abstraction)
+│   └── Azure Functions (serverless, consumption / premium plan)
+├── Storage
+│   ├── Blob Storage (Hot / Cool / Archive tiers)
+│   ├── Azure Files (SMB/NFS managed file shares)
+│   ├── Managed Disks (Premium SSD / Ultra / Standard)
+│   └── Data Lake Storage Gen2 (hierarchical namespace on Blob)
+├── Networking
+│   ├── VNet (isolated network), Subnets, NSGs, Route Tables
+│   ├── VNet Peering (regional / global, non-transitive)
+│   ├── Azure Firewall / NVA (hub-and-spoke with UDRs)
+│   ├── Private Endpoints + Private DNS Zones
+│   ├── Azure Front Door (global CDN + WAF + load balancing)
+│   ├── Application Gateway v2 (regional L7 + WAF)
+│   ├── Azure Load Balancer (L4, regional)
+│   ├── VPN Gateway / ExpressRoute (hybrid connectivity)
+│   └── NAT Gateway (managed outbound SNAT)
+├── Security & Governance
+│   ├── Azure Policy (Deny / Audit / DeployIfNotExists / Modify)
+│   ├── Azure Key Vault (secrets, keys, certs; RBAC vs access policies)
+│   ├── Microsoft Defender for Cloud (threat detection, posture)
+│   └── Service Control via Management Group hierarchy
+├── Observability
+│   ├── Azure Monitor (metrics, logs, alerts)
+│   ├── Log Analytics Workspace (KQL queries)
+│   ├── Application Insights (APM, distributed tracing)
+│   └── Azure Managed Prometheus + Grafana
+├── DevOps & CI/CD
+│   ├── Azure DevOps (Pipelines, Repos, Boards, Artifacts)
+│   ├── GitHub Actions with Azure OIDC (no long-lived secrets)
+│   └── Azure Container Registry (ACR)
+├── IaC
+│   ├── ARM Templates (JSON, verbose)
+│   ├── Bicep (ARM DSL, concise)
+│   └── Terraform azurerm provider (azurerm backend for state)
+├── Cost Management
+│   ├── Azure Cost Management + Budgets + Alerts
+│   ├── Reserved Instances / Savings Plans / Spot VMs
+│   └── Tag-based cost allocation strategy
+└── Key Services Quick Reference
+    ├── AKS, ACR, Key Vault, App Service, Functions
+    ├── Storage Account, VNet, NSG, Private Endpoint
+    └── Azure DevOps, Entra ID, Azure Policy
+```
+
+## First Principles
+
+Compute needs identity (AAD), network isolation (VNet), storage, and managed services. AKS = Kubernetes control plane managed by Azure. Azure DevOps = hosted CI/CD. Azure Policy = guardrails enforced at API level. Cost comes from consumption — control it with budgets and tagging.
+
 Microsoft Azure is a comprehensive cloud platform that provides over 200 products and cloud services. For a DevOps engineer, Azure offers a deep integration with Microsoft's ecosystem (Active Directory, Office 365) and a robust platform for enterprise-scale workloads.
 
 #### 1. Core Architecture
@@ -80,3 +146,17 @@ az aks get-credentials --resource-group myRG --name myAKSCluster
 ***
 
 This is Section 12: Azure. For a senior role, you should focus on **Azure Blueprints**, **Governance at Scale**, and **Private Link** architecture.
+
+## System Design Perspective
+
+**VNet Peering vs Transit Gateway (Azure Route Server):** VNet peering is direct, non-transitive, and best for 2-5 VNets. For hub-and-spoke at scale, Azure Route Server enables BGP-based transit through an NVA without UDR maintenance on every spoke. ExpressRoute Gateway Transit allows peered VNets to share a single ER circuit.
+
+**Identity Federation (OIDC/SAML):** Workload Identity Federation eliminates static client secrets by exchanging a short-lived OIDC token from the identity provider (GitHub Actions, AKS) for an Azure access token. Entra ID validates the issuer, audience, and subject claims before granting access. SAML 2.0 is used for SSO to legacy enterprise apps; OIDC is preferred for everything modern.
+
+**Cross-Region DR:** For RTO less than 15 min: Azure Front Door routes traffic globally (DNS + Anycast), paired regions share disaster recovery SLAs, geo-redundant storage (GRS/GZRS) replicates data asynchronously. Use Azure Site Recovery for VM-level replication. IaC (Bicep/Terraform) is mandatory — manual re-creation cannot meet aggressive RTOs.
+
+**Cost Allocation Tagging Strategy:** Enforce mandatory tags (CostCenter, Environment, Team, Owner) via Azure Policy with Deny or Append effect at the Management Group level. Use Azure Cost Management to filter spending by tag. Automate tag inheritance from Resource Group to resources using the Inherit Tags built-in initiative.
+
+**Managed Identity vs Service Principals:** Managed Identities are the default choice for any Azure resource accessing other Azure services — zero credential management, auto-rotation. Use Service Principals only for external systems (on-prem, third-party) that cannot use Managed Identity. Workload Identity Federation is the bridge for Kubernetes pods and CI/CD pipelines.
+
+**Azure Policy vs AWS Organizations SCPs:** Azure Policy enforces guardrails at the ARM layer with effects including Deny, Audit, and DeployIfNotExists (auto-remediation). AWS SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions and act before IAM evaluation. Both use top-down policy inheritance through a hierarchy (Management Group in Azure; Root/OU/Account in AWS).

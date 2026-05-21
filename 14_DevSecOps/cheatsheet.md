@@ -1,5 +1,59 @@
 # DevSecOps Cheatsheet
 
+```
+DevSecOps Cheatsheet
+├── Secret Detection
+│   ├── Gitleaks (git history + pre-commit)
+│   ├── TruffleHog (entropy analysis, verified secrets)
+│   └── detect-secrets (baseline file approach)
+├── SAST
+│   ├── Semgrep (multi-language, custom rules)
+│   ├── Bandit (Python), Gosec (Go), NodeJsScan (Node)
+│   └── GitHub Advanced Security / SARIF upload
+├── SCA — Dependency Scanning
+│   ├── Snyk (snyk test, snyk container)
+│   ├── OWASP Dependency-Check (--scan, --format)
+│   ├── pip-audit, npm audit, govulncheck
+│   └── Trivy (fs mode for source)
+├── Container Scanning (Trivy)
+│   ├── image — scan image layers
+│   ├── fs — scan filesystem / source
+│   ├── config — IaC misconfigurations
+│   ├── sbom — generate SBOM from image
+│   └── repo — scan remote git repo
+├── DAST
+│   ├── OWASP ZAP baseline / full / API scan
+│   └── Nikto (web server misconfigs)
+├── HashiCorp Vault
+│   ├── Auth (Kubernetes, AppRole, OIDC)
+│   ├── KV v2 (versioned secrets)
+│   ├── Dynamic Secrets (DB, AWS, PKI)
+│   └── Audit logging + policies
+├── Image Signing (Cosign / Sigstore)
+│   ├── cosign sign (keyless via OIDC)
+│   ├── cosign verify (check identity + Rekor)
+│   └── cosign attest / verify-attestation (SBOM, SLSA)
+├── SBOM Generation
+│   ├── Syft (cyclonedx-json, spdx-json, table)
+│   └── Grype (scan sbom: for CVEs)
+├── SSL/TLS Management
+│   ├── openssl (inspect, verify, enddate)
+│   └── cert-manager (K8s CRD-based TLS)
+├── Network Security
+│   ├── nmap (port/service discovery)
+│   ├── amass (subdomain enumeration)
+│   └── sslyze (TLS audit)
+└── Pre-commit Security Hooks
+    ├── gitleaks hook
+    ├── python-safety-dependencies-check
+    ├── bandit
+    └── terraform_trivy
+```
+
+## First Principles
+
+Security found late is expensive to fix. Shift security left — run checks where developers already work (in CI). Code has vulnerabilities (SAST), dependencies have vulnerabilities (SCA), running apps have vulnerabilities (DAST). Secrets in code are permanent leaks — scan for them. Supply chain: verify what you build is what you ship (SLSA, SBOM, signing).
+
 Quick reference for security scanning, secret management, SBOM, and supply chain commands.
 
 ***
@@ -329,6 +383,16 @@ repos:
       - id: terraform_tflint
       - id: terraform_trivy
 ```
+
+## System Design Perspective
+
+**Policy as Code (OPA/Gatekeeper):** The cheatsheet covers scanning tools that run in CI, but policy enforcement at admission time is a separate layer. `ConstraintTemplate` defines the Rego logic; `Constraint` applies it to specific resource kinds. Run `kubectl get constraint` and `kubectl describe constraint` to see policy violations in-cluster. Use `kubectl apply --dry-run=server` to test admission before applying.
+
+**Runtime Security (Falco):** After an image passes all scans and is deployed, Falco watches what the running process actually does. Install via Helm (`falco` chart with eBPF driver). Key rule categories to enable: `spawned_process`, `file_open`, `network_activity`. Ship rules customizations as a `falco_rules.yaml` ConfigMap so they are version-controlled.
+
+**Secret Rotation:** Dynamic secrets from Vault have TTLs and rotate automatically. For static secrets in AWS Secrets Manager: use Lambda + EventBridge (cron) to rotate on schedule, update the secret version, then trigger a `kubectl rollout restart` via the rotation Lambda. The ESO `ExternalSecret` `refreshInterval` controls how fast pods pick up the new value.
+
+**Zero-Trust Principle:** Every command in this cheatsheet scans for problems — but zero-trust means never trusting implicitly. Pair scanning with: default-deny `NetworkPolicy`, Istio `PeerAuthentication` (mTLS mode STRICT), and `AuthorizationPolicy` so that even if a compromised pod passes scanning, it cannot reach unintended services.
 
 ```bash
 # pre-commit usage

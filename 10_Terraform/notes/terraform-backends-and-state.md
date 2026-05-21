@@ -4,6 +4,57 @@ description: Terraform remote backends, state locking, state operations, and dis
 
 # Terraform — Backends, State & Disaster Recovery
 
+```
+Terraform State & Backends
+├── What is State?
+│   ├── JSON file mapping .tf resource blocks → real-world objects
+│   ├── Stores: resource type, name, provider, attribute snapshot
+│   ├── serial number incremented on every write
+│   └── Without state: every plan looks like "create everything"
+├── Backend Types
+│   ├── local (default)     → single-user, not team-safe
+│   ├── s3 + dynamodb       → AWS standard; versioned + locked
+│   ├── azurerm             → Azure Blob with native locking
+│   ├── gcs                 → Google Cloud Storage
+│   └── terraform cloud     → managed state + remote execution
+├── S3 + DynamoDB Backend
+│   ├── bucket: stores state file (enable versioning + KMS encryption)
+│   ├── dynamodb_table: stores lock record (LockID as hash key)
+│   ├── Locking: conditional PutItem → fails if lock exists
+│   └── Unlock: terraform force-unlock <LOCK_ID>
+├── State Operations
+│   ├── state list    → list all resource addresses
+│   ├── state show    → show attributes of one resource
+│   ├── state mv      → rename resource (prefer moved {} block)
+│   ├── state rm      → remove from state without deleting real resource
+│   ├── state pull    → dump state JSON to stdout
+│   └── state push    → upload local state to remote (dangerous)
+├── Drift Detection
+│   ├── plan -refresh-only → show divergence, propose no resource changes
+│   └── apply -refresh-only → sync state with reality, no infra changes
+├── Disaster Recovery
+│   ├── S3 versioning → restore previous state version
+│   ├── state push → restore from backup after corruption
+│   └── terraform import → re-adopt resources orphaned from state
+├── Sensitive Values in State
+│   ├── sensitive = true → hides from CLI output only
+│   ├── State stores value in plaintext JSON regardless
+│   └── Mitigation: KMS-encrypted S3, least-privilege IAM on state bucket
+└── Logic & Trickiness
+    ├── Backend config cannot use variables (literals or -backend-config flags)
+    ├── terraform refresh deprecated (use plan -refresh-only)
+    ├── state push with wrong state = silent data loss
+    └── Deleting DynamoDB lock record = potential concurrent write corruption
+```
+
+## First Principles
+
+- State is Terraform's source of truth about what it manages. It is not a backup of cloud configuration — it is a mapping from HCL resource addresses to cloud resource IDs and their last-known attribute values.
+- Locking is a mutual exclusion mechanism. DynamoDB's `ConditionExpression` on `PutItem` ensures only one process holds the lock at a time. This is the same pattern as a database row lock, applied to a JSON file.
+- `sensitive = true` is a display filter. It tells the CLI not to print the value. It does not affect what is written to the state file. Security of sensitive values requires access control on the state backend, not the `sensitive` attribute.
+- `plan -refresh-only` separates "what changed outside Terraform" from "what does my code want to change." Running them together (`plan`) conflates drift correction with intentional changes, making plans harder to review.
+- S3 versioning is free disaster recovery for state. A corrupt or accidentally-pushed state can be recovered by downloading the previous S3 object version and pushing it back.
+
 ## What is Terraform State?
 
 Terraform state is a JSON mapping between your `.tf` resource blocks and the real-world infrastructure objects they represent. Without state, Terraform cannot know what already exists.
@@ -187,3 +238,24 @@ resource "aws_db_instance" "main" {
 | `terraform import` | Medium | Adopting unmanaged resources |
 | `terraform force-unlock` | Very High | Only after confirming no active apply |
 | `-refresh-only` | Safe | Drift detection before apply |
+
+***
+
+## System Design Perspective
+
+**State backend selection by organization size:**
+- Solo developer / small team: S3 + DynamoDB is sufficient and cheap. Versioning gives recovery. IAM gives access control.
+- Medium organization (10-50 engineers): Terraform Cloud free tier or S3 with per-team state paths. Workspace-level RBAC using IAM conditions on the S3 key prefix (`infra/team-payments/*`).
+- Large organization (100+ engineers): Terraform Enterprise or Terraform Cloud Business. Audit logging, Sentinel policies, private module registry, SSO, and agent pools for air-gapped environments.
+
+**State splitting strategy:**
+- One state file per independently deployable service boundary. Networking team: `network/vpc/terraform.tfstate`. Platform team: `platform/eks/terraform.tfstate`. Application team: `services/payments/terraform.tfstate`.
+- Cross-state references via `data "terraform_remote_state"`: the EKS state consumes VPC outputs from the network state. This creates a directed dependency graph between state files — it is not circular.
+- When a state file grows past ~1000 resources, plan times increase significantly. Split by extracting self-contained resource groups (IAM roles, S3 buckets, monitoring rules) into their own state files.
+
+**Disaster recovery runbook:**
+1. Identify corrupt or missing state: `terraform plan` shows all resources as "to create" when state is empty.
+2. Recover from S3 version: `aws s3api list-object-versions --bucket my-tf-state --prefix path/to/terraform.tfstate` → download the last good version.
+3. Validate recovered state: `terraform show terraform.tfstate` → check it references known resources.
+4. Push recovered state: `terraform state push terraform.tfstate`.
+5. Run `terraform plan -refresh-only` to confirm state matches reality before running any apply.

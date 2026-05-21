@@ -1,5 +1,31 @@
 # Content from devops_errors_and_troubleshooting.pdf
 
+```
+Observability Scenarios & Troubleshooting
+├── Tool Error Categories
+│   ├── Prometheus (no targets, scrape failures, high cardinality, OOM, slow queries)
+│   ├── Grafana (data gaps, scrape latency, flapping alerts)
+│   ├── ELK Stack errors
+│   └── General CI/CD, Kubernetes, Git, Docker, Terraform errors
+├── Incident Response Runbook
+│   ├── Lifecycle: Detect → Triage → Declare → Mitigate → Resolve → Review
+│   ├── Severity levels: P0-P3 (response time matrix)
+│   ├── SLO burn rate alerting (PromQL fast burn + Azure KQL)
+│   └── Communication templates (status page, executive update)
+├── On-Call Practices
+│   ├── Rotation and escalation policy
+│   ├── Alert quality standards (every alert needs a runbook)
+│   └── Postmortem trigger (any P0/P1 or incident > 30 min)
+└── Short Observability Scenarios
+    ├── Prometheus cardinality explosion (high-cardinality labels → OOM)
+    ├── Grafana data gap (scrape timeout, slow /metrics endpoint)
+    └── Prometheus scrape latency (scrape interval vs endpoint response time)
+```
+
+## First Principles
+
+You can't fix what you can't see. Three pillars: logs (what happened), metrics (how much/how fast), traces (where time was spent across services). SLOs define acceptable failure rates — alerts fire when burn rate exceeds budget. On-call needs runbooks to act on alerts.
+
 ## Page 1
 
 1
@@ -1542,3 +1568,11 @@ If an alert does not meet all three, it belongs in a Slack channel or a Jira tic
 **Symptom:** Metrics are "choppy" and alerts are flapping.
 **Diagnosis:** The `/metrics` endpoint takes 15s to respond, but the scrape interval is 15s.
 **Fix:** Increase the scrape interval or optimize the metrics generation logic (e.g., use a cache).
+
+## System Design Perspective
+
+**Log Aggregation at Scale:** The ELK errors in this file show symptoms of scale problems (disk full, slow queries). The architectural fix: replace Elasticsearch with Loki for log aggregation — Loki's label-based index (not full-text) is far cheaper at high ingest rates. For compliance logs requiring full-text search, keep a smaller Elasticsearch cluster for audit logs only. Use Promtail/OTel agent pipeline stages to drop DEBUG/INFO before they hit Loki — reducing ingest volume by 80%.
+
+**Sampling Strategy for High-Traffic Tracing:** The troubleshooting guide covers Prometheus and ELK issues but not tracing at scale. At high traffic, head sampling (probabilistic, decided at span creation) loses error traces. The Prometheus cardinality pattern has an analog in tracing: too many unique span attributes (full SQL query text, full URL) causes storage bloat in Jaeger/Tempo. Design: keep span attribute cardinality bounded; use tail sampling via OTel Collector to ensure 100% of error spans are retained regardless of sampling rate.
+
+**Alerting Fatigue and Routing Design:** The incident response runbook defines alert quality standards, but the routing topology deserves explicit design. Alertmanager routing tree: root route groups by cluster and severity; fast-burn SLO alerts route to PagerDuty with group_wait=0 (page immediately); slow-burn route to Slack with group_wait=5m (batch before notifying); add `inhibit_rules` that suppress all service-level alerts from a cluster when a cluster-down alert is active. This prevents 50 simultaneous pages from a single infrastructure failure.

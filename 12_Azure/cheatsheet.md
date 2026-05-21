@@ -1,5 +1,83 @@
 # Azure DevOps Cheatsheet
 
+```
+Azure DevOps Cheatsheet
+├── Azure CLI Authentication
+│   ├── az login (interactive browser)
+│   ├── az login --service-principal (CI/CD)
+│   ├── az account set --subscription (switch context)
+│   └── az configure --defaults (set default RG/location)
+├── Resource Management
+│   ├── Resource Groups (az group create/list/delete)
+│   ├── ARM/Bicep Deployments (az deployment group create)
+│   ├── what-if mode (--what-if flag before applying)
+│   └── Deployment modes: Incremental vs Complete
+├── AKS Operations
+│   ├── Cluster create/get-credentials/upgrade
+│   ├── Node pool add/scale/upgrade
+│   ├── kubectl commands via az aks command invoke
+│   └── Managed Identity + OIDC issuer configuration
+├── ACR (Azure Container Registry)
+│   ├── az acr build (build in cloud, no local Docker)
+│   ├── az acr login / docker push/pull
+│   └── ACR attach to AKS (managed identity pull)
+├── Key Vault
+│   ├── az keyvault create / secret set / secret show
+│   ├── RBAC assignment to identity for KV access
+│   └── Private endpoint for KV (disable public access)
+├── Managed Identity
+│   ├── System-assigned (lifecycle tied to resource)
+│   ├── User-assigned (shareable across resources)
+│   └── az identity create / role assignment
+├── Storage
+│   ├── az storage account create (LRS/GRS/ZRS)
+│   ├── az storage blob upload/download/list
+│   └── SAS tokens (delegated short-lived access)
+├── VNet & Networking
+│   ├── az network vnet create / subnet create
+│   ├── NSG rules: az network nsg rule create
+│   ├── Private Endpoint: az network private-endpoint create
+│   └── Private DNS zone link to VNet
+├── Bicep & Terraform
+│   ├── Bicep: param, var, resource, module, output
+│   ├── az bicep build (transpile to ARM JSON)
+│   └── Terraform azurerm backend (blob state storage)
+├── Azure DevOps Pipelines
+│   ├── YAML pipeline: trigger, pool, stages, jobs, steps
+│   ├── Environments + approval checks
+│   ├── Service connections (OIDC preferred, no secrets)
+│   └── Variable groups + Azure Key Vault integration
+├── Workload Identity Federation
+│   ├── az ad app federated-credential create
+│   ├── Bind to K8s ServiceAccount + namespace
+│   └── No static client secret — OIDC token exchange
+├── AKS Troubleshooting
+│   ├── kubectl describe / logs / events
+│   ├── az aks check-acr (pull permission validation)
+│   └── az network watcher (connectivity tests)
+├── Identity Concept Table
+│   ├── Service Principal vs Managed Identity vs Workload Identity
+│   └── When to use each (SP: legacy; MI: Azure resources; WI: K8s pods)
+├── Policy Effects Table
+│   ├── Deny (block at ARM level)
+│   ├── Audit (log non-compliant, allow)
+│   ├── DeployIfNotExists (auto-remediate)
+│   └── Modify / Append (mutate resource properties)
+├── Hub-and-Spoke Topology
+│   ├── Hub VNet: Firewall, Bastion, VPN/ExpressRoute GW
+│   ├── Spoke VNets: peered to hub (non-transitive by default)
+│   └── UDRs (force traffic through hub firewall)
+└── Key Gotchas
+    ├── VNet peering is non-transitive (need Route Server or NVA for transit)
+    ├── Private DNS zone must be linked to VNet for resolution
+    ├── ACR pull fails if Managed Identity lacks AcrPull role
+    └── Workload Identity requires OIDC issuer enabled on AKS cluster
+```
+
+## First Principles
+
+Compute needs identity (AAD), network isolation (VNet), storage, and managed services. AKS = Kubernetes control plane managed by Azure. Azure DevOps = hosted CI/CD. Azure Policy = guardrails enforced at API level. Cost comes from consumption — control it with budgets and tagging.
+
 ## Azure CLI — Core Commands
 
 ```bash
@@ -372,3 +450,17 @@ az network route-table route create \
 | OIDC issuer must be enabled at cluster creation | Cannot enable retroactively without recreation |
 | ARM template `what-if` != `terraform plan` | `what-if` may show noise from read-only diffs |
 | Resource lock blocks delete | `CanNotDelete` lock must be removed before `az group delete` |
+
+## System Design Perspective
+
+**VNet Peering vs Transit Gateway (Azure Route Server):** VNet peering is direct, non-transitive, and best for 2-5 VNets. For hub-and-spoke at scale, Azure Route Server enables BGP-based transit through an NVA without UDR maintenance on every spoke. ExpressRoute Gateway Transit allows peered VNets to share a single ER circuit.
+
+**Identity Federation (OIDC/SAML):** Workload Identity Federation eliminates static client secrets by exchanging a short-lived OIDC token from the identity provider (GitHub Actions, AKS) for an Azure access token. Entra ID validates the issuer, audience, and subject claims before granting access. SAML 2.0 is used for SSO to legacy enterprise apps; OIDC is preferred for everything modern.
+
+**Cross-Region DR:** For RTO less than 15 min: Azure Front Door routes traffic globally, paired regions share disaster recovery SLAs, geo-redundant storage (GRS/GZRS) replicates data asynchronously. Use Azure Site Recovery for VM-level replication. IaC (Bicep/Terraform) is mandatory — manual re-creation cannot meet aggressive RTOs.
+
+**Cost Allocation Tagging Strategy:** Enforce mandatory tags (CostCenter, Environment, Team, Owner) via Azure Policy with Deny or Append effect at the Management Group level. Use Azure Cost Management to filter spending by tag. Automate tag inheritance from Resource Group to resources using the Inherit Tags built-in initiative.
+
+**Managed Identity vs Service Principals:** Managed Identities are the default choice for any Azure resource accessing other Azure services — zero credential management, auto-rotation. Use Service Principals only for external systems (on-prem, third-party) that cannot use Managed Identity. Workload Identity Federation is the bridge for Kubernetes pods and CI/CD pipelines.
+
+**Azure Policy vs AWS Organizations SCPs:** Azure Policy enforces guardrails at the ARM layer with effects including Deny, Audit, and DeployIfNotExists (auto-remediation). AWS SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions and act before IAM evaluation. Both use top-down policy inheritance through a hierarchy (Management Group in Azure; Root/OU/Account in AWS).

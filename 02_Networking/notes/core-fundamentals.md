@@ -1,5 +1,72 @@
 # Core Networking Fundamentals
 
+```
+Core Networking Fundamentals
+├── OSI Model (7 Layers)
+│   ├── L7 Application — HTTP, HTTPS, DNS, FTP, SMTP
+│   ├── L6 Presentation — TLS, SSL, encoding (JPEG, ASCII)
+│   ├── L5 Session — NetBIOS, RPC, SIP
+│   ├── L4 Transport — TCP, UDP; PDU: Segment/Datagram
+│   ├── L3 Network — IP, ICMP, ARP; PDU: Packet; device: Router
+│   ├── L2 Data Link — Ethernet, 802.11, VLAN; PDU: Frame; device: Switch
+│   └── L1 Physical — Copper, Fiber, Radio; PDU: Bit; device: Hub/NIC
+├── TCP/IP Model (4 Layers)
+│   ├── Application — OSI L5-L7 collapsed
+│   ├── Transport — TCP, UDP
+│   ├── Internet — IP, ICMP, ARP
+│   └── Network Access — Ethernet, 802.11
+├── IPv4 Datagram Structure
+│   ├── Header: 20-60 bytes (Version, IHL, DSCP, Total Length)
+│   ├── Identification + Flags (DF, MF) + Fragment Offset
+│   ├── TTL — decremented per hop, 0 → ICMP Time Exceeded
+│   ├── Protocol — 6 (TCP), 17 (UDP), 1 (ICMP)
+│   └── Source + Destination IP addresses
+├── IPv4 Addressing
+│   ├── Classes — A (/8), B (/16), C (/24), D (multicast), E (reserved)
+│   ├── Private ranges — 10/8, 172.16/12, 192.168/16 (RFC 1918)
+│   ├── Special — 127.0.0.1 (loopback), 0.0.0.0 (unspecified), 255.255.255.255 (broadcast)
+│   └── CIDR — prefix length replaces classful boundaries
+├── MAC Addresses
+│   ├── 48-bit hardware identifier (6 octets)
+│   ├── OUI (first 3 bytes, vendor) + serial (last 3 bytes)
+│   ├── Types — unicast (LSB=0), multicast (LSB=1), broadcast (FF:FF:FF:FF:FF:FF)
+│   └── Scope — local link only; routers do not forward MACs
+├── ARP (Address Resolution Protocol)
+│   ├── Maps IP → MAC on local network
+│   ├── Broadcast "who has 192.168.1.1?" → unicast reply
+│   ├── Gratuitous ARP — announce own IP, used in failover/VRRP
+│   ├── Proxy ARP — router responds on behalf of remote host
+│   └── ARP Spoofing — attacker sends fake Gratuitous ARP; mitigation: DAI
+├── ICMP
+│   ├── Type 0 — Echo Reply (ping response)
+│   ├── Type 3 — Destination Unreachable (port/host/net)
+│   ├── Type 8 — Echo Request (ping)
+│   ├── Type 11 — Time Exceeded (traceroute mechanism)
+│   └── Type 12 — Fragmentation Needed (PMTUD signal)
+├── Network Topologies
+│   ├── Bus — shared medium, one failure = split
+│   ├── Ring — token passing, two-directional for redundancy
+│   ├── Star — central switch, single point of failure at hub
+│   ├── Tree — hierarchical, scalable, failure isolates branch
+│   ├── Mesh — full (every node connected) or partial
+│   └── Hybrid — Star-of-Stars (most enterprise networks)
+└── DevOps Networking Responsibilities
+    ├── Infrastructure design — VPCs, subnets, route tables, firewalls
+    ├── Deployment — LBs, DNS, TLS certs, network config
+    ├── Automation — Ansible/Terraform for network config
+    └── Monitoring — traffic baselines, latency, packet loss, conntrack
+```
+
+## First Principles
+
+- Computers communicate by breaking data into discrete **packets** — each packet carries a header with source/destination and enough context for the network to route it independently. Packets from the same stream may take different paths and arrive out of order.
+- The **OSI model** exists because different organizations build different layers. A NIC vendor does not need to know about HTTP; an application developer does not need to know about Ethernet frame sizes. Layer separation allows independent evolution.
+- Every device on a local network has two addresses: an **IP address** (logical, routable across the internet) and a **MAC address** (physical, scoped to one L2 segment). ARP bridges the gap — before sending a frame, a device must learn which MAC corresponds to the target IP.
+- IPv4's 32-bit address space has only 4.3 billion addresses — exhausted in 2011. **RFC 1918 private ranges** (10/8, 172.16/12, 192.168/16) combined with NAT multiplied the effective address space by orders of magnitude without deploying IPv6.
+- The **TTL field** is a safety mechanism: every router decrements it, and a packet with TTL=0 is discarded. Without TTL, a routing loop would circulate packets forever. traceroute exploits this — by sending packets with TTL=1, 2, 3, it maps each hop as the ICMP "Time Exceeded" responses come back.
+- **ARP Spoofing** works because ARP has no authentication — any device can claim any IP. Dynamic ARP Inspection (DAI) in managed switches validates ARP packets against a DHCP binding table, preventing man-in-the-middle attacks at L2.
+- Network topology choices are **failure mode choices**: a bus topology fails the whole segment when the cable breaks; a mesh topology survives multiple simultaneous link failures. Most modern networks use hierarchical star (star-of-stars) because it balances cost, cable runs, and failure isolation.
+
 ## Why Networking Matters for DevOps
 
 ### Key Responsibilities
@@ -513,3 +580,22 @@ mtr google.com
 | RARP | Maps MAC → IP (obsolete, replaced by DHCP) |
 | ICMP | Error reporting and diagnostics (ping, traceroute) |
 | Topologies | Bus, Ring, Star, Tree, Mesh, Hybrid |
+
+***
+
+## System Design Perspective
+
+**Scalability**
+- IPv4 class-based allocation wasted address space — Class A gave /8 (16M addresses) to any large org, most unused. CIDR's variable-length prefix lets a registrar allocate exactly the size needed, aggregating many small allocations into one BGP announcement (route summarization reduces routing table size).
+- ARP is a broadcast protocol — on a flat /16 (65k hosts) network, every ARP request goes to all 65k devices. Subnetting limits broadcast domains; VLANs provide logical segmentation; at cloud scale, ARP is proxied by the hypervisor to avoid broadcast storms entirely.
+- ICMP is essential infrastructure but also an attack vector — rate-limiting ICMP at the firewall (not blocking entirely) prevents ICMP flood while preserving PMTUD ("Fragmentation Needed") and traceroute function. Full ICMP blocking causes PMTUD Black Holes.
+
+**Failure Modes**
+- TTL misconfiguration (setting TTL too low on packets) causes intermittent "No route to host" errors only on paths with many hops. A packet with TTL=10 reaches a 9-hop destination fine but fails a 10-hop destination. This manifests as path-dependent failures, not consistent ones.
+- Gratuitous ARP is used by HSRP/VRRP failover to notify switches to update MAC tables when the active gateway changes. If the switch port security blocks Gratuitous ARP (as some security policies do), failover succeeds at L3 but L2 forwarding still goes to the failed gateway for up to 300s (ARP cache timeout).
+- Topology design determines blast radius: in a full mesh, any single link failure is invisible. In a star topology, hub failure takes down all connected nodes simultaneously. Most production networks use redundant star (dual-homed to two aggregation switches) as the cost-effective middle ground.
+
+**Trade-offs**
+- OSI 7-layer model vs TCP/IP 4-layer model: OSI is the teaching model; TCP/IP is what runs on the internet. The OSI model's Session and Presentation layers have no direct equivalent in practice — TLS is an application-layer library, not a distinct "Presentation" layer. This matters when diagnosing failures: thinking in TCP/IP layers (Application / Transport / Internet / Link) is more operationally actionable.
+- IPv4 vs IPv6: IPv6 eliminates NAT (every device gets a globally routable address), simplifies header processing (fixed 40-byte header, no fragmentation in transit), and supports stateless address autoconfiguration. The operational cost — dual-stack management, DNS AAAA records, firewall rule duplication — has slowed adoption for 25 years.
+- MAC vs IP address scope: a MAC address is only meaningful within one L2 segment; routing across L3 replaces the MAC with the next-hop router's MAC at each hop. Applications that build identity on MAC addresses (some license systems, some IoT device auth) break when devices move between segments or VLANs.

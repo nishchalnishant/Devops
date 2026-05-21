@@ -1,5 +1,53 @@
 # DevSecOps (Security in DevOps)
 
+```
+DevSecOps
+├── Shift-Left Security
+│   ├── IDE plugins (pre-commit hooks)
+│   ├── PR/MR scanning gates
+│   └── Cost: 10x cheaper to fix early vs production
+├── Security Testing Pillars
+│   ├── SAST — static analysis (Semgrep, SonarQube, CodeQL)
+│   ├── DAST — runtime scanning (OWASP ZAP, Burp Suite)
+│   ├── SCA — dependency CVEs (Trivy, Snyk, Grype)
+│   └── Secret Scanning — leaked credentials (Gitleaks, TruffleHog)
+├── Container & IaC Security
+│   ├── Image scanning (Trivy, Grype, Clair)
+│   ├── IaC scanning (Checkov, tfsec, Terrascan)
+│   └── Distroless / minimal base images
+├── Compliance as Code
+│   ├── CIS Benchmarks (kube-bench)
+│   ├── SOC2 / PCI-DSS controls
+│   └── Policy enforcement (OPA Gatekeeper, Kyverno)
+├── Advanced Supply Chain
+│   ├── SLSA Levels 0-4 (provenance, hermetic builds)
+│   ├── SBOM (Syft, CycloneDX, SPDX, Dependency-Track)
+│   └── Artifact signing (Cosign, Sigstore, Rekor)
+├── Zero Trust & Secrets
+│   ├── HashiCorp Vault (dynamic secrets, PKI, audit logs)
+│   ├── External Secrets Operator
+│   └── mTLS between services (Istio, Linkerd)
+├── Secure CI/CD Architecture
+│   ├── OIDC federation (no static credentials)
+│   ├── Least-privilege pipeline roles (IRSA, Workload Identity)
+│   └── Stage order: SAST → SCA → Build → Scan → Sign → Deploy
+├── Commands Quick Reference
+│   ├── trivy image --severity CRITICAL,HIGH
+│   ├── checkov -d . --framework terraform
+│   └── gitleaks detect --source . --verbose
+├── Troubleshooting
+│   ├── False positive tuning (.trivyignore, nosemgrep)
+│   └── --ignore-unfixed for unfixable upstream CVEs
+└── Production Best Practices
+    ├── Immutable infrastructure
+    ├── Least privilege everywhere
+    └── Audit logging for all secret access
+```
+
+## First Principles
+
+Security found late is expensive to fix. Shift security left — run checks where developers already work (in CI). Code has vulnerabilities (SAST), dependencies have vulnerabilities (SCA), running apps have vulnerabilities (DAST). Secrets in code are permanent leaks — scan for them. Supply chain: verify what you build is what you ship (SLSA, SBOM, signing).
+
 DevSecOps is the practice of integrating security into every stage of the software development lifecycle (SDLC). It shifts security from a "final gate" at the end to a continuous process that begins as soon as a developer writes the first line of code.
 
 #### 1. Shift Left Security
@@ -82,3 +130,13 @@ gitleaks detect --source . -v
 ***
 
 This is Section 14: DevSecOps. For a senior role, you should focus on **Software Supply Chain Security**, **Sigstore / Cosign**, and **Runtime Security Monitoring**.
+
+## System Design Perspective
+
+**Policy as Code at Scale (OPA/Gatekeeper):** Admission webhooks (OPA Gatekeeper, Kyverno) are the last enforcement point before workloads run. Design policies with `warn` mode first, then `deny`. Use `failurePolicy: Ignore` for non-critical policies so a policy engine restart never blocks deployments. Version-control all `ConstraintTemplate` + `Constraint` objects alongside the cluster manifests they govern.
+
+**Runtime Security (Falco):** Scanning images before deployment does not detect attacks that happen after deployment. Falco uses eBPF to watch kernel syscalls and fires alerts when a container opens a shell, reads `/etc/passwd`, or makes unexpected outbound connections. Route Falco alerts through Falcosidekick to Slack/PagerDuty and treat them as Sev-2 incidents by default. Maintain a curated rule override file to suppress noisy default rules.
+
+**Secret Rotation Architecture:** Static secrets should not exist. The rotation lifecycle for dynamic secrets: application authenticates to Vault via Kubernetes ServiceAccount JWT → Vault issues a short-lived database credential (TTL=1h) → Vault Agent sidecar renews before expiry → on TTL breach Vault revokes the credential and the app re-authenticates. For long-lived static secrets that cannot be eliminated, implement automated rotation: Lambda/Cloud Function rotates the secret in Secrets Manager, updates the downstream system, and triggers a rolling restart of pods that mount the secret.
+
+**Zero-Trust Network Architecture:** The default Kubernetes network model allows all pods to talk to all pods. Zero-trust requires: (1) default-deny `NetworkPolicy` in every namespace, (2) service mesh mTLS so only pods with valid SPIFFE SVIDs can connect, (3) `AuthorizationPolicy` in Istio so even authenticated pods are limited to specific HTTP paths/methods, (4) egress restriction so pods cannot call arbitrary internet endpoints. Apply these in layers — each provides independent defense-in-depth.

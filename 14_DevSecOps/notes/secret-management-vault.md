@@ -4,6 +4,42 @@ description: HashiCorp Vault architecture, secret engines, dynamic secrets, Kube
 
 # DevSecOps — Secret Management & HashiCorp Vault
 
+```
+Secret Management & HashiCorp Vault
+├── Why Static Secrets Are a Risk
+│   ├── Never rotate → permanent blast radius if leaked
+│   ├── Shared across environments → one leak = all environments
+│   └── No audit trail of who used what secret when
+├── Vault Architecture
+│   ├── Auth Methods (Kubernetes, AppRole, OIDC, AWS IAM)
+│   ├── Secret Engines (KV v2, Database, AWS, PKI)
+│   ├── Policy Engine (HCL policies, path-based access control)
+│   └── Storage Backends (Raft integrated, Consul, etcd)
+├── Kubernetes Auth
+│   ├── Pod JWT → Vault auth/kubernetes/login
+│   └── vault write auth/kubernetes/role (SA + namespace binding)
+├── AppRole Auth (for CI/CD)
+│   └── role_id + secret_id (secret_id is one-time use)
+├── KV v2 — Versioned Secrets
+│   └── vault kv put/get/delete/undelete (soft delete by default)
+├── Dynamic Database Credentials
+│   ├── TTL=1h, auto-rotated by Vault lease engine
+│   └── PostgreSQL creation_statements (GRANT per role)
+├── Vault Agent Sidecar Injection
+│   └── Annotations: vault.hashicorp.com/agent-inject-secret-*
+├── PKI Secret Engine
+│   └── Issue short-lived TLS certs (vault write pki/issue/web-servers)
+└── Logic & Trickiness
+    ├── Static (KV) for config → Dynamic (DB/AWS) for credentials
+    ├── Token TTL short + renewal vs lease TTL mismatch = cred expiry
+    ├── HA: Raft 3-5 nodes + AWS KMS auto-unseal
+    └── Audit logs: mandatory in production (forensic trail)
+```
+
+## First Principles
+
+Security found late is expensive to fix. Shift security left — run checks where developers already work (in CI). Code has vulnerabilities (SAST), dependencies have vulnerabilities (SCA), running apps have vulnerabilities (DAST). Secrets in code are permanent leaks — scan for them. Supply chain: verify what you build is what you ship (SLSA, SBOM, signing).
+
 ## Why Static Secrets Are a Risk
 
 ```
@@ -221,3 +257,11 @@ vault write pki/issue/web-servers \
 | **Seal/Unseal** | Manual unseal keys | Use Auto-Unseal (AWS KMS, GCP KMS) in production |
 | **Audit logs** | Optional | Mandatory in production; enables forensic investigation of every secret access |
 | **Lease renewal** | Application handles manually | Use Vault Agent or Vault Sidecar Injector to handle renewal transparently |
+
+## System Design Perspective
+
+**Secret Rotation Strategy:** Dynamic secrets rotate automatically on TTL expiry. For API keys that must be static (third-party services), implement automated rotation: (1) Lambda function reads the current secret from Secrets Manager, (2) calls the external API to generate a new key, (3) writes the new key as a new secret version, (4) updates the external system to accept the new key, (5) triggers a `kubectl rollout restart` for affected deployments, (6) after rollout completes, deprecates the old key version. Alert via CloudWatch Events if step 6 does not complete within 15 minutes.
+
+**Zero-Trust with Vault:** Vault is the identity backbone for zero-trust. Every pod proves its identity (Kubernetes SA JWT) to Vault to get credentials — no secrets baked into images or environment variables. Combine Vault with Istio: Istio mTLS proves the pod is who it claims to be at the network layer; Vault Kubernetes auth proves the pod's identity for secret access. These are complementary, not redundant.
+
+**OPA Policies for Vault Access:** Use OPA Sentinel (Vault Enterprise) or Vault ACL policies to enforce that only specific pipelines can write to specific Vault paths. For open-source Vault: use fine-grained HCL policies (deny `*` by default, allow specific paths for specific roles). Alert via Vault audit log → Splunk/CloudWatch when a role accesses a path not in its normal pattern (anomaly detection on secret access).

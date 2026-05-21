@@ -1,5 +1,54 @@
 # Network Protocols Deep Dive
 
+```
+Network Protocols Deep Dive
+├── DNS (Domain Name System)
+│   ├── Hierarchy — Root → TLD (.com) → Authoritative NS
+│   ├── Resolution — local cache → recursive resolver → root → TLD → auth
+│   ├── Record types — A, AAAA, CNAME, MX, TXT, NS, PTR, SOA, SRV
+│   ├── TTL — caching duration; low = fast failover, high = fewer queries
+│   ├── Negative caching — NXDOMAIN cached for negative TTL duration
+│   └── split-horizon — internal vs external view of same zone
+├── DHCP (Dynamic Host Configuration Protocol)
+│   ├── DORA — Discover (broadcast) → Offer → Request → Acknowledge
+│   ├── Lease — T1 (50%) renewal, T2 (87.5%) rebind, expiry = release
+│   ├── Options — gateway, DNS servers, NTP, domain name
+│   └── UDP ports 67 (server) and 68 (client)
+├── SSH (Secure Shell)
+│   ├── Transport layer — DH key exchange, server host key, AES encryption
+│   ├── Auth layer — password, public key, certificate, GSSAPI
+│   ├── Connection layer — channels (session, X11, port forward, agent)
+│   ├── Port forwarding — local (-L), remote (-R), dynamic (-D SOCKS)
+│   └── Config — ~/.ssh/config, IdentityFile, ProxyJump, ServerAliveInterval
+├── SCP (Secure Copy)
+│   ├── SSH-based, single-channel, deprecated in OpenSSH 9.0
+│   ├── Replaced by SFTP (multi-channel, resumable, better error handling)
+│   └── rsync preferred for large/incremental transfers
+├── cURL
+│   ├── Protocols — HTTP, HTTPS, FTP, SFTP, SCP, SMTP, LDAP
+│   ├── Key options — -v (verbose), -I (HEAD), -o (output), -L (follow redirect)
+│   ├── Auth — -u user:pass, --cert (client TLS), --cacert (CA bundle)
+│   └── Scripting — -s -o /dev/null -w "%{http_code}" for health checks
+├── FTP
+│   ├── Active mode — server connects back to client (blocked by most NAT/firewalls)
+│   ├── Passive mode — client initiates both connections (firewall-friendly)
+│   └── No encryption — use SFTP (SSH) or FTPS (TLS) instead
+└── Protocol Port Reference
+    ├── SSH 22, HTTP 80, HTTPS 443, DNS 53
+    ├── SMTP 25, FTP 21, NTP 123, LDAP 389
+    ├── MySQL 3306, PostgreSQL 5432, Redis 6379, MongoDB 27017
+    └── K8s API 6443, etcd 2379-2380
+```
+
+## First Principles
+
+- Computers route to IP addresses, not domain names — **DNS** is the translation layer. Its hierarchical, distributed design means no single server holds all records; each zone only knows its own data and delegates everything else. This is how DNS scales to billions of domains.
+- IP address assignment must be automatic in dynamic environments — **DHCP** exists because manually assigning IPs to every device on a network is operationally impossible. The DORA process ensures a device gets an address, gateway, and DNS server in four packets before any application can run.
+- All pre-SSH remote access (Telnet, rsh) transmitted credentials in plaintext — any observer on the path could steal them. **SSH** uses asymmetric key exchange to establish a shared secret, then encrypts everything. Public key auth eliminates passwords entirely, making credential interception irrelevant.
+- File transfer over SSH has two protocols: **SCP** uses a single channel and cannot resume interrupted transfers; **SFTP** opens a separate data channel with its own state machine, supporting resumable transfers, directory listings, and proper error codes. SCP's simplicity became a liability.
+- **cURL** is a protocol-agnostic data transfer tool, not an HTTP client. Its ability to test FTP, SMTP, LDAP, and SCP from the same CLI makes it the universal "does this service respond?" tool in DevOps workflows.
+- FTP's active mode requires the **server to initiate a connection back to the client** — this breaks NAT, which does not allow unsolicited inbound connections to private IPs. Passive mode (client initiates both channels) was invented specifically to work through NAT and stateful firewalls.
+
 ## DNS (Domain Name System)
 
 ### Overview
@@ -630,3 +679,22 @@ curl --ssl ftps://ftp.example.com/file.txt
 | SCP | Secure file copy | SSH-based, being deprecated |
 | cURL | Data transfer | Multi-protocol, scripting |
 | FTP | File transfer | Legacy, insecure (use SFTP/FTPS) |
+
+***
+
+## System Design Perspective
+
+**Scalability**
+- DNS TTL is the primary scalability knob for DNS-based services. Low TTL (60s) enables rapid failover and blue-green deployments but multiplies query load on authoritative servers. For a domain with 1M daily users and TTL=60, authoritative servers see ~280 queries/second just for that one record. DNS providers like Route 53 are built to handle this; self-hosted BIND servers typically are not.
+- DHCP lease lifetime determines how quickly a newly recycled IP is safe to reissue. Short leases (1 hour) reclaim IPs from departed clients quickly but increase DHCP broadcast traffic. Long leases (24h) reduce traffic but leave IPs reserved for devices that left. In Kubernetes, pod DHCP is replaced by IPAM in the CNI — static allocation removes this trade-off.
+- SSH multiplexing (`ControlMaster auto`, `ControlPath`) allows reusing a single TCP connection for multiple SSH sessions. Without multiplexing, each `scp` or `rsync` invocation pays the full key exchange overhead. For CI pipelines running 100 SSH commands per build, multiplexing reduces build time materially.
+
+**Failure Modes**
+- DNS negative caching (NXDOMAIN TTL) can trap services: if a lookup fails during a deployment window when DNS is not yet propagated, the NXDOMAIN is cached for the negative TTL (often 300-3600s). The service stays broken until the negative cache expires, even after DNS is correct. Flushing local resolver cache (`systemd-resolve --flush-caches`) is the immediate fix.
+- DHCP starvation attack: an attacker sends thousands of DISCOVER packets with spoofed MACs, exhausting the DHCP pool. Legitimate devices cannot get IPs. DHCP snooping on managed switches limits DISCOVER rate per port.
+- SCP silent data corruption: the legacy SCP protocol does not validate transfer integrity end-to-end. A disk error mid-transfer produces a corrupted file with no error. rsync uses checksums; always prefer rsync for critical data movement.
+
+**Trade-offs**
+- DNS-based service discovery vs Kubernetes service ClusterIP: DNS adds 1-2ms per lookup (unless cached), but provides human-readable names and works across namespaces and clusters. ClusterIP is a fixed virtual IP resolved by the kernel directly (iptables/eBPF), with zero DNS latency. Applications that cache DNS (most JVM apps) incur the DNS round-trip only once per JVM restart, making the latency difference immaterial.
+- Public key auth vs certificate auth in SSH: public keys require distributing `authorized_keys` to every server — hard to revoke if a private key is compromised. SSH certificates (CA-signed) expire automatically and can be revoked centrally, at the cost of running an SSH CA infrastructure. At scale (1000+ servers), certificates are the correct choice.
+- SFTP vs rsync: SFTP is a full remote filesystem protocol (supports rename, chmod, stat). rsync is a delta-transfer protocol — it sends only changed bytes. For recurring large-file sync tasks, rsync's delta algorithm reduces transfer size by 90%+. For one-off transfers where the remote filesystem needs full POSIX operations, SFTP is more capable.

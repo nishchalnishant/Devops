@@ -1,5 +1,54 @@
 # Supply Chain Security & SLSA
 
+```
+Supply Chain Security & SLSA
+├── The Problem
+│   ├── Modern apps: hundreds of OSS dependencies = attack surface
+│   └── Real attacks: SolarWinds, CodeCov, Log4Shell, XZ Utils
+├── Supply Chain Goals
+│   ├── Integrity (artifact not tampered with)
+│   ├── Provenance (where/how it was built)
+│   ├── Verification (validate at deployment)
+│   └── Transparency (public audit log)
+├── SLSA Framework Levels
+│   ├── L0: No guarantees
+│   ├── L1: Provenance generated (scripted build)
+│   ├── L2: Hosted build, signed provenance
+│   ├── L3: Hardened builder, non-falsifiable provenance
+│   └── L4: Two-party review, hermetic builds
+├── Sigstore / Cosign Keyless Signing
+│   ├── OIDC identity → Fulcio CA → ephemeral cert (10 min TTL)
+│   ├── Sign image digest → Rekor transparency log (permanent)
+│   └── Verify: query Rekor (no key storage needed)
+├── in-toto Attestations
+│   └── SLSA provenance JSON (builder, buildConfig, materials, byproducts)
+├── SBOM Generation & Governance
+│   ├── Syft (cyclonedx-json, spdx-json, table)
+│   ├── Trivy (--format spdx-json)
+│   ├── CycloneDX vs SPDX (richer metadata vs NIST standard)
+│   └── Dependency-Track (continuous CVE monitoring, license compliance)
+├── Shift-Left Tool Chain
+│   ├── Gitleaks (pre-commit + CI — pre-commit bypassable with --no-verify)
+│   ├── Checkov / tfsec / Trivy IaC (IaC misconfigurations)
+│   └── Semgrep + SARIF upload to GitHub Security
+├── Hermetic Builds
+│   ├── Multi-stage Dockerfile (build → test → distroless runtime)
+│   └── docker build --network=none (no outbound during build)
+├── Admission Control (Kyverno)
+│   ├── verifyImages (cosign keyless + Rekor)
+│   ├── SBOM attestation requirement (SPDX predicateType)
+│   └── restrict-registries (images must come from myregistry.io/*)
+└── Key Gotchas
+    ├── SLSA provenance useless without verification at deploy time
+    ├── mutateDigest: true in Kyverno (pin digest, not tag)
+    ├── SBOM from source ≠ SBOM from image (miss OS packages)
+    └── Rekor is append-only (don't sign dev images with prod identity)
+```
+
+## First Principles
+
+Security found late is expensive to fix. Shift security left — run checks where developers already work (in CI). Code has vulnerabilities (SAST), dependencies have vulnerabilities (SCA), running apps have vulnerabilities (DAST). Secrets in code are permanent leaks — scan for them. Supply chain: verify what you build is what you ship (SLSA, SBOM, signing).
+
 ## The Software Supply Chain Problem
 
 Modern software is built from dozens or hundreds of open-source dependencies. Each dependency is a potential attack vector:
@@ -373,3 +422,11 @@ spec:
 | SBOM from source ≠ SBOM from image | Source-level tools miss OS packages installed by Dockerfile; always generate from the built image |
 | Gitleaks pre-commit vs CI | Pre-commit can be bypassed with `--no-verify`; CI enforcement is mandatory |
 | CycloneDX vs SPDX tooling support | Not all tools support both; check Dependency Track and your SIEM before choosing format |
+
+## System Design Perspective
+
+**Runtime Security Gap:** Supply chain security ensures what you deploy is what you built. But post-deployment, Falco closes the remaining gap — it detects when a correctly-built, correctly-signed, correctly-deployed container is exploited at runtime. Pair supply chain controls with Falco rules that alert on unexpected process execution (e.g., `bash` spawned from a Python web server process).
+
+**OPA for Supply Chain Policy Enforcement:** Kyverno (covered here) handles admission enforcement of image signatures. OPA Gatekeeper is the alternative for teams already invested in Rego. The key difference: Kyverno has built-in `verifyImages` with Cosign support; OPA requires a custom external data provider or relies on admission controller webhooks that call Cosign. For greenfield, Kyverno is simpler for supply chain policies; OPA is better when you need complex Rego logic across many policy types.
+
+**Air-Gapped Supply Chain Architecture:** In environments without internet access, the entire Sigstore stack must be self-hosted: Fulcio CA (certificate issuance), Rekor (transparency log), and the CT log. Additionally, mirror all container registries and package repositories internally. Sign images with a private key (not keyless) since OIDC federation to public Sigstore is unavailable. Document the key rotation procedure for the private signing key — this is the critical secret in an air-gapped supply chain.

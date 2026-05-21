@@ -1,5 +1,64 @@
 # Containers and Orchestration
 
+```
+Containers and Orchestration
+├── Docker — Container Standard
+│   ├── Dockerfile — recipe; layered instructions build the image
+│   ├── Image — read-only snapshot; layers cached via Union FS (Overlay2)
+│   ├── Container — running process; isolated via Linux namespaces + cgroups
+│   ├── Volumes — persist data outside container lifecycle; survive restarts
+│   ├── Networks — virtual networks for container-to-container communication
+│   └── Tools
+│       ├── Docker Compose — multi-container app definition in one YAML
+│       ├── Docker Scout — image vulnerability scanning + remediation advice
+│       └── Docker Init — auto-generate Dockerfile + Compose from project scan
+├── Docker Internals
+│   ├── Namespaces — isolation illusion: UTS (hostname), NET, PID, MNT, IPC, USER
+│   ├── Cgroups — resource limits; kernel sends OOM SIGKILL on memory breach
+│   └── Union FS (Overlay2) — layer caching; only changed layers rebuild in CI
+├── Kubernetes — Orchestrator
+│   ├── Control Plane ("The Brains")
+│   │   ├── etcd — source of truth; if lost, cluster config is unrecoverable
+│   │   ├── API Server — only component that talks to etcd; kubectl talks to this
+│   │   ├── Scheduler — places pods on nodes by resources + constraints
+│   │   └── Controller Manager — reconciliation loops; desired vs actual state
+│   ├── Worker Nodes ("The Brawn")
+│   │   ├── Kubelet — node agent; CRI gRPC to pull images + start containers
+│   │   ├── Kube-proxy — iptables/IPVS rules for Service load balancing
+│   │   └── Container Runtime — containerd/CRI-O; executes OCI containers
+│   ├── Core Building Blocks
+│   │   ├── Pod — smallest unit; shared network (localhost) + storage
+│   │   ├── Deployment — replica count + rolling updates + self-healing
+│   │   ├── Service — stable IP/DNS; ClusterIP / NodePort / LoadBalancer
+│   │   └── Ingress — L7 HTTP routing; requires Ingress Controller
+│   ├── Storage & Security
+│   │   ├── PV / PVC — decouple "I need 10Gi" from "here's an EBS volume"
+│   │   ├── NetworkPolicy — pod-level firewall; additive allow rules
+│   │   └── RBAC — Role/ClusterRole + Bindings; least privilege per workload
+│   └── Package Management & Mesh
+│       ├── Helm — Charts + values.yaml; versioned K8s app packaging
+│       ├── Kustomize — template-free YAML customisation per environment
+│       └── Istio — service mesh; mTLS, traffic management, telemetry (sidecar/ambient)
+├── Interview Questions by Level
+│   ├── Easy — VM vs Container, Docker layers, Pod vs Container, .dockerignore
+│   ├── Medium — Deployment vs StatefulSet, probes, requests vs limits, Service types
+│   └── Hard — kubectl apply lifecycle, etcd failure impact, CNI, Sidecar pattern
+└── Production Best Practices
+    ├── Multi-stage builds / Distroless — small attack surface, fast pulls
+    ├── Never :latest — pin digest or immutable tag for predictable rollbacks
+    ├── Pod Anti-Affinity — spread replicas across nodes (survive node failure)
+    ├── HPA — autoscale pods on CPU/memory or custom metrics
+    └── External Secret Managers — Vault/ESO instead of env-var secrets
+```
+
+## First Principles
+
+- You want to run code consistently across environments — **containers** package the app + all dependencies; the host OS kernel is shared but the process is isolated via namespaces and cgroups.
+- A single container is not enough for production — you need **scheduling** (where does it run?), **self-healing** (restart on failure), **scaling** (more replicas under load), and **traffic routing** (stable address despite restarts).
+- Kubernetes solves all four: the **scheduler** places pods, the **controller manager** reconciles desired state, the **HPA** scales replicas, and **Services** provide stable addressing.
+- Config and secrets must not be baked into images — **ConfigMaps and Secrets** externalise them; rebuild only when code changes, not config changes.
+- Zero-downtime deployments — **Deployments** with rolling updates and revision history enable new version rollout and instant rollback without application downtime.
+
 This section represents one of the most transformative shifts in modern software engineering. Containers allow us to package an application with all its dependencies, while Orchestration allows us to manage thousands of those containers across a cluster of servers.
 
 ***
@@ -283,3 +342,11 @@ If you are interviewing for a Senior or Staff position, answering questions abou
 1. `[NEW]` [Container Runtimes & Supply Chain Security](./Docker/container-runtimes-and-security.md): The shift from Docker to `containerd/CRI-O`, secure sandboxes (gVisor/Kata), and cryptographically signing images using Sigstore (SLSA).
 2. `[NEW]` [Enterprise Kubernetes Architecture](./Kubernetes/enterprise-kubernetes-architecture.md): Managing clusters-as-code (Cluster API), isolation limits, control plane scaling (etcd/Raft tuning), and Hard Multi-Tenancy via Virtual Clusters (`vcluster`).
 3. `[NEW]` [Advanced Networking & Security](./Kubernetes/advanced-networking-and-security.md): The eBPF revolution (replacing `kube-proxy` with Cilium), transitioning from Ingress to the Gateway API, sidecarless Service Meshes (Ambient/Cilium), and admission controllers (Kyverno / OPA Gatekeeper).
+
+## System Design Perspective
+
+- **Container vs VM trade-off:** Containers share the host kernel — a kernel vulnerability is a container escape. VMs have a full isolated kernel — exploitation requires VM escape (much harder). The design choice: containers for density and startup speed; VMs (or gVisor/Kata) for strong multi-tenant isolation. Many cloud providers run container workloads inside micro-VMs (AWS Firecracker) to get both.
+- **Cgroup OOMKill vs application-level OOM handling:** When a container hits its memory limit, the Linux kernel OOM killer selects a process to kill — usually the container's PID 1 — without calling any application-level cleanup (connection draining, transaction rollback). This is silent data corruption risk for stateful workloads. Design for this: set memory limits generously above p99 usage, use graceful shutdown handlers, and prefer JVM flag `-XX:+ExitOnOutOfMemoryError` over container OOMKill.
+- **Why Docker layers matter for CI/CD speed:** Each Dockerfile instruction creates a layer. If `npm install` (slow) is in the same layer as `COPY . .` (changes every commit), the cache is invalidated on every commit. Correct order: `COPY package.json` → `RUN npm install` (cacheable) → `COPY . .` (invalidates only when code changes). Poor layer ordering can increase CI time by 10x.
+- **etcd is the real SPOF in Kubernetes:** The control plane is HA (3+ API servers behind a LB), but if all etcd members lose data simultaneously, no backup means total cluster loss. Existing pods continue running (kubelet caches state), but you cannot modify anything. etcd backup + offsite storage is non-negotiable. Test restores quarterly — a backup never tested is not a backup.
+- **Service Mesh complexity vs value:** A sidecar service mesh (Istio) adds an Envoy proxy to every pod. At 5000 pods, this is 5000 extra processes consuming CPU/RAM and adding latency to every request. The value (mTLS, circuit breaking, telemetry) must exceed this cost. For small clusters (<100 pods), Istio is overhead. For large zero-trust environments, it's essential. The sidecarless (ambient) model reduces this cost by 70%+ — evaluate before adopting.

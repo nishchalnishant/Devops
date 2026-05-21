@@ -1,5 +1,101 @@
 # GitLab CI/CD — Deep Dive Notes
 
+```
+GitLab CI/CD Deep Dive Notes
+├── Why GitLab CI Exists
+│   ├── Single platform: code + CI + registry + deployments — no tool sprawl
+│   ├── Pipeline-as-code: .gitlab-ci.yml reviewed like any other change
+│   ├── Auto DevOps: opinionated defaults for common frameworks
+│   ├── Review Apps: ephemeral env per MR, visible URL in MR widget
+│   └── Security scanning: SAST, DAST, SCA, container scanning built-in
+│
+├── Architecture Internals
+│   ├── Developer pushes → GitLab creates pipeline → jobs queued
+│   ├── Runner polls GitLab server → claims job → executes → uploads artifacts
+│   └── Status reported back to server → pipeline state updated
+│
+├── Pipeline Execution Model
+│   ├── Pipeline types (CI_PIPELINE_SOURCE values)
+│   │   ├── push: git push to any branch
+│   │   ├── merge_request_event: MR opened/updated/push
+│   │   ├── schedule: cron-triggered via GitLab Schedules
+│   │   ├── web: manual UI trigger
+│   │   ├── trigger: API token trigger
+│   │   └── parent_pipeline: triggered by parent (parent-child)
+│   ├── workflow: rules gates which source values create a pipeline at all
+│   └── default: global job defaults (image, before_script, retry, timeout)
+│
+├── Full .gitlab-ci.yml Reference
+│   ├── stages: [build, test, security, deploy]
+│   ├── Build: docker login + build + push + artifact declaration
+│   ├── Test: with needs: [build] — DAG, downloads build artifact
+│   ├── Security: Trivy scan, artifact report type: container_scanning
+│   └── Deploy: environment: name, when: manual, rules: branch == main
+│
+├── Runner config.toml
+│   ├── Docker executor: concurrent, image, privileged, volumes, pull_policy
+│   └── Kubernetes executor: namespace, image, cpu/memory requests+limits
+│
+├── Executor Comparison
+│   ├── docker: isolated, reproducible, ~15s overhead — most common
+│   ├── shell: fast, no isolation, state persists — legacy/local only
+│   ├── kubernetes: ephemeral pod, scalable, no privileged — cloud-native
+│   └── custom: hook-based provisioning for specialized environments
+│
+├── Cache vs Artifacts (Detailed)
+│   ├── cache: speed optimization, cross-pipeline, keyed storage
+│   │   ├── key.files: invalidate on specific file changes
+│   │   ├── policy: pull-push | pull | push
+│   │   └── Not guaranteed — code jobs to handle cache miss
+│   └── artifacts: correctness, same-pipeline only, server-stored
+│       ├── expire_in: mandatory for pipelines with delayed manual jobs
+│       └── reports: structured data (junit, security, coverage)
+│
+├── Variables Precedence & Scoping
+│   ├── Precedence: trigger > job > pipeline > project > group > instance > predefined
+│   ├── Protected: injected only on protected branches/tags
+│   ├── Masked: redacted in logs (≥8 chars, no whitespace/newlines)
+│   ├── File-type: content written to temp file; variable = path
+│   └── Environment-scoped: injected only when job targets that environment
+│
+├── Dynamic Child Pipelines
+│   ├── Script generates YAML based on git diff (changed paths → service names)
+│   ├── YAML file saved as artifact: paths: [generated-pipeline.yml]
+│   └── Trigger job: trigger: include: artifact: generated-pipeline.yml
+│
+├── MR vs Merged Results vs Merge Trains
+│   ├── MR pipeline: tests the source branch as-is
+│   ├── Merged results pipeline: tests source merged with target (speculative)
+│   └── Merge Train: queues MRs, tests each combined with all queued ahead of it
+│
+├── Security Scanning Templates
+│   ├── include: template: Security/SAST.gitlab-ci.yml
+│   ├── include: template: Security/Secret-Detection.gitlab-ci.yml
+│   ├── include: template: Security/Dependency-Scanning.gitlab-ci.yml
+│   └── include: template: Security/Container-Scanning.gitlab-ci.yml
+│
+├── Review Apps
+│   ├── Dynamic environment name: $CI_COMMIT_REF_SLUG
+│   ├── auto_stop_in: 7 days — prevents environment sprawl
+│   └── on_stop: job that tears down the environment (helm uninstall)
+│
+└── Key Gotchas
+    ├── only/except is legacy — use rules:
+    ├── needs: bypasses stage order — job can start before its own stage
+    ├── CI_JOB_TOKEN scope (GitLab 16+) — cross-project needs allowlist
+    ├── strategy: depend required for synchronous trigger behavior
+    ├── Protected branch ≠ protected variable — configured separately
+    └── interruptible: true — set globally to auto-cancel stale MR pipelines
+```
+
+## First Principles
+
+- GitLab CI's integration advantage is data locality: pipeline results, security findings, deployment history, and DORA metrics are all in the same database as the code. No webhook fan-out, no API bridging.
+- The pipeline execution model is push-to-queue, poll-to-execute. GitLab Server never pushes to runners; runners long-poll for available jobs. This is why runners can be behind firewalls — only outbound HTTPS from runner to server is needed.
+- Variable precedence encodes a trust hierarchy: trigger variables (caller-controlled) override everything; predefined variables (GitLab-controlled) are the floor. Understanding this hierarchy prevents the "my variable isn't being used" class of bugs.
+- Dynamic child pipelines solve the static pipeline size problem in monorepos. The root pipeline is a code-executing dispatcher; the generated YAML is a data artifact. Separating the dispatch logic (Python/bash script) from the execution definition (YAML) keeps both maintainable.
+- Merge Trains eliminate the "tested on branch but broken on main" problem by testing each MR speculatively combined with the MRs queued ahead of it. The tradeoff is pipeline cost proportional to queue depth — only use Merge Trains when the cost of a broken main branch exceeds the cost of extra CI runs.
+
 ## Why GitLab CI/CD Exists
 
 GitLab CI/CD was one of the first integrated CI/CD systems in a DevOps platform. Unlike Jenkins (external) or GitHub Actions (newer), GitLab CI has been part of the platform since 2016, making it mature and deeply integrated.
@@ -465,3 +561,19 @@ stop-review:
 | `strategy: depend` required | Without it, `trigger:` jobs succeed immediately, not when child completes |
 | Protected branch ≠ protected variable | Each must be configured separately |
 | `interruptible: true` on default | Set globally so MR pushes cancel stale pipelines automatically |
+
+***
+
+## System Design Perspective
+
+**Dynamic pipeline generation at scale**
+
+For monorepos with 50+ services, static `rules: changes:` per service creates a root pipeline with thousands of lines that becomes unmaintainable. The dynamic pattern: one "generator" job uses `git diff --name-only origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME` to identify changed paths, maps them to service names via a lookup table (JSON or Python dict), and emits a `generated-pipeline.yml`. The generator job saves this as an artifact; a trigger job executes it with `trigger: include: artifact:`. The root pipeline stays at ~20 lines regardless of service count.
+
+**Merge Train performance characteristics**
+
+At high MR throughput (10+ MRs/hour), Merge Trains consume O(n²) pipeline capacity in the worst case (each new MR tests against all queued MRs). Mitigations: (1) keep pipelines fast — every minute saved reduces quadratic cost; (2) use `interruptible: true` on test jobs so when a train entry ahead fails and the queue resets, running tests are cancelled rather than completing wastefully; (3) consider Merge Trains only for the default branch — feature branch pipelines don't need train semantics.
+
+**Security scanning integration architecture**
+
+Security scan results flow through GitLab's artifact report system: each scanner produces a JSON artifact of type `container_scanning`, `sast`, `dependency_scanning`, etc. GitLab parses these artifacts and surfaces findings in the MR widget, Security Dashboard, and Vulnerability Report. The scanning jobs themselves are just CI jobs — the magic is the structured artifact format. This means you can replace GitLab's default scanners (Trivy, Semgrep) with any tool that produces the same JSON schema.

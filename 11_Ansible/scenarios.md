@@ -1,5 +1,44 @@
 # Production Scenarios & Troubleshooting Drills (Senior Level)
 
+```
+Ansible Production Scenarios
+├── Performance Problems
+│   ├── 4-hour playbook → enable pipelining, forks=100, mitogen strategy
+│   ├── Fork exhaustion  → too many forks, kernel ulimit hit, reduce forks
+│   └── Fact gathering bottleneck → enable fact caching (Redis/JSON)
+├── Idempotency Failures
+│   ├── state: latest breaks idempotency → use state: present + pin version
+│   ├── state: restarted always changes → use state: reloaded where possible
+│   ├── shell >> file appends on every run → use lineinfile/blockinfile
+│   └── Molecule idempotency test → run playbook twice, assert no changes on 2nd run
+├── SSH & Connectivity
+│   ├── SSH fingerprint changes (new AMI) → clear known_hosts or disable checking
+│   ├── Host unreachable → check inventory, SG rules, SSH keys, VPN
+│   └── ansible-pull for ASG → instances self-configure at boot via cloud-init
+├── Secret Management
+│   ├── Vault password in CI logs → use vault-password-file with secrets manager
+│   └── Plaintext creds in playbooks → migrate to ansible-vault encrypt_string
+├── Execution Logic Bugs
+│   ├── set_fact + run_once hoisting → fact only set on first host, others miss it
+│   ├── flush_handlers requirement → handlers don't run mid-play without flush
+│   ├── Tags not limiting execution → always tag, include_tasks tag propagation
+│   └── import_tasks vs include_tasks tag behavior difference
+├── AWX / Inventory Problems
+│   ├── Stale AWX inventory → sync inventory source before job template
+│   ├── Galaxy role resolution fails → pin role version, use requirements.yml
+│   └── Parallelism race on shared DB migration → delegate_to + run_once
+└── Callback / CI Integration
+    ├── Callback plugin breaking CI output → test plugin in dev, version-pin
+    └── Non-zero exit from ignored error → use failed_when, not ignore_errors alone
+```
+
+## First Principles
+
+- Every scenario is ultimately about Ansible's three guarantees: SSH connectivity, idempotency, and predictable variable scope. Failures root in one of these three.
+- Performance problems are almost always solved by reducing SSH overhead (pipelining, ControlMaster, Mitogen) or reducing unnecessary work (fact caching, conditional task skipping).
+- Idempotency bugs are caught by testing: run the playbook twice and assert no changes on the second run (Molecule idempotency stage). If the second run has changes, find the non-idempotent task and replace it with a proper module or conditional.
+- Variable hoisting bugs (set_fact + run_once) are subtle: the fact is set on one host, but other hosts in the play see `undefined` unless you explicitly delegate the fact registration or use `delegate_facts: true`.
+
 ### Scenario 1: Performance at Scale (1000+ Hosts)
 **Problem:** Playbook takes 4 hours to run.
 **Fix:** Enable **SSH Pipelining**, increase **Forks** to 100, and use the `mitogen` strategy plugin for 3x speed.
@@ -494,3 +533,26 @@ ansible-playbook site.yml --tags deploy --skip-tags always
 ```
 
 **Prevention:** After adding new roles or tasks, run `--list-tasks --tags <tag>` to verify exactly which tasks are selected. Add this as a CI check on playbook changes.
+
+***
+
+## System Design Perspective
+
+**Molecule as the CI gate for idempotency:** Every role should have a Molecule test suite. The CI pipeline runs: `molecule create` → `molecule converge` → `molecule idempotency` → `molecule verify` → `molecule destroy`. The idempotency stage runs `converge` a second time and fails if any task reports `changed`. This catches non-idempotent tasks before they reach production.
+
+**ansible-pull architecture for ephemeral infrastructure:**
+- ASG instances run `ansible-pull -U git@github.com:org/ansible.git` at boot via cloud-init.
+- The playbook path: `ansible-pull` calls the local `site.yml` which applies roles based on the instance's tags (fetched via `ec2_metadata_facts`).
+- Key operational challenge: no central audit log. Solve with a callback plugin that posts job results to an S3 bucket or a logging endpoint.
+
+**DB migration race condition prevention:**
+- Pattern: `delegate_to: db-migration-host` + `run_once: true` ensures the migration task runs exactly once, on one designated host, even when the playbook targets 100 app servers.
+- More robust: separate the migration into a pre-task or a dedicated playbook that runs before the main deployment playbook. This creates a clear ordering guarantee and a separate failure domain.
+
+**AWX as the audit trail for compliance:**
+- Every AWX job execution records: who triggered it, when, which job template, which inventory, which credential, what the stdout output was. This is the evidence required for change management (ITIL) and audit (SOC 2).
+- Combine with AWX workflow templates: migrations run first (job A), then rolling update (job B only if A succeeds), then smoke tests (job C only if B succeeds). The workflow is the change plan, visually representable and auditable.
+
+**Tag discipline as a playbook API:**
+- Tags are the interface for operators to run subsets of a playbook. Treat tags like public API endpoints: document them, don't rename them without notice, and test that they select exactly the intended tasks.
+- The `always` tag marks tasks that must run regardless of `--tags` (fact gathering, variable loading). The `never` tag marks tasks that only run when explicitly requested (destructive operations like database truncation).

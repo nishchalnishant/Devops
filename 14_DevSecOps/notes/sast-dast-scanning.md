@@ -4,6 +4,41 @@ description: DevSecOps SAST, DAST, SCA, container image scanning, and shift-left
 
 # DevSecOps — SAST, DAST & Shift-Left Security
 
+```
+SAST, DAST & Shift-Left Security
+├── The Shift-Left Model
+│   ├── IDE → PR → CI → Staging → Production (security at each stage)
+│   └── Cost multiplier: IDE($1) → prod($100)
+├── SAST — Static Analysis
+│   ├── Semgrep (multi-language, custom rules, CI integration)
+│   ├── SonarQube (quality gate: block on Critical/High)
+│   └── Incremental scan on changed files (not full repo every time)
+├── SCA — Dependency Scanning
+│   ├── Snyk in CI (--severity-threshold=high --exit-code 1)
+│   └── SBOM generation (syft -o cyclonedx-json) — SLSA L2+ requirement
+├── Container Image Scanning
+│   ├── Trivy after docker build (--severity CRITICAL,HIGH --exit-code 1)
+│   └── Upload SARIF to GitHub Security tab
+├── DAST — Runtime Scanning
+│   ├── OWASP ZAP baseline scan in CI against staging URL
+│   └── ZAP rules file to suppress known false positives
+├── Secret Detection
+│   ├── Pre-commit: gitleaks hook (blocks commit locally)
+│   └── CI: gitleaks detect (blocks pipeline on finding)
+├── Complete Pipeline Stage Order
+│   └── SAST → SCA → docker build → trivy scan → sign → DAST → deploy
+└── Logic & Trickiness Table
+    ├── SAST: incremental scan (not full repo) on PR
+    ├── False positives: tune severity, nosemgrep with justification
+    ├── SBOM: required for SLSA L2+, US EO 14028
+    ├── DAST: automated baseline on every staging deploy
+    └── CVE triage: CVSS + exploitability + reachability
+```
+
+## First Principles
+
+Security found late is expensive to fix. Shift security left — run checks where developers already work (in CI). Code has vulnerabilities (SAST), dependencies have vulnerabilities (SCA), running apps have vulnerabilities (DAST). Secrets in code are permanent leaks — scan for them. Supply chain: verify what you build is what you ship (SLSA, SBOM, signing).
+
 ## The Shift-Left Model
 
 "Shift-Left" means moving security checks earlier in the SDLC — from a quarterly pen test to every single pull request.
@@ -208,3 +243,11 @@ stages:
 | **DAST** | Run manually quarterly | Automated baseline in CI against staging on every deploy |
 | **Secret scanning** | CI only | Pre-commit hook + CI + repository-level secret scanning (GitHub Advanced Security) |
 | **CVE triage** | Fix everything immediately | Triage by CVSS + exploitability + reachability; prioritize Critical in prod |
+
+## System Design Perspective
+
+**Policy as Code (OPA/Gatekeeper):** SAST, DAST, and SCA scan code and running applications, but they cannot enforce security constraints on Kubernetes workload configurations. Add OPA Gatekeeper as the enforcement layer: policies that require all images to come from a verified registry, all containers to run as non-root, and all deployments to have resource limits set. This catches configuration-level vulnerabilities that SAST cannot see.
+
+**Runtime Security (Falco):** The pipeline described here secures the path to deployment. Falco secures what happens after deployment. For DAST findings that cannot be fixed immediately (unfixable upstream CVEs), Falco rules can detect exploitation attempts at runtime — e.g., a rule that fires when the vulnerable code path is executed in an unexpected context.
+
+**Zero-Trust for the Pipeline Itself:** The CI pipeline has elevated access — it builds, scans, signs, and deploys. Apply zero-trust principles: use OIDC federation so the pipeline has no static credentials; scope each pipeline job's permissions to the minimum needed (build job: registry push only; deploy job: specific namespace only); audit every pipeline secret access in Vault's audit log; alert on any pipeline job accessing secrets outside its declared scope.

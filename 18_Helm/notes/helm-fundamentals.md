@@ -1,5 +1,70 @@
 # Helm Fundamentals
 
+```
+Helm Fundamentals
+├── Chart Structure
+│   ├── Chart.yaml: name, version (SemVer), appVersion, type, dependencies
+│   ├── values.yaml: default configuration; merged at render time
+│   ├── values.schema.json: optional JSON Schema for values validation (fail-fast)
+│   ├── templates/: Go-templated K8s YAML; _helpers.tpl for named templates
+│   ├── crds/: installed before templates on helm install only (not upgraded)
+│   └── .helmignore: excludes files from helm package
+├── Templating Engine
+│   ├── Go text/template: {{ }}, {{- }} (trim whitespace), range, if/else, with
+│   ├── Built-in objects: .Values, .Release (Name/Namespace/Revision), .Chart, .Files
+│   ├── Sprig functions: quote, default, required, toYaml, indent, tpl, b64enc/b64dec
+│   ├── Named templates: define in _helpers.tpl; include (with indent) vs template (no indent)
+│   └── Library charts: type: library; shareable named templates across charts
+├── Values System
+│   ├── Merging order: values.yaml < -f files (L→R) < --set-file < --set-string < --set
+│   ├── --set dot-path: image.tag=v1; list: env[0]=prod; escape: key=val\,val2
+│   ├── Subchart values: prefix with subchart name (redis.auth.password)
+│   ├── Global values: .Values.global propagates to all subcharts without prefix
+│   └── values.schema.json: validates types and required fields at install/upgrade time
+├── Lifecycle Hooks
+│   ├── Phases: pre/post-install, pre/post-upgrade, pre/post-rollback, pre/post-delete, test
+│   ├── Implementation: K8s Job with helm.sh/hook: pre-upgrade annotation
+│   ├── Weight: helm.sh/hook-weight: "-5" (ascending order; lower runs first)
+│   ├── Delete policy: hook-succeeded removes completed Job; before-hook-creation removes before next run
+│   └── Failure: hook failure fails the release; Helm rolls back (if --atomic)
+├── Repositories
+│   ├── Classic: index.yaml + chart tarballs; helm repo add + helm search repo
+│   ├── OCI: push/pull to container registry; helm push / helm pull; helm registry login
+│   ├── Private: Harbor, AWS ECR, GCR, Azure ACR all support OCI Helm charts
+│   └── Artifact Hub: public chart discovery (replaces Helm Hub)
+├── Release Management
+│   ├── Release Secret: stores rendered manifest + values in K8s Secret per revision
+│   ├── helm history: shows all revisions (status, chart version, values)
+│   ├── helm rollback: restores any previous revision from Secret history
+│   ├── helm get manifest: shows what Helm applied to cluster
+│   └── helm get values: shows effective values (user-supplied only by default)
+├── Testing
+│   ├── helm test: runs Jobs with helm.sh/hook: test; validates deployed release
+│   ├── helm lint: validates chart structure + template syntax
+│   ├── helm-unittest: unit tests templates without a cluster
+│   ├── chart-testing (ct): lint + install + upgrade CI test in kind cluster
+│   └── kubeconform: validates rendered YAML against K8s OpenAPI schema
+├── Production Patterns
+│   ├── helm upgrade --install --atomic --wait --timeout: safe CI/CD pattern
+│   ├── helm diff upgrade (plugin): preview changes before applying
+│   ├── Helmfile: multi-release orchestration with needs: ordering and env layering
+│   ├── ArgoCD integration: uses helm template; ignores Helm hooks; use sync waves
+│   └── Chart signing: helm package --sign + helm install --verify (GPG provenance)
+└── Common Gotchas
+    ├── CRDs not upgraded on helm upgrade: apply crds/ manually
+    ├── Hook job accumulation: add hook-delete-policy: hook-succeeded
+    ├── Subchart values missing prefix: check helm get values for effective values
+    ├── lookup breaks offline rendering: non-deterministic; avoid in GitOps
+    └── --set with commas: escape with backslash or use --values file instead
+```
+
+## First Principles
+
+- Kubernetes YAML is repetitive across environments. Helm = templating engine + package manager for K8s. Chart = versioned package. Values = environment-specific overrides. Release = deployed instance of a chart. Hooks = lifecycle actions (pre-install, post-upgrade).
+- Go templates + Sprig give the power to compute values, iterate lists, and conditionally include resources — but with that power comes debugging complexity. `helm template --debug` is the escape hatch.
+- Values merging is deterministic and precedence-ordered. Understanding the order (values.yaml < -f files < --set) prevents "why isn't my override working" confusion.
+- OCI is the future of chart distribution. Classic `index.yaml`-based repos are being replaced by OCI registries, which reuse the existing container registry infrastructure.
+
 Deep dive into Helm chart structure, templating, values, hooks, repositories, and production patterns.
 
 ***
@@ -464,3 +529,42 @@ helm package --sign --key 'My Company' --keyring ~/.gnupg/secring.gpg ./mychart
 # Verify before install
 helm install my-app mychart-1.5.0.tgz --verify
 ```
+
+***
+
+## System Design Perspective
+
+**Helm Chart CI/CD Pipeline**
+```
+PR opened
+  → helm lint (chart structure + syntax)
+  → helm template | kubeconform (schema validation)
+  → helm-unittest (template unit tests)
+  → chart-testing ct lint (full lint in CI)
+
+PR merged to main
+  → helm package + helm push (OCI registry)
+  → bump chart version in helmfile.yaml (auto PR via bot)
+
+Deploy to dev
+  → helmfile -e dev sync (with helm diff preview)
+Deploy to staging/prod
+  → helmfile -e prod sync --interactive (human approval of diff)
+```
+
+**Values Schema for Self-Documenting Charts**
+- `values.schema.json` enforces types and required fields: missing `image.repository` fails with a clear error at `helm install`, not with a cryptic template rendering error.
+- Pattern for platform charts distributed to many teams: required fields with no defaults (force teams to provide), optional fields with sensible defaults (reduce cognitive load).
+
+**Helmfile Environment Strategy**
+```yaml
+environments:
+  dev:
+    values: [values/base.yaml, values/dev.yaml]
+  prod:
+    values: [values/base.yaml, values/prod.yaml]
+    secrets: [secrets/prod.yaml]   # helm-secrets encrypted file
+```
+- `base.yaml` has common labels, registry URL, monitoring config.
+- `dev.yaml` overrides: `replicas: 1`, `resources.requests.cpu: 100m`, `debug: true`.
+- `prod.yaml` overrides: `replicas: 3`, `resources.requests.cpu: 500m`, PDB enabled, anti-affinity rules.

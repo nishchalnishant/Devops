@@ -1,5 +1,58 @@
 # Kubernetes — Cheatsheet
 
+```
+Kubernetes Cheatsheet
+├── kubectl Productivity
+│   ├── Aliases — k, kgp, kgpa, kgn, kd, kl, ke, kaf, krm, kex, kns, kctx
+│   ├── Context & Namespace — kubectl config use-context / set-context --current --namespace
+│   ├── Getting Resources — get pods/nodes/svc/deploy/cm/secret/pvc -o wide/yaml/json
+│   ├── JSONPath — extract single fields or iterate items with range/end
+│   ├── Custom Columns — -o custom-columns='NAME:.metadata.name,...'
+│   ├── describe — human-readable with Events inline (first debug step)
+│   ├── Logs — kubectl logs -f / --previous / -c <container> / --all-containers
+│   ├── exec — interactive shell inside running container
+│   ├── apply / create / delete — declarative vs imperative; dry-run=client/server
+│   ├── rollout — status / history / undo / pause / resume
+│   ├── scale — kubectl scale deployment/sts --replicas=N
+│   ├── labels / annotate — add/overwrite labels; use for troubleshooting (remove from svc selector)
+│   ├── port-forward — local tunnel for debugging without Ingress
+│   ├── top — pods/nodes with Metrics Server
+│   ├── events — sorted by timestamp; first stop for Pending/CrashLoop/ImagePull
+│   ├── node ops — cordon / uncordon / drain / taint
+│   ├── explain — built-in API field docs (kubectl explain pod.spec.containers)
+│   ├── Imperative creation — create deployment/service/cm/secret/sa/job --dry-run -o yaml
+│   ├── krew plugins — ctx, ns, neat, tree, stern, images, debug-shell
+│   └── Cluster health — get componentstatuses / api-resources / version
+├── Interview Q&A Reference
+│   ├── Architecture — API server, etcd, scheduler, controller-manager, kubelet, kube-proxy
+│   ├── Ingress vs Service — L7 routing vs L4 stable VIP
+│   ├── kubeconfig — clusters + users + contexts; KUBECONFIG env var
+│   ├── Probes — liveness (restart) / readiness (remove from endpoints) / startup (slow start)
+│   ├── StatefulSet — ordered names, stable net ID, per-pod PVC
+│   ├── DaemonSet — one pod per node; skips unschedulable nodes
+│   ├── Autoscaling — HPA (replicas) / VPA (requests) / CA (nodes) / KEDA (event-driven)
+│   ├── RBAC — Role/ClusterRole + RoleBinding/ClusterRoleBinding; allow-only model
+│   ├── Resource limits — requests for scheduling; limits for OOMKill/throttle; QoS classes
+│   ├── PV/PVC — provision → claim → bind → mount; reclaim: Delete/Retain
+│   ├── Secrets — base64 not encryption; enable encryption at rest; use ESO/Vault
+│   ├── Taints/Tolerations — NoSchedule / PreferNoSchedule / NoExecute
+│   └── Deployment strategies — Rolling / Recreate / Blue-Green / Canary
+└── Troubleshooting Quick-Ref
+    ├── ImagePullBackOff — image name/tag, imagePullSecrets, registry connectivity
+    ├── CrashLoopBackOff — kubectl logs --previous; exit code 137=OOMKill
+    ├── Pending — kubectl describe pod → events show reason
+    ├── Service unreachable — kubectl get endpoints; label selector match?
+    └── Node NotReady — systemctl status kubelet; kubectl describe node
+```
+
+## First Principles
+
+- You have many containers — the **scheduler** places them; resource **requests** are the scheduler's input, not limits.
+- Machines fail — **controllers** restart pods; **probes** detect failure and drain traffic before restart.
+- Traffic must reach containers — **Services** (stable VIP+DNS) and **kube-proxy** (DNAT) route packets to healthy pod IPs.
+- Config and secrets externalised — never bake config into images; `kubectl apply` manifests from git for reproducibility.
+- Zero-downtime rollouts — `kubectl rollout undo` is your emergency lever; `--dry-run=server` validates before apply.
+
 ## Aliases (add to ~/.zshrc or ~/.bashrc)
 
 ```bash
@@ -1147,3 +1200,10 @@ Openssl x509 –in  /var/lib/kubelet/worker-1.crt  -text
 
 ***
 
+## System Design Perspective
+
+- **kubectl as a learning tool vs production tool:** `kubectl create` (imperative) generates YAML via `--dry-run=client -o yaml` — invaluable for learning object structure. In production, all resources should live in git and be applied via `kubectl apply` or GitOps (ArgoCD/Flux). Imperative commands leave no audit trail and cannot be replicated.
+- **Labels as the coupling mechanism:** Services, Deployments, NetworkPolicies, and HPAs all select pods via labels. A label mismatch silently decouples the selector from the pods — the selector simply returns zero endpoints. This is the most common "service unreachable" root cause. Labels are the contract between Kubernetes objects; treat them with the same discipline as API schemas.
+- **`kubectl top` requires Metrics Server — a dependency chain:** If Metrics Server is not installed, `kubectl top` returns errors AND HPA cannot function (no metrics source). In managed clusters (EKS/AKS/GKE), Metrics Server is pre-installed. In self-managed clusters, it must be explicitly deployed. KEDA uses Prometheus as its metrics source, bypassing this dependency.
+- **`kubectl rollout undo` is not a silver bullet:** It rolls back to the previous revision stored in ReplicaSet history (controlled by `revisionHistoryLimit`, default 10). If the bad deployment caused data corruption in a database, rolling back the deployment doesn't fix the data. For stateful systems, deployment rollback must be paired with data rollback procedures.
+- **kubeconfig context switching at scale:** In a fleet with 100+ clusters, manually switching contexts is error-prone (wrong cluster, wrong namespace). Tools like `kubectx`/`kubens` (via krew) help, but the real solution is GitOps: you declare intent in git, the CD system applies it to the correct cluster context. Human `kubectl` access to production should be read-only except during incidents.

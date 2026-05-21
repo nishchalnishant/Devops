@@ -1,6 +1,67 @@
 # Networking
 
+```
+Networking (DevOps/SRE)
+├── OSI Model
+│   ├── L1 Physical — cables, NICs, radio
+│   ├── L2 Data Link — MAC, Ethernet, VLANs, ARP
+│   ├── L3 Network — IP, ICMP, routing
+│   ├── L4 Transport — TCP (reliable), UDP (fast)
+│   ├── L5 Session — NetBIOS, RPC
+│   ├── L6 Presentation — TLS, encoding
+│   └── L7 Application — HTTP, DNS, SSH
+├── Core Protocols
+│   ├── TCP — 3-way handshake, flow control, ordered delivery
+│   ├── UDP — connectionless, 8-byte header, no retransmit
+│   ├── HTTP/HTTPS — web layer, TLS encryption (port 80/443)
+│   ├── DNS — name → IP, TTL, split-horizon, ndots:5
+│   └── ICMP — ping, traceroute, fragmentation-needed
+├── Addressing
+│   ├── IPv4 — 32-bit, dotted decimal
+│   ├── CIDR — /8 to /32, classless notation
+│   ├── Subnetting — carve networks, broadcast domains
+│   └── Private ranges — 10/8, 172.16/12, 192.168/16
+├── Security & Encryption
+│   ├── SSH — key-based auth, port forwarding, tunnels
+│   ├── TLS/SSL — handshake, certificates, CA chain
+│   ├── Firewalls — iptables, security groups, stateful vs stateless
+│   └── VPN — IPsec, WireGuard, site-to-site, remote access
+├── Cloud Networking
+│   ├── VPC — CIDR design (permanent), subnets, route tables
+│   ├── NAT Gateway — outbound from private subnet, 64k conn limit
+│   ├── Load Balancers — L4 (NLB) vs L7 (ALB), keep-alive timeout
+│   └── BGP — Direct Connect, ExpressRoute, AS-PATH, RPKI
+├── Kubernetes Networking
+│   ├── CNI — Flannel (VXLAN), Calico (BGP), Cilium (eBPF)
+│   ├── kube-proxy — iptables O(n) vs eBPF O(1)
+│   ├── CoreDNS — service discovery, ndots:5 overhead
+│   ├── NetworkPolicy — L3/L4 firewall for pods
+│   └── Service Mesh — Istio/Linkerd, sidecar proxies, mTLS
+├── Advanced Topics
+│   ├── VXLAN — L2 over UDP, 50-byte overhead, 16M VNIs
+│   ├── eBPF — XDP hooks, BPF maps, O(1) lookups
+│   ├── HTTP/3 (QUIC) — UDP-based, 0-RTT, connection migration
+│   ├── gRPC — HTTP/2, binary, long-lived connections
+│   └── MTU/MSS — 1500 bytes, PMTUD, VPN overhead
+└── Troubleshooting
+    ├── Connection Refused — RST received, service not listening
+    ├── Connection Timeout — firewall drop, no route
+    ├── Tools — ping, mtr, tcpdump, ss, dig, curl
+    └── Patterns — L3 first, then L4, then L7
+```
 
+## First Principles
+
+- Two computers must agree on a shared language to exchange data — this is a **protocol**. Without it, bits are meaningless.
+- Data is too large to send atomically — break it into **packets**. Each packet carries routing info and can take its own path.
+- Packets may arrive out of order or be lost — **TCP** adds sequencing and retransmission to restore reliability. **UDP** skips this, trading reliability for speed.
+- Every device on a local network needs a hardware address (**MAC**) for direct delivery; a logical address (**IP**) for cross-network routing. ARP bridges the two.
+- Humans cannot memorize 32-bit numbers — **DNS** maps names to IPs. Low TTL = fast failover but high query load; high TTL = stale entries during migrations.
+- One public IP is not enough for all devices behind a router — **NAT** multiplexes many private IPs through one public IP using port mapping.
+- Sending traffic in plaintext exposes it to eavesdropping — **TLS** encrypts the channel using asymmetric keys for exchange, symmetric keys for bulk encryption.
+- A single server cannot handle unlimited load — **load balancers** distribute requests. L4 (TCP) is blind to content; L7 can route by URL, header, or cookie.
+- Default-allow networking is insecure — **firewalls** and **NetworkPolicy** enforce least-privilege: deny all, then explicitly permit required flows.
+- Physical address space is scarce — **CIDR** replaced fixed classful boundaries so any prefix length (/27, /29) can be used, eliminating wasted address blocks.
 
 This section focuses on the connectivity and security protocols required to manage modern infrastructure.
 
@@ -172,6 +233,30 @@ Scenario: Intermittent 502 Bad Gateway from a Load Balancer.
 
 ***
 
+## System Design Perspective
+
+**Scalability**
+- VPC CIDR is immutable after creation — size too small (e.g., /24) and Kubernetes pod scheduling fails as the cluster grows. Always start with /16 for VPC, carve /24 subnets per AZ.
+- NAT Gateway hard limit: 64,000 concurrent connections per gateway. At scale, use multiple NAT Gateways per AZ or VPC Endpoints to bypass NAT entirely for AWS services.
+- DNS resolution is a hidden bottleneck: Kubernetes default `ndots:5` causes 5 round-trip lookups per external DNS query. At 100k req/s this becomes significant — reduce ndots or use FQDNs.
+
+**Failure Modes**
+- Keep-alive timeout mismatch: if the backend closes idle connections before the load balancer does, the LB sends requests on stale connections → 502s. Always configure backend timeout > LB idle timeout.
+- PMTUD Black Hole: a router drops oversized packets but also drops "Fragmentation Needed" ICMP, leaving the sender with no feedback. Small packets work, large transfers silently stall.
+- Socket exhaustion: TIME_WAIT accumulation at high connection rates consumes all ephemeral ports (max ~64k). Mitigate with `tcp_tw_reuse`, connection pooling, and HTTP/2 multiplexing.
+
+**Trade-offs**
+- Overlay (VXLAN) vs native routing (BGP): VXLAN works on any underlay but adds 50 bytes of overhead and CPU cost for encap/decap. BGP routing has zero overhead but requires a BGP-capable physical network.
+- Service Mesh vs direct LB: a mesh gives per-request observability and mTLS for every service pair but adds ~5–10ms latency per hop and doubles CPU due to sidecar proxies.
+- Low DNS TTL enables fast failover (seconds) but multiplies authoritative server query rate proportionally — a trade-off between recovery time and infrastructure load.
+- Stateful (iptables) vs eBPF (Cilium): iptables rule traversal is O(n) — a 10k-service cluster checks 10k rules per packet. eBPF hash-map lookup is O(1) regardless of cluster size.
+
+**Why These Design Choices**
+- Sidecar proxies (not DaemonSet) for service mesh: per-pod isolation allows different policies per service and ensures the proxy shares the pod's network namespace, enabling transparent traffic interception via iptables without application code changes.
+- UDP for QUIC/HTTP3: TCP's kernel implementation cannot be changed without OS upgrades. Building the transport in userspace (over UDP) allows faster protocol iteration and eliminates head-of-line blocking at the transport layer.
+
+***
+
 #### 🔹 Cheat Sheet / Quick Revision
 
 | **Concept**    | **Key SRE Detail**                                                                                    |
@@ -242,4 +327,3 @@ When asked "What happens when you type `google.com` in your browser?", don't jus
 * The SRE Answer: Start with the Local Cache, move to DNS resolution, mention the TCP Handshake, the TLS Handshake (SSL certificate exchange), the HTTP GET request, and finally how the Load Balancer routes the request to a healthy backend pod. This shows "full-stack" networking knowledge.
 
 ***
-

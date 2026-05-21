@@ -1,5 +1,69 @@
 # Git — Deep Theory & Internals
 
+```
+Git Deep Theory
+├── Content-Addressable Filesystem
+│   ├── SHA-1 (transitioning to SHA-256) keyed object store
+│   ├── Four types: blob, tree, commit, tag
+│   └── Object storage: loose objects → pack files (git gc)
+├── DAG Structure
+│   ├── Commits form a DAG (Directed Acyclic Graph)
+│   ├── Merge commit = two parent SHAs
+│   ├── Immutable — SHAs never change, only refs move
+│   └── Special refs: ORIG_HEAD, MERGE_HEAD, CHERRY_PICK_HEAD, REBASE_HEAD
+├── Pack Files & Delta Compression
+│   ├── .pack (compressed object data) + .idx (lookup index)
+│   ├── git gc / git repack — manual trigger
+│   └── git maintenance start — automatic background maintenance
+├── Staging Area / Index
+│   ├── Binary file encoding the "proposed next tree"
+│   ├── git add → index; git commit → repo (HEAD); git checkout → working tree
+│   └── git ls-files --stage — inspect index content
+├── Branching Strategies
+│   ├── TBD — main is always deployable, feature flags hide WIP
+│   │   ├── Pros: no merge hell, fast feedback, DORA-aligned
+│   │   └── Where used: Google, Meta, Netflix, Shopify
+│   ├── GitFlow — develop + release + hotfix branches
+│   │   ├── Pros: clear release gates, concurrent version support
+│   │   └── Cons: slow, not CD-compatible
+│   └── GitHub Flow — simplified: feature branch + PR + deploy
+├── Merge vs Rebase vs Squash
+│   ├── Merge — true history preserved, merge commit shows join point
+│   ├── Rebase — linear history, new SHAs, dangerous on shared branches
+│   └── Squash — single commit per PR (loses atomic commit history)
+├── Monorepo Patterns
+│   ├── Polyrepo vs Monorepo trade-off table
+│   ├── Bazel — hermetic, reproducible, language-agnostic
+│   ├── Nx — JavaScript/TypeScript focused, affected commands
+│   ├── Turborepo — simple pipeline definition, good defaults
+│   └── Sparse checkout — materialize only needed paths
+├── Signed Commits & SLSA
+│   ├── GPG signing: user.signingkey + commit.gpgsign=true
+│   ├── SSH signing: gpg.format=ssh + allowed_signers file
+│   └── Enforcement: branch protection + require signed commits
+├── Hooks Architecture
+│   ├── Client-side: pre-commit, commit-msg, pre-push
+│   ├── Server-side: pre-receive, update, post-receive
+│   ├── Sharing: .pre-commit-config.yaml framework
+│   └── Example: commit-msg Conventional Commits regex
+├── Protocols
+│   ├── HTTPS (PAT auth), SSH (key auth), git:// (unauthenticated, deprecated)
+│   └── SSH setup: key generation, ssh-agent, ~/.ssh/config host alias
+└── Clone Strategies
+    ├── Full clone — all history (needed for bisect, blame)
+    ├── Shallow (--depth N) — limited history, fast CI
+    ├── Partial (--filter=blob:none) — metadata only, blobs on demand
+    └── git bundle / git archive — offline transfer / snapshot export
+```
+
+## First Principles
+
+- **Why is Git a content-addressable store, not a VCS with a database?** Linus Torvalds designed Git for the Linux kernel — millions of files, thousands of contributors. A SQL database can't handle that write volume. A flat key-value store with SHA-based addressing is O(1) for lookups, infinitely distributable, and self-verifying.
+- **Why is the DAG immutable?** Immutability gives you the safety property: once committed, history cannot be lost (only unreferenced). All "rewriting" operations (rebase, amend) create new objects with new SHAs — the old objects remain until GC. This is why reflog works.
+- **Why does squash merge lose information?** Squash collapses N commits into 1. The individual commits are gone from the target branch's history. This makes `git bisect` less precise (the bug could be anywhere in the squashed range) and `git blame` less informative.
+- **Why does TBD require feature flags?** Without feature flags, incomplete features must live in long branches. Long branches diverge from main, accumulating merge debt. Feature flags decouple deployment from release — merge daily, enable when ready.
+- **Why is partial clone better than shallow clone for monorepos?** Shallow clone (`--depth 1`) truncates history — you can't run `git log` properly. Partial clone (`--filter=blob:none`) keeps full commit history but skips blob content until accessed. Better for developers who need history but not all file content.
+
 ## 1. Git Internals: The Content-Addressable Filesystem
 
 Git is not a delta-diff version control system. It is a **content-addressable key-value store** with a thin version control layer on top. Every piece of data is stored as an object, identified by the SHA-1 (transitioning to SHA-256) hash of its content.

@@ -1,5 +1,46 @@
 # ArgoCD and GitOps — Production Scenarios
 
+```
+ArgoCD Scenarios — Troubleshooting Map
+├── Sync Status Issues
+│   ├── OutOfSync won't sync — ignoreDifferences needed; non-deterministic Helm output
+│   ├── Sync wave deadlock — PostSync hook creating resource wave N+1 depends on
+│   ├── SyncFailed — admission webhook rejection; resource validation failure
+│   └── Permanently Progressing — custom health check not defined; Lua health script needed
+│
+├── Image Updater Issues
+│   ├── Not updating — annotation format wrong; registry credentials not set
+│   ├── Write-back failing — Git credentials not configured for write-back
+│   └── Wrong tag selected — updateStrategy: semver vs latest vs name
+│
+├── Multi-Cluster Failures
+│   ├── Cluster token expired — cluster secret outdated; re-register cluster
+│   ├── Certificate rotation — cluster API cert changed; update cluster secret
+│   └── RBAC insufficient — ArgoCD service account missing permissions on spoke
+│
+├── Progressive Delivery Failures
+│   ├── Rollout not promoting — inconclusiveLimit exceeded; AnalysisTemplate query wrong
+│   ├── Analysis stuck — Prometheus unreachable; metric name changed
+│   └── Manual abort needed — kubectl argo rollouts abort; then undo
+│
+├── Webhook Issues
+│   ├── Not firing — URL format wrong (must end in /api/webhook)
+│   ├── Secret mismatch — HMAC validation fails silently
+│   └── Network policy blocking — ArgoCD server not reachable from Git provider
+│
+└── Common Drift Scenarios
+    ├── Self-heal reverts manual change — expected behavior; update Git instead
+    ├── Helm chart version drift — floating version (1.x.x) causes env divergence
+    └── Sync wave ordering — resource healthy in K8s but controller failing; check actual readiness
+```
+
+## First Principles
+
+- OutOfSync that immediately returns after sync is almost always an `ignoreDifferences` gap: a controller is modifying a field ArgoCD manages. ArgoCD applies Git state → controller changes field → ArgoCD detects diff → applies again → repeat. The field must be excluded from the diff, not the controller stopped.
+- Sync wave deadlocks are circular temporal dependencies. Wave N's PostSync hook creates something wave N+1 needs, but wave N+1 must complete before the PostSync hook is marked successful. Break the cycle by moving the resource to a PreSync hook in wave N+1 or by splitting into two Applications.
+- Self-heal reversions are not bugs — they are the system working correctly. The cluster is supposed to always reflect Git state. Emergency changes should be committed to Git first, then applied; or self-heal should be temporarily disabled with an incident ticket tracking re-enablement.
+- Progressive delivery failures are almost always metric query issues. The AnalysisTemplate queries Prometheus with a specific metric name and label set. If the metric was renamed, the query returns no data, which is treated as inconclusive. `inconclusiveLimit` determines how many inconclusive results cause a rollback.
+
 ## Scenario 1: App Stuck OutOfSync — Cannot Sync
 
 **Symptom**: Application shows `OutOfSync` status but every sync attempt immediately fails or returns to OutOfSync. The UI shows resources that appear identical.
@@ -505,3 +546,19 @@ In GitHub: Settings → Webhooks → Add webhook
 **Symptom:** Multiple environments look different even though they use the same Helm chart.
 **Diagnosis:** You are using a floating version (e.g., `version: 1.x.x`) in `Chart.yaml`.
 **Fix:** Always pin the `version` and `appVersion` in `Chart.yaml`. Use `helm-docs` to track changes.
+
+***
+
+## System Design Perspective
+
+**OutOfSync diagnosis methodology**
+
+Step 1: `argocd app diff my-app` — shows exact field-level diff between desired and live state. Step 2: identify which controller owns the diffing field (check controller logs, admission webhooks, mutating webhooks). Step 3: add `ignoreDifferences` entry for that field. Step 4: if the diff is legitimate (app is actually out of sync), investigate why the sync is failing — check `argocd app get my-app` for sync operation errors, check admission webhook logs for rejections. The most common false-positive OutOfSync causes: HPA modifying replicas, cert-manager injecting caBundle, service mesh injecting sidecar annotations, and AWS Load Balancer Controller adding clusterIP fields.
+
+**Webhook vs polling performance**
+
+Without webhooks, ArgoCD polls Git every 3 minutes (default `timeout.reconciliation`). With webhooks configured, Git sends an event to ArgoCD on every push — sync happens within seconds of a commit. At 200 repositories with 50 pushes/hour each, polling creates 200 × 20 API calls/minute = 4000 calls/minute to Git. Webhooks reduce this to push-triggered events only. Configuration: GitLab/GitHub sends POST to `https://argocd.example.com/api/webhook` with HMAC signature. ArgoCD validates the signature against the secret in `argocd-secret`. Network policy must allow inbound HTTPS from the Git provider's IP range to the `argocd-server` service.
+
+**Argo Rollouts AnalysisTemplate debugging**
+
+When a Rollout is stuck in analysis: (1) `kubectl argo rollouts get rollout my-app --watch` shows current step and analysis status; (2) `kubectl get analysisrun -n my-namespace` lists running analysis jobs; (3) `kubectl describe analysisrun <name>` shows the Prometheus query and its result. Common failures: `successCondition` uses `result[0] >= 0.99` but the metric returns no data (returns `null`, treated as inconclusive). Fix: add a `initialDelay` to let the canary warm up, increase `inconclusiveLimit`, or fix the Prometheus query to return 1.0 when no error data exists (use `or on() vector(1)` fallback in PromQL).

@@ -1,5 +1,63 @@
 # Content from Notes_TWS_Docker.pdf
 
+```
+Docker — TWS Notes
+├── History & Basics
+│   ├── Created March 2013 by Solomon Hykes and Sebastien Paul
+│   ├── Written in Go; OS-level virtualization (containerization)
+│   └── Solves "works on my machine" problem via consistent container environments
+├── Advantages
+│   ├── No pre-allocation of RAM (lightweight vs VMs)
+│   ├── CI efficiency — same image used across all deployment stages
+│   ├── Reusable images and layers
+│   └── Runs on physical, virtual, or cloud hardware
+├── Disadvantages
+│   ├── No rich GUI support
+│   ├── Hard to manage large numbers of containers without orchestration
+│   ├── No cross-platform compatibility (Windows vs Linux kernel)
+│   └── No built-in data recovery/backup
+├── Docker Architecture
+│   ├── Docker Daemon (dockerd) — runs on host OS, manages containers/images/networks
+│   ├── Docker Client — CLI + REST API → communicates with daemon
+│   ├── Docker Host — provides environment (daemon + images + containers + networks + storage)
+│   └── Docker Registry — stores images (Docker Hub = public; private registry for enterprise)
+├── Docker Image
+│   ├── Read-only binary template with all dependencies
+│   ├── Created from: Docker Hub pull / Dockerfile build / commit from container
+│   └── Image becomes container when run on Docker engine
+├── Dockerfile Instructions
+│   ├── FROM — base image (must be first)
+│   ├── RUN — execute commands; creates new layer
+│   ├── COPY — copy from local context (no internet)
+│   ├── ADD — like COPY + download from URL + extract tar
+│   ├── EXPOSE — document port (does not publish)
+│   ├── WORKDIR — set working directory
+│   ├── CMD — default command; overridable at docker run
+│   ├── ENTRYPOINT — fixed entrypoint; higher priority than CMD
+│   ├── ENV — environment variables (persists into container)
+│   └── ARG — build-time variables only (not available after build)
+├── Docker Volumes
+│   ├── Volume = directory inside container declared at creation time
+│   ├── Persists after container stop/delete
+│   ├── Share across containers (Container ↔ Container) or host (Host ↔ Container)
+│   └── Benefits: decoupling storage, shared data, lifecycle independence
+└── Key Commands
+    ├── docker images / docker pull / docker search
+    ├── docker run --name / docker start / docker stop / docker rm
+    ├── docker ps / docker ps -a
+    ├── docker exec -it / docker attach
+    ├── docker build -t / docker commit
+    └── docker diff (see layer changes vs base image)
+```
+
+## First Principles
+
+- **Why did Docker solve the "works on my machine" problem?** Before Docker, applications depended on OS-level libraries and environment variables that differed between machines. A container packages the app with all its dependencies, making the execution environment identical on any host that runs Docker — developer laptop, CI server, or production VM.
+- **Why is Docker written in Go?** Go produces statically linked binaries with no runtime dependencies, enabling Docker to ship a single binary. Its goroutine concurrency model suits the daemon's need to manage many containers and network connections simultaneously.
+- **Why no RAM pre-allocation?** Containers share the host kernel and use cgroups for memory limits. A container only consumes the RAM its process actually uses, unlike VMs which reserve a fixed block of RAM at boot. This makes containers far more density-efficient on a host.
+- **Why does EXPOSE not publish ports?** `EXPOSE` is documentation metadata inside the image — it tells operators which ports the app listens on. Actual port binding requires `-p host:container` at `docker run`, which creates iptables DNAT rules. Separation of declaration from binding allows the same image to be deployed with different port mappings.
+- **Why use `docker exec` instead of `docker attach`?** `docker attach` connects to PID 1's stdin/stdout — if you exit, you send SIGTERM and can stop the container. `docker exec` spawns a new process in the container's namespaces, so exiting the exec session leaves the container and PID 1 running unaffected.
+
 ## Page 1
 
 Docker Short

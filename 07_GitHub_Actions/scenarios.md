@@ -1,5 +1,39 @@
 # Production Scenarios & Troubleshooting Drills (Senior Level)
 
+```
+GitHub Actions Scenarios — Troubleshooting Drills
+├── Authentication & OIDC
+│   ├── OIDC trust policy failure — sub/aud claim mismatch, Condition format
+│   └── OIDC token expired in long-running job — role-duration-seconds extension
+├── Security Incidents
+│   ├── Secret exposed in logs — immediate response: rotate, mask, env var pattern
+│   ├── Self-hosted runner compromised via malicious PR — pull_request_target + checkout
+│   └── Secrets accidentally printed — masking bypass via base64, add-mask
+├── Runner Management
+│   ├── Self-hosted runner security — ephemeral, runner groups, org-level restriction
+│   ├── Self-hosted runner picks up wrong repo jobs — runner groups, org settings
+│   └── Concurrency limit causes queuing — cancel-in-progress, per-environment group
+├── Workflow Logic Bugs
+│   ├── Matrix build optimization — fail-fast: false, see all results
+│   ├── Workflow triggered too often — paths-ignore, concurrency cancel-in-progress
+│   ├── Steps silently skip — github.ref on PR vs push, condition evaluation
+│   └── Workflow skips all steps if condition failure — if: always() guard
+├── Secrets & Variables
+│   ├── Dependabot PRs failing — pull_request_target + environment for secrets
+│   ├── Secrets not available — fork PR policy, secrets: inherit vs explicit
+│   └── Reusable workflow can't access caller's secrets — secrets: inherit fix
+└── Caching
+    └── Cache key collision between PRs — hashFiles, restore-keys fallback
+```
+
+## First Principles
+
+- OIDC failures are almost always claim mismatches. The `sub` claim format (`repo:org/repo:ref:refs/heads/main`) must match exactly what the IAM trust policy expects. Environment claim is only present when `environment:` is set in the workflow job.
+- "Secret exposed in logs" requires immediate rotation — not just fixing the log. A secret visible in logs has already been compromised. Fix the code (use env var pattern), then rotate the secret, then audit access logs.
+- `pull_request_target` + `actions/checkout` with the PR head ref is the most dangerous combination in GitHub Actions. The PR's code runs with base repository permissions. An attacker submits a PR that exfiltrates secrets through the workflow. Never combine these.
+- Runner group restrictions are an access control boundary, not just organization. A production runner group set to "selected repositories only" means workflows from other repos cannot dispatch to those runners — enforced at GitHub's API level.
+- Cache key collisions cause hard-to-diagnose failures: a PR that modifies `package-lock.json` and a PR that doesn't may share a cache key if the key is not based on `hashFiles`. Always use `hashFiles` for dependency cache keys.
+
 ### Scenario 1: OIDC Trust Policy Failure
 **Problem:** GitHub Action cannot assume an AWS IAM Role.
 **Fix:** The AWS Trust Policy must exactly match the `repo:org/repo` format. Check the `aud` and `sub` claims.

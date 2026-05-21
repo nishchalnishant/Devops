@@ -1,5 +1,76 @@
 # MLOps Platforms & Tools — Deep Dive
 
+```
+MLOps Platforms & Tools
+├── MLflow — Open-Source ML Lifecycle
+│   ├── Four components: Tracking, Projects, Models, Registry
+│   ├── Tracking Server: Backend Store (Postgres) + Artifact Store (S3)
+│   ├── Model Registry: None → Staging → Production → Archived
+│   ├── Aliases: @champion, @challenger for A/B promotion
+│   ├── Auto-logging: one line logs params, metrics, model artifact
+│   └── MLflow Projects: reproducible runs via MLproject + Conda/Docker
+├── Kubeflow — Kubernetes-Native MLOps
+│   ├── Kubeflow Pipelines (KFP): DAG-based workflow orchestration
+│   ├── Training Operator: PyTorchJob, TFJob, MPIJob CRDs
+│   ├── Katib: hyperparameter optimization (Grid, Random, Bayesian, ASHA)
+│   ├── KServe: model serving with InferenceService CRD; canary support
+│   ├── Notebooks: JupyterLab in K8s pods with PVC persistence
+│   └── Kubeflow SDK: Python DSL compiles pipelines to Argo Workflow YAML
+├── AWS SageMaker
+│   ├── Studio: IDE; Experiments, Feature Store, Model Registry integrated
+│   ├── Training Jobs: managed compute; Spot + checkpointing; Distributed
+│   ├── Processing Jobs: data preprocessing at scale
+│   ├── SageMaker Pipelines: step-based DAG; JSON pipeline definition
+│   ├── Feature Store: online (low-latency) + offline (S3/Glue) dual store
+│   ├── Model Monitor: baseline → schedule → drift alerts to CloudWatch
+│   └── Inference: Real-time / Serverless / Async / Batch Transform
+├── Google Vertex AI
+│   ├── Vertex AI Pipelines: Kubeflow Pipelines v2 or TFX
+│   ├── Feature Store: Entity → Feature → Online/Offline serving
+│   ├── Model Registry: lineage tracking from dataset to endpoint
+│   ├── Model Monitoring: skew detection on tabular features
+│   ├── Workbench: managed JupyterLab (user-managed + managed options)
+│   └── Training: custom jobs, HyperparameterTuningJob, DistributedTrainingJob
+├── Azure Machine Learning
+│   ├── Workspace: central resource grouping everything
+│   ├── Pipelines: YAML-defined component DAGs
+│   ├── Model Registry: versioned, tagged, promoted across environments
+│   ├── Managed Feature Store: entity definitions, materialization
+│   ├── Responsible AI Dashboard: fairness, explainability, error analysis
+│   └── Compute: Compute Cluster, Compute Instance, AKS Inference Cluster
+├── Weights & Biases (W&B)
+│   ├── Experiment Tracking: real-time metric charts; team collaboration
+│   ├── Artifacts: versioned datasets, models, reports; lineage DAG
+│   ├── Sweeps: distributed HPO with Bayesian, Grid, Random strategies
+│   ├── W&B Tables: interactive data/prediction analysis
+│   ├── Launch: job queue for remote training on cloud/K8s
+│   └── Weave: LLM app tracing and evaluation (LLMOps extension)
+├── Neptune AI
+│   ├── Experiment comparison: side-by-side metrics across hundreds of runs
+│   ├── Namespace-based metadata: flexible key-value logging
+│   ├── Integrations: all major frameworks; MLflow import migration tool
+│   └── Best for: teams needing large-scale experiment comparison
+├── Platform Comparison
+│   ├── Open-source + self-hosted: MLflow, Kubeflow
+│   ├── Managed cloud-native: SageMaker (AWS), Vertex AI (GCP), Azure ML
+│   ├── Experiment tracking specialist: W&B, Neptune AI
+│   └── Selection criteria: team size, cloud lock-in tolerance, infra maturity
+└── Selection Framework
+    ├── Startup / small team: MLflow + DVC (low overhead, open source)
+    ├── AWS-first org: SageMaker end-to-end (native IAM, VPC, S3)
+    ├── GCP-first org: Vertex AI (tight BigQuery + GCS integration)
+    ├── Multi-cloud / K8s-first: Kubeflow (portable, CNCF ecosystem)
+    └── Heavy experiment culture: W&B (collaboration UX) or Neptune (scale)
+```
+
+## First Principles
+
+- ML models are code + data + config. An experiment tracking platform is a version control system for all three simultaneously — without it, reproducing a result requires heroic effort.
+- Serving needs latency SLOs — batch vs real-time trade-off. Managed platforms (SageMaker, Vertex AI) abstract the serving infrastructure but add cloud lock-in; self-hosted (KServe, Triton) give portability at operational cost.
+- Feature computation is expensive — cache in a feature store. Every major platform now offers a dual-store feature store (online for low-latency, offline for training) because training-serving skew is the #1 silent accuracy killer.
+- LLMOps adds: prompt versioning, RAG pipelines, cost per token. W&B Weave and purpose-built LLMOps tools extend classic MLOps platforms to address prompt management and token-level cost tracking.
+- Platform selection is a team-topology decision: a platform that requires a dedicated infra team to operate (Kubeflow) is the wrong choice for a 3-person ML team; a fully managed platform with vendor lock-in is the wrong choice for a multi-cloud enterprise.
+
 ## Table of Contents
 
 1. [MLflow — Experiment & Model Lifecycle](#1-mlflow--experiment--model-lifecycle)
@@ -1123,3 +1194,36 @@ Start: What is your primary constraint?
 | Feature Store staleness | Online store lag causes training-serving skew even with Feature Store |
 | Model registry without governance | Registry is useless without enforced promotion workflows |
 | KServe cold starts | Knative scale-to-zero causes cold starts — set minScale > 0 for latency-sensitive models |
+
+***
+
+## System Design Perspective
+
+**MLflow at Enterprise Scale**
+- Single MLflow tracking server with SQLite is a bottleneck at >50 concurrent training runs — migrate to PostgreSQL + S3 artifact store behind a load balancer.
+- Multi-tenant: use MLflow experiments as team namespaces; RBAC enforcement requires a reverse proxy (Nginx + OIDC) in front of the tracking server — MLflow OSS has no native auth.
+- Model registry promotion gate: CI pipeline queries MLflow API to compare challenger vs champion AUC before approving the `Production` alias transition.
+
+**Kubeflow Production Architecture**
+- Kubeflow Pipelines stores pipeline runs in MySQL and artifacts in MinIO (on-prem) or GCS/S3 (cloud). MySQL is the operational bottleneck — back up hourly and size IOPS for concurrent pipeline steps.
+- Training Operator + Spot/Preemptible: PyTorchJob with `restartPolicy: OnFailure` + checkpoint-on-epoch-end gives fault-tolerant distributed training on 60-70% cheaper preemptible VMs.
+- KServe canary: `InferenceService` canaryTrafficPercent splits traffic; rollback is a single kubectl patch to 0 — no new deployment needed.
+
+**Platform Selection Decision Tree**
+```
+Start with: Does your org already standardize on a cloud provider?
+├── Yes, AWS  → SageMaker (native IAM/VPC, no ops overhead)
+├── Yes, GCP  → Vertex AI (BigQuery integration, managed pipelines)
+├── Yes, Azure → Azure ML (Entra ID RBAC, AKS inference)
+└── No / multi-cloud → Kubeflow on EKS/GKE/AKS
+    └── Team < 5 data scientists? → MLflow + DVC (simplest viable platform)
+
+Then: Is heavy experiment collaboration a priority?
+├── Yes → W&B or Neptune on top of any platform (they complement, not replace)
+└── No  → MLflow tracking is sufficient for most teams
+```
+
+**Cost Attribution Across Platforms**
+- Tag all training jobs and inference endpoints with `team`, `project`, `model_name` tags — enforced via SCP (AWS) or Azure Policy to prevent untagged resources.
+- SageMaker: use Savings Plans for predictable training volume; Spot for batch retraining (70% savings); On-Demand only for real-time endpoints with strict latency SLOs.
+- Kubeflow on K8s: use Karpenter (AWS) or Cluster Autoscaler to bin-pack training pods on GPU nodes; terminate nodes when training queue is empty.

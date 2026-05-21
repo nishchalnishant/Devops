@@ -1,5 +1,74 @@
 # Capstone Projects
 
+```
+Capstone Projects
+├── Capstone 1 - Single-Service Delivery Platform
+│   ├── Scope
+│   │   ├── Source code in Git
+│   │   ├── Dockerfile
+│   │   ├── CI pipeline (test + image build)
+│   │   ├── Registry publish
+│   │   ├── Kubernetes deployment
+│   │   └── One dashboard + one alert
+│   ├── Deliverables
+│   │   ├── Architecture diagram
+│   │   ├── Pipeline file
+│   │   ├── K8s manifests or Helm chart
+│   │   ├── Deployment runbook
+│   │   └── Rollback procedure
+│   └── Proves: Git workflow, CI/CD fundamentals, containerization, K8s basics, observability basics
+├── Capstone 2 - Environment Provisioning With IaC
+│   ├── Scope
+│   │   ├── Terraform modules (network, compute, IAM, storage)
+│   │   ├── Remote backend + state locking
+│   │   ├── Separate dev and prod environments
+│   │   └── Ansible bootstrap or configuration step
+│   ├── Deliverables
+│   │   ├── Module structure
+│   │   ├── Backend configuration
+│   │   ├── Environment layout
+│   │   ├── Drift prevention example (prevent_destroy)
+│   │   └── Blast radius explanation
+│   └── Proves: IaC maturity, state strategy, reproducibility, operational safety
+├── Capstone 3 - Senior Operations Pack
+│   ├── Scope
+│   │   ├── Define SLIs and SLOs
+│   │   ├── Create alerting policy
+│   │   ├── Simulate one failure drill
+│   │   ├── Capture runbook
+│   │   ├── Capture RCA
+│   │   └── Include cost and security control
+│   ├── Suggested failure drills
+│   │   ├── CrashLoopBackOff
+│   │   ├── Bad deployment with rollback
+│   │   ├── Terraform drift or unsafe plan
+│   │   ├── High latency after scaling
+│   │   └── Prometheus no-data or noisy-alert problem
+│   ├── Deliverables
+│   │   ├── SLO document
+│   │   ├── Alert definitions
+│   │   ├── Failure drill notes
+│   │   ├── Runbook
+│   │   ├── RCA
+│   │   └── Improvement backlog
+│   └── Proves: Production operations mindset, incident handling, reliability engineering, communication quality
+└── Stretch Project - Internal Developer Platform Lite
+    ├── One reusable application template
+    ├── One standard pipeline
+    ├── One Terraform module set
+    ├── One deployment template
+    ├── One dashboard pack
+    └── One onboarding guide
+```
+
+## First Principles
+
+- **Why hands-on capstones matter?** Reading documentation builds recognition, not recall. Building something and then debugging it under failure conditions forces the internalization that interviews actually test.
+- **Why three progressively scoped capstones?** The first proves you can ship. The second proves you can provision safely. The third proves you can operate under failure. Each layer assumes and extends the previous.
+- **Why a runbook and RCA in Capstone 3?** Senior engineers are judged partly on written communication. A runbook that someone else can follow and an RCA that captures prevention steps are evidence of operational maturity.
+- **Why a stretch IDP project?** Platform engineers are not just skilled operators — they multiply team velocity by removing friction. An IDP lite demonstrates platform thinking, which is the highest leverage skill at senior level.
+- **Why architecture diagrams as deliverables?** You will almost certainly be asked to walk through a system design in a senior interview. A capstone diagram gives you a real artifact to discuss, not a hypothetical.
+
 Use these projects to turn the repository from theory into senior-level interview evidence.
 
 ## Capstone 1 - Single-Service Delivery Platform
@@ -118,10 +187,10 @@ This project demonstrates platform thinking, standardization, and team enablemen
 ## Related Resources
 
 - [Career and Community](../Career_and_Community.md) - Resume guidance and interview prep
-- [DevOps Interview Playbook](../../07_Interview_Preparation/devops-interview-playbook.md)
-- [Kubernetes Runbook](../../05_Observability_and_Troubleshooting/Troubleshooting/kubernetes-runbook.md)
-- [Enterprise Scale Architecture](../Enterprise_Scale_Architecture.md)
-- [Platform Engineering and FinOps](../Platform_Engineering_and_FinOps.md)
+- [DevOps Interview Playbook](../07_Interview_Preparation/devops-interview-playbook.md)
+- [Kubernetes Runbook](../05_Kubernetes/troubleshooting.md)
+- [Enterprise Scale Architecture](../system-design.md)
+- [Platform Engineering and FinOps](../16_Platform_Engineering_and_FinOps/README.md)
 
 ***
 

@@ -1,5 +1,48 @@
 # Production Scenarios & Troubleshooting Drills (Senior Level)
 
+```
+DevSecOps Scenarios
+├── SCA Vulnerability Overload
+│   └── Prioritize: Critical + Fix Available + Network Reachable
+├── Supply Chain Security (Sigstore)
+│   └── cosign sign digest in CI → Kyverno verifies on admission
+├── Runtime Security (Falco)
+│   └── Rule tuning, Falcosidekick routing, eBPF syscall monitoring
+├── Secret Leaked in Git History
+│   ├── Rotate immediately (assume compromised)
+│   ├── git-filter-repo to remove from history
+│   └── Force-push + notify all collaborators to reclone
+├── Vulnerable Dependency (Log4Shell style)
+│   ├── SCA scan → Dependabot PR → WAF virtual patch
+│   └── SBOM query to find affected services in minutes
+├── Compromised Base Image
+│   ├── kubectl forensics → cosign verify → Kyverno registry restrict
+│   └── Quarantine affected pods, audit blast radius
+├── OPA Gatekeeper Policy Conflict
+│   ├── failurePolicy, excludedNamespaces for system namespaces
+│   └── dryrun → warn → deny progression
+├── SAST False Positives at Scale
+│   ├── Per-rule FP rate tracking (quarterly)
+│   ├── nosemgrep inline with justification
+│   └── Path exclusions (tests/, vendor/)
+├── Trivy Blocking on Unfixable CVEs
+│   ├── --ignore-unfixed flag
+│   ├── .trivyignore with expiry dates and justification
+│   └── Switch to Chainguard / distroless minimal images
+├── Cosign Verification Failure (admission control)
+│   ├── Certificate identity regexp for PR branches
+│   ├── Sign and deploy by digest (not tag)
+│   └── Air-gapped: self-hosted Rekor instance
+└── SBOM Gap (transitive packages missing)
+    ├── Generate SBOM from final image, not source
+    ├── Multi-stage: scan final stage only
+    └── Nightly SBOM regen for base image patch pulls
+```
+
+## First Principles
+
+Security found late is expensive to fix. Shift security left — run checks where developers already work (in CI). Code has vulnerabilities (SAST), dependencies have vulnerabilities (SCA), running apps have vulnerabilities (DAST). Secrets in code are permanent leaks — scan for them. Supply chain: verify what you build is what you ship (SLSA, SBOM, signing).
+
 ### Scenario 1: SCA "Vulnerability Overload"
 **Problem:** 500 CVEs found in a scan.
 **Fix:** Prioritize by `Critical` + `Fix Available` + `Network Reachable`. Use "Vulnerability Reachability" tools to see if the buggy code is even reachable by an attacker.
@@ -338,3 +381,11 @@ cosign attach sbom --sbom sbom.spdx.json myregistry.azurecr.io/myapp:v1.2.3
 3. **SBOM not updated on base image pull** — If you `FROM node:18-alpine` and Alpine updates libexpat in a patch release, re-pulling with the same tag gives a different binary. Re-generate and re-publish the SBOM on every image rebuild, even if source code didn't change.
 
 **Prevention:** Automate nightly SBOM regeneration for all production images. Index SBOMs in Dependency Track or Grype DB and set alerts when a new CVE matches any package in any SBOM.
+
+## System Design Perspective
+
+**Secret Rotation Automation:** The git history leak scenario covers rotation steps manually. At scale, automate rotation: store all application secrets in Vault or AWS Secrets Manager; for each secret, configure a rotation schedule and a rotation function. Trigger rotation on security events (leaked secret detected) using EventBridge rules that call the rotation Lambda, update the secret, then publish a rotation event that ESO and Vault Agent pick up to refresh pods.
+
+**OPA Policy as Code CI/CD:** Gatekeeper policies should be tested before cluster deployment. Build a CI pipeline for policies: (1) unit test Rego logic with `opa test` against known-pass and known-fail fixtures, (2) integration test with `conftest` against representative YAML, (3) deploy to staging cluster in `warn` mode, observe findings for one week, (4) promote to `deny` mode. Gate policy promotion on zero unexpected denials in staging.
+
+**Zero-Trust During Incident Response:** When a compromised base image scenario triggers, the zero-trust network model limits blast radius automatically — the compromised pod can only reach explicitly allowed destinations. Design runbooks assuming zero-trust is in place: quarantine means adding a deny-all NetworkPolicy patch to the pod's labels rather than shutting down the entire node.

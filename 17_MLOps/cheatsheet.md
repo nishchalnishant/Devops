@@ -1,5 +1,61 @@
 # MLOps Cheatsheet
 
+```
+MLOps Cheatsheet
+├── Core Vocabulary
+│   ├── Feature store: offline (training) + online (inference) feature serving
+│   ├── Training-serving skew: features differ between training and inference
+│   ├── Data drift: P(X) changes; Concept drift: P(Y|X) changes
+│   ├── Model registry: versioned catalog with staging workflow
+│   ├── CT pipeline: automated retrain → evaluate → promote
+│   └── Shadow deployment: challenger predictions logged, not returned
+├── Drift Detection Thresholds
+│   ├── PSI < 0.1: no significant shift
+│   ├── PSI 0.1–0.2: moderate shift, monitor
+│   ├── PSI > 0.2: retrain recommended
+│   └── KS test, Jensen-Shannon, Chi-squared: statistical drift tests
+├── MLflow Components
+│   ├── Tracking: log params, metrics, artifacts per run
+│   ├── Projects: reproducible training environment packaging
+│   ├── Models: model format + flavor abstraction (pyfunc, sklearn, pytorch)
+│   └── Registry: staging workflow (None→Staging→Production→Archived)
+├── Serving Patterns
+│   ├── Synchronous REST: low-latency, user-facing, < 100ms SLO
+│   ├── Async batch inference: throughput-optimized, non-latency-critical
+│   ├── Streaming: Kafka-triggered inference on events
+│   └── Shadow mode: champion serves; challenger logs predictions silently
+├── LLM-Specific Concepts
+│   ├── TTFT: Time To First Token (user-perceived latency)
+│   ├── TPOT: Time Per Output Token (throughput)
+│   ├── KV cache hit rate: % of attention keys reused (reduces compute)
+│   ├── PagedAttention: non-contiguous KV cache blocks (vLLM)
+│   └── Continuous batching: process tokens from multiple requests simultaneously
+├── GPU Infrastructure
+│   ├── Data parallelism: replicate model across GPUs, split data
+│   ├── Tensor parallelism: split single layer across GPUs (Megatron-LM)
+│   ├── Pipeline parallelism: split layers across GPUs in stages
+│   ├── ZeRO Stage 1/2/3: shard optimizer states, gradients, parameters
+│   └── MIG (Multi-Instance GPU): partition A100/H100 for isolation
+├── RAG Pipeline
+│   ├── Indexing: chunk → embed → store in vector DB
+│   ├── Retrieval: query embed → ANN search → rerank → top-k docs
+│   ├── Generation: retrieved context + query → LLM prompt → response
+│   └── RAGAS: faithfulness, answer_relevancy, context_precision, context_recall
+└── Key CLI Commands
+    ├── mlflow run . -P alpha=0.5
+    ├── mlflow models serve -m models:/MyModel/Production
+    ├── dvc repro (run pipeline), dvc push (push data to remote)
+    └── feast apply, feast materialize-incremental
+```
+
+## First Principles
+
+- MLOps cheatsheet: vocabulary first — if you can define training-serving skew, PSI, and point-in-time correctness precisely, you demonstrate senior-level understanding.
+- Drift detection exists because the model is static but the world is not — PSI and KS tests are statistical measures of "how much has the data distribution changed?"
+- Feature stores solve a coordination problem: multiple teams need the same features computed consistently — centralize computation once, serve everywhere.
+- LLM serving is fundamentally different from standard ML: memory (KV cache), not compute, is the bottleneck — PagedAttention and continuous batching are memory optimization techniques.
+- RAG is retrieval + generation: quality depends on retrieval quality (RAGAS context_precision) as much as generation quality.
+
 ## Core Vocabulary Map
 
 | Term | One-Line Definition |
@@ -423,3 +479,21 @@ def psi(expected, actual, buckets=10):
 | Shadow mode doubles serving costs | Budget for the duplicate traffic before enabling |
 | Gradient checkpointing adds ~30% compute | Don't enable it unless memory is actually constrained |
 | KV cache growth with long sequences | Pre-allocate based on max_model_len or OOM mid-request |
+
+***
+
+## System Design Perspective
+
+**Feature Store Design**
+- Offline store: Parquet files on S3/GCS partitioned by entity and date; compute with Spark/Beam; point-in-time join at training time.
+- Online store: Redis (low latency) or DynamoDB (managed); materialization job pushes latest values on a schedule; freshness SLO < 5 minutes for real-time features.
+- Preventing training-serving skew: use the same feature computation logic (a shared Python library) for both offline and online paths — never rewrite feature logic for serving.
+
+**Model Registry Workflow Design**
+- Staging gate: automated test suite runs against the staging model (data quality checks, inference latency benchmarks, A/B comparison against champion).
+- Promotion webhook: registry state change triggers a GitOps commit that updates the serving manifest; ArgoCD deploys the new model version.
+- Rollback: registry retains previous production version; rollback = revert the GitOps commit.
+
+**Monitoring Alert Design**
+- Tiered alerts: PSI 0.1–0.2 → warning Slack message; PSI > 0.2 → page on-call; business KPI drop > 5% → immediate escalation to ML team lead.
+- Delayed label handling: use proxy metrics (model confidence distribution, output entropy) as leading indicators when ground truth labels have multi-day delay.

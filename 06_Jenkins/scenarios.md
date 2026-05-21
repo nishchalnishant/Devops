@@ -1,5 +1,46 @@
 # Production Scenarios & Troubleshooting Drills (Senior Level)
 
+```
+Jenkins Scenarios — Troubleshooting Drills
+├── Build Execution Failures
+│   ├── Pipeline hangs indefinitely (timeout, Maven -B, strace)
+│   ├── Zombie build won't abort (Script Console, thread kill)
+│   └── Build fails locally-passes-in-Jenkins / passes-locally-fails-in-Jenkins
+├── Resource & Infrastructure
+│   ├── Controller out of disk space (buildDiscarder, cleanWs, volume expansion)
+│   ├── Master OOM / JVM heap exhaustion (Xmx, G1GC, build history pruning)
+│   ├── Build queue congestion (agent scale-out, disableConcurrentBuilds)
+│   └── Agent pods not starting (K8s quota, image pull, JNLP port 50000)
+├── Shared Library Problems
+│   ├── Library update breaks 50 pipelines (pin @Library version, semver)
+│   ├── Library version drift across repos (required library versions)
+│   └── Separate test pipeline for library changes before merge
+├── JCasC & Configuration
+│   ├── UI change disappears after restart (JCasC overrides UI, update YAML)
+│   └── JCasC sync issues (reload config, diff controller vs YAML)
+├── Test & Quality Issues
+│   ├── Flaky tests causing instability (quarantine @Flaky, retry, K8s agents)
+│   └── Parallel stage race conditions (shared DB/port/tmpdir/workspace)
+├── Security & Credentials
+│   ├── Secrets appearing in logs (withCredentials masking, add-mask)
+│   └── Sandbox security breach (script approval, restricted methods)
+├── Agent & Docker Issues
+│   └── Agent disk exhaustion from Docker builds (prune, BuildKit cache)
+├── Pipeline Logic Bugs
+│   ├── Deployment silent skip (when condition evaluation, beforeAgent)
+│   └── Webhook trigger storm (throttle, disableConcurrentBuilds)
+└── Build History
+    └── Unbounded growth (Script Console Groovy cleanup, logRotator)
+```
+
+## First Principles
+
+- Every production Jenkins incident falls into one of three categories: resource exhaustion (disk, memory, executors), configuration drift (UI vs JCasC), or pipeline logic bugs (wrong when conditions, missing timeouts).
+- "It works locally but fails in Jenkins" means the environments differ. Jenkins agents have different user permissions, tool versions, environment variables, and network access than a developer laptop. Ephemeral K8s pod agents eliminate this by making the environment explicit and reproducible.
+- Shared library updates break downstream pipelines because of implicit coupling. Treat libraries as packages — semver, change logs, deprecation notices — not as internal utilities you can change freely.
+- Disk and memory exhaustion are the most common Jenkins production failures. Both are preventable with `buildDiscarder(logRotator(...))`, `cleanWs()`, and JVM heap configuration. These are day-one configurations, not afterthoughts.
+- Parallel stage race conditions occur when stages share mutable state: the same database, the same port, the same temp file. The fix is isolation: each parallel branch gets its own database schema, port range, or temp directory.
+
 ### Scenario 1: The "Zombie" Jenkins Build
 **Problem:** A build won't stop even when aborted.
 **Fix:** Use the Jenkins Script Console to find the thread and force-kill it via Groovy.

@@ -1,5 +1,94 @@
 # MLOps — Deep Theory Notes
 
+```
+MLOps Deep Theory
+├── MLOps Lifecycle
+│   ├── Three first-class artifacts: Code + Data + Model weights
+│   ├── Four pipelines: CI, CT (Continuous Training), CD, CM (Monitoring)
+│   ├── CI ≠ CT: CI tests code; CT produces a new model artifact
+│   ├── Lifecycle: Data Collection → Validation → Features → Train → Eval → Registry → Serving → Monitor
+│   └── Unique risk: silent degradation with healthy infrastructure
+├── Feature Stores
+│   ├── Offline store: S3/BigQuery for training; supports time-travel queries
+│   ├── Online store: Redis/DynamoDB for low-latency serving (<10ms)
+│   ├── Point-in-time correctness: feature lookup uses only values available before prediction timestamp
+│   ├── Training-serving skew: prevented by shared feature computation library
+│   └── Feast: open-source; FeatureView, Entity, Feature definitions
+├── Continuous Training Pipelines
+│   ├── CT triggers: schedule, data volume threshold, drift score, business KPI drop
+│   ├── Stages: data validation → preprocessing → training → evaluation → registry push
+│   ├── Orchestrators: Kubeflow Pipelines, Apache Airflow, Prefect, Metaflow
+│   ├── Evaluation gate: new_auc > champion_auc - tolerance before promotion
+│   └── Checkpointing: mandatory for Spot/preemptible; save every epoch
+├── ML Platforms
+│   ├── Open-source: MLflow (tracking + registry), Kubeflow (K8s pipelines)
+│   ├── Managed AWS: SageMaker (training, feature store, pipelines, monitoring)
+│   ├── Managed GCP: Vertex AI (pipelines, feature store, model registry)
+│   ├── Managed Azure: Azure ML (workspace, pipelines, model registry)
+│   └── Experiment tracking: W&B (collaboration), Neptune (large-scale comparison)
+├── Model Serving
+│   ├── Serving frameworks: KServe, Triton, TorchServe, TF Serving, vLLM
+│   ├── Patterns: Online (REST/gRPC), Batch, Streaming, Edge
+│   ├── Deployment strategies: Shadow, Canary, A/B, Blue/Green
+│   ├── Optimization: quantization (INT8), batching, caching, model pruning
+│   └── vLLM: PagedAttention + continuous batching for LLM token throughput
+├── Model Registry & Experiment Tracking
+│   ├── Registry stages: None → Staging → Production → Archived
+│   ├── Aliases: @champion, @challenger for zero-downtime A/B promotion
+│   ├── What to track: params, metrics, artifacts, git SHA, data version
+│   ├── MLflow Model Registry: REST API for promotion; webhooks for CI/CD gates
+│   └── Reproducibility: seed, data version, hyperparameters, env pinned
+├── Data Versioning with DVC
+│   ├── DVC: Git pointers → S3/GCS actual data; .dvc files committed to Git
+│   ├── dvc run: defines pipeline stages with tracked inputs/outputs
+│   ├── dvc repro: replay only changed stages (DAG-based caching)
+│   └── dvc push/pull: sync data with remote storage
+├── Model Drift and Monitoring
+│   ├── Covariate shift: P(X) changes; input feature distribution drifts
+│   ├── Concept drift: P(Y|X) changes; relationship between features and target shifts
+│   ├── Drift metrics: PSI (<0.1 OK, >0.2 retrain), KS test, Jensen-Shannon
+│   ├── Delayed labels: use proxy metrics (confidence entropy, output distribution)
+│   └── Tools: Evidently AI, WhyLabs, Arize AI, NannyML
+├── A/B Testing for Models
+│   ├── Traffic split: sticky sessions by user_id hash for consistent assignment
+│   ├── Minimum sample size: power analysis before launch (avoid peeking)
+│   ├── Primary metric: business KPI (revenue, CTR); secondary: model accuracy
+│   └── Shadow mode: first step before A/B; predictions discarded, no user impact
+├── LLMOps
+│   ├── Prompt versioning: treat prompts as code; track in Git or W&B
+│   ├── RAG pipeline: chunk → embed → vector DB → ANN retrieval → rerank → LLM
+│   ├── Evaluation: RAGAS (faithfulness, answer_relevancy, context_precision)
+│   ├── Cost per token: monitor at model + endpoint + user level
+│   ├── Semantic caching: deduplicate similar prompts; reduce cost 30-60%
+│   └── Guardrails: NeMo Guardrails, Llama Guard; input/output filtering
+├── Responsible AI and Bias Detection
+│   ├── Fairness metrics: demographic parity, equalized odds, calibration by group
+│   ├── Tools: Fairlearn, IBM AI Fairness 360, Google What-If Tool
+│   ├── Model cards: document training data, intended use, limitations, bias evaluation
+│   ├── Governance: SR 11-7 (financial models), GDPR right-to-explanation, EU AI Act
+│   └── ML-BOM: bill of materials for model components (analogous to software SBOM)
+├── GPU Infrastructure
+│   ├── MIG (Multi-Instance GPU): partition A100/H100 into up to 7 isolated instances
+│   ├── Parallelism: Data (DDP), Tensor (horizontal layer split), Pipeline (vertical)
+│   ├── ZeRO optimizer: Stage 1 (optimizer state), 2 (+ gradients), 3 (+ parameters)
+│   ├── Gradient checkpointing: recompute activations on backward; saves 60-70% GPU RAM
+│   └── nvidia-smi dmon: monitor GPU utilization; target >70% for cost efficiency
+└── ML Metadata Lineage (MLMD)
+    ├── MLMD: TFX metadata store; tracks artifacts, executions, contexts
+    ├── Artifact: dataset, model, metrics — each with URI and properties
+    ├── Execution: training run, evaluation job — links input to output artifacts
+    ├── OpenLineage: vendor-neutral lineage standard; Marquez as catalog backend
+    └── Use case: audit trail for regulatory compliance; reproducibility forensics
+```
+
+## First Principles
+
+- ML models are code + data + config. An experiment tracking platform is a version control system for all three simultaneously — without it, reproducing a result requires heroic effort.
+- Models degrade over time (data drift) — need monitoring and retraining. The world changes; the model doesn't. Monitoring is not optional.
+- Feature computation is expensive — cache in a feature store. Point-in-time correctness in the feature store prevents training-serving skew, the #1 silent accuracy killer.
+- Serving needs latency SLOs — batch vs real-time trade-off. Choose the serving pattern before building the model; it determines infrastructure, latency budget, and cost.
+- LLMOps adds: prompt versioning, RAG pipelines, cost per token. These are not afterthoughts — they are first-class engineering concerns at LLM production scale.
+
 ## Table of Contents
 
 1. [MLOps Lifecycle](#1-mlops-lifecycle)
@@ -1108,3 +1197,28 @@ with DAG("training_pipeline", ...) as dag:
 | **DVC** | Code + data + model via Git | Any Python ML project |
 | **OpenLineage / Marquez** | Cross-tool data lineage standard | Airflow, Spark, dbt, Flink |
 | **Apache Atlas** | Data catalog + lineage graph | Hadoop ecosystem, Spark |
+
+***
+
+## System Design Perspective
+
+**End-to-End ML Platform Design**
+- Separation of concerns: Feature Store (shared, team-agnostic), Experiment Tracker (per team), Model Registry (org-wide governance), Serving Platform (infra team owns SLOs).
+- Data flow: raw events → streaming (Kafka/Kinesis) → feature computation → offline store (S3/BigQuery) → batch materialize → online store (Redis) → model serving.
+- Model promotion is a GitOps operation: registry alias update (@champion) triggers CD pipeline; rollback is reverting the alias — no container rebuild needed.
+
+**Drift-to-Retrain Loop**
+```
+Monitoring job detects PSI > 0.2 on feature X
+    → alert fires to PagerDuty + Slack
+    → webhook triggers CT pipeline
+    → CT pipeline validates data, retrains, evaluates
+    → if new_auc > champion_auc - 0.005: promote to Staging
+    → human approval gate (or auto-approve if drift was data-only)
+    → shadow deploy for 24h → canary 10% → production
+```
+
+**Responsible AI as a Pipeline Stage**
+- Bias evaluation is a mandatory CI gate: Fairlearn `demographic_parity_difference < 0.05` before any model can be promoted from Staging to Production.
+- Model cards are auto-generated by the CT pipeline (using MLflow tags for training data range, feature list, fairness metrics) — no manual documentation step required.
+- Audit trail: MLMD stores every artifact, execution, and context; OpenLineage tracks data provenance from raw source to deployed model; both are queryable for regulatory compliance (SR 11-7, GDPR).

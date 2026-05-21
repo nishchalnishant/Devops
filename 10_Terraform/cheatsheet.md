@@ -1,5 +1,77 @@
 # Terraform Cheatsheet
 
+```
+Terraform CLI & HCL Reference
+├── Core Workflow Commands
+│   ├── init     → download providers, configure backend
+│   ├── plan     → diff desired vs actual (-out to save)
+│   ├── apply    → execute (use saved plan in CI)
+│   ├── destroy  → tear down all managed resources
+│   └── validate → syntax + schema check (no API calls)
+├── State Commands
+│   ├── state list / show  → inspect state
+│   ├── state mv           → rename resource (prefer moved block)
+│   ├── state rm           → remove from state without deleting
+│   ├── state pull/push    → dump/upload raw state
+│   └── force-unlock       → release stuck DynamoDB lock
+├── Import
+│   ├── < 1.5: terraform import resource.name <id>   (imperative)
+│   └── ≥ 1.5: import {} block in .tf + plan + apply (declarative)
+├── Workspaces
+│   ├── new / select / list / delete
+│   └── terraform.workspace variable in HCL
+├── Backend Configuration
+│   ├── S3 + DynamoDB   → AWS standard
+│   ├── Azure Blob      → Azure standard
+│   └── Partial config  → -backend-config flags (avoid secrets in .tf)
+├── Variable Precedence (highest → lowest)
+│   ├── -var flag
+│   ├── -var-file flag
+│   ├── *.auto.tfvars
+│   ├── terraform.tfvars
+│   ├── TF_VAR_<name> env vars
+│   └── variable {} default value
+├── HCL Patterns
+│   ├── variable types    → string, number, bool, list, map, object
+│   ├── locals            → computed expressions (not inputs)
+│   ├── dynamic blocks    → generate repeated nested blocks from a list
+│   ├── for expressions   → list/map transformations
+│   ├── conditional       → condition ? true_val : false_val
+│   └── string functions  → lower, upper, format, templatefile, jsonencode
+├── Lifecycle Block
+│   ├── create_before_destroy → zero-downtime replacement
+│   ├── prevent_destroy       → block accidental deletion
+│   ├── ignore_changes        → skip diff on specific attributes
+│   └── replace_triggered_by  → force replace on external change
+├── Module & for_each Patterns
+│   ├── for_each with toset()  → keyed by value (safe deletion)
+│   ├── for_each with map      → keyed by map key
+│   ├── moved block            → rename without destroy/recreate
+│   └── module source pinning  → exact version in production
+├── Testing & Linting
+│   ├── tflint     → provider-specific rule linting
+│   ├── trivy      → IaC security scanning
+│   ├── checkov    → CIS benchmark checks
+│   └── infracost  → cost estimation per plan
+├── CI/CD Pattern
+│   ├── PR:    plan -out=plan.tfplan → post summary as PR comment
+│   └── Merge: apply plan.tfplan (no re-plan)
+└── Common Gotchas
+    ├── count + list reordering  → cascading destroy
+    ├── sensitive output         → still in state plaintext
+    ├── depends_on on module     → forces sequential full module plan
+    ├── workspace ≠ env isolation → use separate state paths
+    └── terraform import         → populates state only, not .tf config
+```
+
+## First Principles
+
+- CLI is just a thin shell over the plan/apply cycle. The real power is in the HCL declarations and the state diff engine.
+- `plan -out` creates a deterministic, cryptographically-bound artifact. Applying without a saved plan means a second plan runs at apply time — the reviewed diff may not match what executes.
+- `for_each` uses map keys as resource identities. `count` uses indices. Shifting an index destroys the resource at that position — this is why lists and `count` are dangerous for collections.
+- The lock file (`.terraform.lock.hcl`) pins provider checksums. Committing it ensures reproducible CI runs regardless of when `init` runs.
+- `locals` are for computed expressions you reuse. `variables` are for caller-provided inputs. Mixing them creates hidden coupling.
+
 ## Core Workflow
 
 ```bash
@@ -515,3 +587,17 @@ infracost diff --path . --compare-to previous-plan.json  # Cost diff
 | `Context deadline exceeded` | Slow provider API | Increase timeout in resource config |
 | `No changes but state is not empty` | Drift not refreshed | `terraform plan -refresh-only` |
 | `Error: Reference to undeclared input variable` | Missing variable | Add `variable "name" {}` block |
+
+***
+
+## System Design Perspective
+
+**State locking mechanics:** DynamoDB uses a conditional `PutItem` on a lock item (key = state path). If the item already exists, the write fails and Terraform reports a lock error with the lock ID. This prevents two `apply` runs from interleaving writes to the same state file. `force-unlock` deletes the lock item — only safe when you are certain no other process is running.
+
+**Remote state as a team API:** Use `data "terraform_remote_state"` to consume outputs from another team's state without merging codebases. The consuming team declares what they need (VPC ID, subnet IDs) as outputs; the producing team owns the state. This decouples release cadences.
+
+**Workspace vs. directory layout at scale:** Workspaces share the same provider config and code. At 10+ environments with diverging configurations (different instance types, different account IDs), use Terragrunt with separate `env/` directories. Each has its own `terragrunt.hcl` that calls the shared module with env-specific inputs.
+
+**Atlantis vs. Terraform Cloud:** Atlantis is self-hosted and free. You own the runners, the secrets, and the audit log. Terraform Cloud is managed but costs per resource or seat. For regulated industries requiring an on-prem audit trail, Atlantis or Terraform Enterprise (self-hosted) is the answer.
+
+**Drift detection loop:** Run `terraform plan -refresh-only` on a schedule (daily cron in CI). If the plan is non-empty, alert the team — something changed outside Terraform. Auto-apply `-refresh-only` plans to keep state in sync without risking resource changes.

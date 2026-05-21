@@ -1,5 +1,80 @@
 # Ansible Cheatsheet
 
+```
+Ansible CLI & Playbook Reference
+├── Core Commands
+│   ├── ansible -m ping         → connectivity test
+│   ├── ansible -m shell -a     → ad-hoc shell command
+│   ├── ansible -m package -a   → install package ad-hoc
+│   ├── ansible-playbook        → run a playbook
+│   ├── ansible-inventory --list → dump inventory as JSON
+│   └── ansible-vault           → encrypt/decrypt secrets
+├── Playbook Flags
+│   ├── --limit "host1,group2"  → restrict target hosts
+│   ├── --tags / --skip-tags    → run/skip specific tasks
+│   ├── --check                 → dry run (no changes)
+│   ├── --diff                  → show file content diffs
+│   ├── -e "key=value"          → extra vars (highest precedence)
+│   ├── --start-at-task         → resume from specific task
+│   └── -v / -vvvv              → verbosity
+├── Inventory
+│   ├── Static INI   → [group] + ansible_host, ansible_user
+│   ├── Static YAML  → groups: hosts: vars: structure
+│   └── Dynamic EC2  → amazon.aws.aws_ec2 plugin, keyed_groups
+├── Playbook Structure
+│   ├── hosts / become / gather_facts
+│   ├── vars / vars_files (Vault encrypted)
+│   ├── pre_tasks → roles → tasks → post_tasks
+│   └── handlers (triggered by notify:)
+├── Key Modules
+│   ├── file / copy / template / fetch / lineinfile / blockinfile
+│   ├── apt / yum / package / pip
+│   ├── service / systemd
+│   ├── command / shell / raw (use sparingly — not idempotent)
+│   ├── user / authorized_key
+│   ├── git / unarchive / uri
+│   └── stat → check if file exists (then conditional copy)
+├── Vault
+│   ├── ansible-vault create/edit/encrypt/view
+│   ├── encrypt_string → inline encrypted value in playbook
+│   ├── --ask-vault-pass → interactive password
+│   └── --vault-password-file → CI-friendly password file
+├── Loops & Conditionals
+│   ├── loop: [list] → iterate over items
+│   ├── loop: [{dict}] → iterate with item.key notation
+│   ├── when: condition → conditional task execution
+│   └── register + stat → check-then-act pattern
+├── Error Handling
+│   ├── ignore_errors: yes    → continue on failure
+│   ├── failed_when: condition → custom failure condition
+│   └── block/rescue/always   → try/catch/finally pattern
+├── ansible.cfg
+│   ├── forks = 20            → parallel hosts (default 5)
+│   ├── pipelining = True     → reduce SSH round trips
+│   ├── ssh_args ControlMaster → persistent SSH connections
+│   └── stdout_callback = yaml → readable output format
+├── Roles Structure
+│   ├── defaults/main.yml  → lowest-precedence variables
+│   ├── vars/main.yml      → high-precedence role variables
+│   ├── tasks/main.yml     → entry point
+│   ├── handlers/main.yml  → notification-triggered tasks
+│   ├── templates/         → Jinja2 (.j2) files
+│   ├── files/             → static files
+│   └── meta/main.yml      → dependencies + Galaxy metadata
+└── Variable Precedence (lowest → highest)
+    ├── role defaults → inventory vars → group_vars → host_vars
+    ├── host facts → play vars → role vars → block vars → task vars
+    └── extra vars (-e) → HIGHEST
+```
+
+## First Principles
+
+- SSH is a universal primitive on Linux. Ansible builds on this instead of requiring a new agent. The only requirement on the managed node is Python (for module execution) and an SSH daemon.
+- Idempotency means "running N times = running once." Modules achieve this by checking current state before acting: `apt` checks if the package is installed, `file` checks current permissions, `copy` compares checksums. Shell/command modules do NOT do this — they always run.
+- The `notify` + `handler` pattern ensures side effects (restarting nginx) happen only when something actually changed (the config file was updated). Handlers are deduplicated: multiple notifiers trigger one restart, not multiple restarts.
+- Variable precedence is intentional: role defaults are meant to be overridden by operators. Extra vars are the escape hatch for one-off overrides. Knowing the precedence chain prevents "why is my variable not taking effect" debugging sessions.
+- Pipelining reduces SSH round trips by batching module uploads and executions into a single connection. This is the single highest-impact tuning parameter for playbook speed.
+
 Quick reference for Ansible commands, playbook patterns, and configuration.
 
 ***
@@ -360,3 +435,15 @@ my-role/
 13. task vars
 14. extra vars (-e)    ← HIGHEST
 ```
+
+***
+
+## System Design Perspective
+
+**Forks as the primary scaling knob:** Default forks = 5 means Ansible works on 5 hosts at a time. For 1000 hosts, a 30-second task takes 100 rounds = 50 minutes. With forks = 100, the same task takes 5 rounds = 2.5 minutes. Increase forks to the point where SSH connection setup overhead becomes the bottleneck, then layer in pipelining and Mitogen.
+
+**Vault in CI/CD:** The vault password must be available to the CI runner but not visible in logs or job definitions. Best practice: store the vault password in your CI secrets store (GitHub Actions secrets, AWS SSM, HashiCorp Vault) and inject it into the job as a file or environment variable. Use `--vault-password-file <(echo $VAULT_PASS)` to avoid writing it to disk.
+
+**Roles as the unit of reuse:** A well-designed role has a stable variable interface (documented in `defaults/main.yml`) and zero hardcoded values. Teams publish roles to a private Galaxy server or Git repo with semantic version tags. Consumers pin a version in `requirements.yml` — the same pattern as Terraform module versioning.
+
+**AWX as the operational interface:** AWX provides a UI and API for non-engineers to run pre-approved playbooks. A support engineer can trigger `deploy-hotfix.yml` against `production` without SSH access or CLI knowledge. The job template enforces which playbook runs against which inventory with which credentials — RBAC controls who can do what.

@@ -1,5 +1,66 @@
 # ArgoCD and GitOps — Cheatsheet
 
+```
+ArgoCD Cheatsheet Topics
+├── argocd CLI
+│   ├── Auth: login, logout, context switching
+│   ├── App management: create, sync, diff, rollback, patch, delete
+│   ├── App inspection: get, list, history, logs, events
+│   ├── Repo management: add, list, remove (HTTP/SSH/TLS/GitHub App)
+│   ├── Cluster management: add, list, rm (kubeconfig context-based)
+│   ├── Project management: create, list, get, edit, delete
+│   └── Admin commands: export, import, settings, cluster-sharding
+│
+├── ApplicationSet Generators (YAML patterns)
+│   ├── cluster: one Application per registered ArgoCD cluster + label selector
+│   ├── git (directories): one Application per matching directory glob
+│   ├── matrix: cross-product of two generators (apps × clusters)
+│   ├── pullRequest: one Application per open PR (ephemeral Review App)
+│   └── merge: overlay multiple generators with merge key
+│
+├── Argo Rollouts
+│   ├── Rollout CRD: replaces Deployment for progressive delivery
+│   ├── Canary strategy: steps (setWeight, pause, analysis), traffic routing
+│   ├── Blue-green strategy: active/preview services, autoPromotionEnabled
+│   ├── AnalysisTemplate: Prometheus SLI queries with successCondition/failureLimit
+│   └── kubectl argo rollouts: get, promote, pause, abort, undo, status, history
+│
+├── Sync Options Reference
+│   ├── CreateNamespace=true — create destination namespace if missing
+│   ├── ServerSideApply=true — use server-side apply (for large/CRD-heavy resources)
+│   ├── ApplyOutOfSyncOnly=true — only apply changed resources (skip unchanged)
+│   ├── PrunePropagationPolicy=foreground — wait for child resources before deleting
+│   └── PruneLast=true — delete resources only after all other resources are healthy
+│
+├── Health & Sync Status
+│   ├── Sync: Synced | OutOfSync | Unknown
+│   └── Health: Healthy | Progressing | Degraded | Suspended | Missing | Unknown
+│
+├── Notification Annotations
+│   ├── notifications.argoproj.io/subscribe.on-sync-failed.slack: channel-name
+│   ├── notifications.argoproj.io/subscribe.on-health-degraded.pagerduty: service-id
+│   └── Trigger + Template pattern in argocd-notifications-cm ConfigMap
+│
+├── ignoreDifferences Patterns
+│   ├── jsonPointers: /spec/replicas (autoscaler-managed), /spec/clusterIP
+│   ├── jqPathExpressions: sidecar injection annotations, Prometheus scrape annotations
+│   └── CRD caBundle: injected by cert-manager webhook
+│
+└── Useful Combined Commands
+    ├── argocd app diff + kubectl describe — compare desired vs live state
+    ├── argocd app list --sync-status OutOfSync — find drifted apps
+    ├── kubectl get applications -n argocd — raw CRD inspection
+    └── argocd admin export > backup.yaml — full state backup
+```
+
+## First Principles
+
+- A cheatsheet is reference-on-demand — commands are exact, copy-paste ready. Pattern sections show structure, not paragraphs.
+- `argocd app sync` is the imperative escape hatch for GitOps. Use it for debugging; rely on automated sync for production.
+- `ignoreDifferences` is the contract between ArgoCD and controllers that mutate resources post-apply (HPA modifies replicas, cert-manager injects caBundle, service mesh injects sidecars). Without it, ArgoCD will fight these controllers in an infinite sync loop.
+- Argo Rollouts' AnalysisTemplate turns an SLI into a deployment gate. The Prometheus query is the acceptance criterion; `successCondition` and `failureLimit` define the threshold. This makes rollout criteria auditable in Git, not locked in a human's head.
+- `PruneLast=true` is the safest prune mode: all new resources come up before anything is deleted. This prevents downtime when renaming a resource (old name deleted only after new name is healthy).
+
 ## argocd CLI Quick Reference
 
 ### Authentication
@@ -690,3 +751,23 @@ spec:
       jsonPointers:
         - /metadata/annotations/kubectl.kubernetes.io~1last-applied-configuration
 ```
+
+***
+
+## System Design Perspective
+
+**ignoreDifferences as a controller contract**
+
+Every Kubernetes controller that modifies a resource post-apply creates a potential sync loop with ArgoCD. Common patterns: HPA modifies `spec.replicas` (ArgoCD wants 3, HPA sets 5 → OutOfSync → sync resets to 3 → HPA scales back to 5 → repeat). The fix is `ignoreDifferences: jsonPointers: [/spec/replicas]`. Similarly, cert-manager injects `caBundle` into webhook configurations; service mesh controllers inject sidecar annotations. Audit all controllers running in your cluster and add `ignoreDifferences` entries for every field they mutate.
+
+**ApplicationSet template design**
+
+The ApplicationSet template section uses Go templating with `{{.metadata.name}}` and `{{.values.*}}` placeholders. Generator outputs become template variables. Design principle: put cluster-specific values (namespace, resource limits, replica counts) in the generator (cluster labels or Git-based config files), not in the template. The template should be generic; the generator provides the parametrization. This allows a single ApplicationSet to correctly configure 50 clusters with different resource profiles.
+
+**Sync strategy selection**
+
+Automated sync with `selfHeal: true` is the default for production GitOps. `selfHeal` detects drift and corrects within the reconciliation interval (default 3 minutes). Without `selfHeal`, direct `kubectl` changes persist until the next manual sync. `prune: true` deletes resources removed from Git — required for full GitOps but dangerous if mis-scoped. Safe rollout: enable automated sync first, operate for a week to build confidence, then enable `prune: true`, then `selfHeal: true`.
+
+**CLI patterns for fleet operations**
+
+For 200-cluster fleets: `argocd app list --sync-status OutOfSync -o json | jq '[.[] | {name: .metadata.name, cluster: .spec.destination.server}]'` identifies drifted apps across all clusters. Pipe to a script that pages on-call for production-tier clusters (matched by cluster label). `argocd admin export` + S3 upload in a CronJob provides daily backup of all Application/AppProject state. The import path (`argocd admin import < backup.yaml`) restores the control plane without needing to re-register clusters from scratch.

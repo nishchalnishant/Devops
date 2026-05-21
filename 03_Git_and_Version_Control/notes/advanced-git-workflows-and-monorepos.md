@@ -1,5 +1,49 @@
 # Advanced Git Workflows & Monorepos
 
+```
+Advanced Git Workflows & Monorepos
+├── Git Internals
+│   ├── Content-addressable store (NOT delta-diff)
+│   ├── .git/ structure (objects/, refs/, HEAD, index, config)
+│   └── Four object types: blob, tree, commit, tag
+├── Branching Strategies
+│   ├── Trunk-Based Development
+│   │   ├── Branch protection (Terraform example)
+│   │   ├── Feature flags for incomplete work
+│   │   └── Branch by abstraction for large refactors
+│   └── GitFlow — when appropriate (mobile, firmware, library releases)
+├── Interactive Rebase Deep Dive
+│   ├── Split a commit (edit → reset HEAD~1 → re-add in parts)
+│   ├── Reorder commits for logical grouping
+│   └── Squash WIP into meaningful units before PR
+├── Monorepo Tooling
+│   ├── Nx — affected:graph, remote cache, distributed task execution
+│   ├── Turborepo — turbo.json pipeline definition, caching
+│   ├── Bazel — BUILD files, hermetic builds, query language
+│   └── Sparse checkout — work on subset of large monorepo
+├── Cherry-pick & Patch Workflows
+│   ├── git format-patch / git am — email-style patch exchange
+│   └── git apply — apply patch file without commit metadata
+├── History Rewriting
+│   ├── git filter-repo — remove files, directories, GDPR email rewrite
+│   └── reflog as undo button (90-day window)
+├── Commit Standards
+│   ├── Conventional Commits (feat/fix/docs/chore/refactor/test)
+│   ├── commitlint — lint commit messages in CI
+│   └── semantic-release — auto-version + changelog from commit history
+└── Hooks at Scale
+    ├── .pre-commit-config.yaml (pre-commit framework)
+    └── gitleaks — secret scanning in hooks
+```
+
+## First Principles
+
+- **Why content-addressable, not delta-diff?** Delta-diff (SVN, CVS) stores changes between versions. To reconstruct file at commit 100, you replay 100 diffs. Git stores complete snapshots. Switching branches is O(1) — just swap which snapshot is active. Speed and correctness improve dramatically.
+- **Why does monorepo tooling need a dependency graph?** Without a graph, you must rebuild everything on every commit (slow) or guess which services are affected (dangerous). Tools like Nx and Bazel analyze `import` statements and BUILD file dependencies to build an exact graph — only truly affected packages rebuild.
+- **Why sparse checkout?** A monorepo may have 10,000 directories. A developer working on the payments service doesn't need the ML pipeline code. Sparse checkout instructs Git to only materialize specified paths in the working tree — the full history is still there, just not the files.
+- **Why Conventional Commits?** Machine-readable commit format enables automated tooling: `semantic-release` can determine the next SemVer version and generate a CHANGELOG purely from commit messages. `feat:` → minor bump, `fix:` → patch bump, `feat!:` → major bump.
+- **Why filter-repo for secret removal?** Deleting a file and committing doesn't remove it from history — it's still in every past commit. `git filter-repo` rewrites every commit in history to remove the file. This changes all SHAs (force-push required for all branches and forks).
+
 ## Why Understanding Git Internals Matters
 
 Most developers use Git as a black box: `git add`, `git commit`, `git push`. But when things go wrong — corrupted repos, massive merge conflicts, bisecting production issues, or managing monorepos at scale — you need to understand what's happening under the hood.

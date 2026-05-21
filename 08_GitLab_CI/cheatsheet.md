@@ -1,5 +1,99 @@
 # GitLab CI/CD Cheatsheet
 
+```
+GitLab CI/CD Cheatsheet
+├── .gitlab-ci.yml Global Structure
+│   ├── default: image, before_script, retry, timeout, interruptible
+│   ├── variables: key-value pairs, feature flags, GIT_DEPTH
+│   └── stages: ordered list (build → test → security → deploy)
+│
+├── Job Keywords
+│   ├── rules: if / changes / when — top-down, first match wins
+│   ├── only/except: legacy branch/tag triggers (cannot mix with rules)
+│   ├── needs: DAG dependency — skip stage ordering
+│   ├── artifacts: paths, expire_in, reports (junit, coverage, security)
+│   ├── cache: key (files-based), paths, policy (pull / push / pull-push)
+│   ├── services: sidecar containers (postgres:14, redis:7)
+│   ├── when: always | on_success | on_failure | manual | never
+│   ├── retry: max + when (runner_system_failure, stuck_or_timeout_failure)
+│   ├── timeout: override per-job
+│   ├── interruptible: cancel if superseded by newer pipeline
+│   ├── environment: name, url, on_stop, auto_stop_in
+│   └── extends: inherit from another job in same file
+│
+├── DAG Pipelines
+│   ├── needs: [job-name] — start when dep is ready regardless of stage
+│   ├── needs: [{job, artifacts: false}] — dependency without artifact download
+│   └── parallel: N — fan-out a job into N parallel instances
+│
+├── Rules Patterns
+│   ├── MR-only: if CI_PIPELINE_SOURCE == "merge_request_event"
+│   ├── Branch-only: if CI_COMMIT_BRANCH == "main"
+│   ├── Path-based: changes: [src/**/*]
+│   └── Schedule: if CI_PIPELINE_SOURCE == "schedule"
+│
+├── Environments & Deployments
+│   ├── environment: name + url + on_stop (cleanup job)
+│   ├── Protected environments: approver list in project settings
+│   ├── Review Apps: dynamic name ($CI_COMMIT_REF_SLUG), auto_stop_in
+│   └── DORA metrics: tracked automatically per environment
+│
+├── Include & Reuse
+│   ├── include local: '.gitlab/ci/test.yml'
+│   ├── include project: platform/ci-templates + ref + file
+│   ├── include template: 'Security/SAST.gitlab-ci.yml'
+│   ├── include remote: URL
+│   └── CI Components: component: gitlab.com/org/catalog/name@v1.0.0
+│
+├── Cache vs Artifacts (side-by-side)
+│   ├── cache: speed optimization, cross-pipeline, runner/S3 storage
+│   └── artifacts: correctness, same-pipeline job-to-job, GitLab server
+│
+├── Runner Management
+│   ├── Register: gitlab-runner register --url --token --executor
+│   ├── config.toml: concurrent, privileged, volumes, cache type
+│   ├── Tags: route jobs to specific runners via tags:
+│   └── Autoscaling: K8s executor (pod-per-job) or EC2 autoscale
+│
+├── Predefined Variables
+│   ├── CI_COMMIT_SHA, CI_COMMIT_REF_NAME, CI_COMMIT_BRANCH
+│   ├── CI_PIPELINE_SOURCE, CI_PIPELINE_ID, CI_JOB_ID
+│   ├── CI_REGISTRY_IMAGE, CI_JOB_TOKEN, CI_PROJECT_PATH
+│   └── CI_MERGE_REQUEST_ID, CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+│
+├── Container Registry
+│   ├── docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+│   ├── docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+│   └── Dependency Proxy: $CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX/python:3.11
+│
+├── Security Scanning Templates
+│   ├── include: template: 'Security/SAST.gitlab-ci.yml'
+│   ├── include: template: 'Security/Secret-Detection.gitlab-ci.yml'
+│   ├── include: template: 'Security/Dependency-Scanning.gitlab-ci.yml'
+│   └── include: template: 'Security/Container-Scanning.gitlab-ci.yml'
+│
+├── Multi-Project Pipelines
+│   ├── trigger: project: group/repo — kick off downstream pipeline
+│   ├── trigger: include: local/artifact — child pipeline in same repo
+│   └── strategy: depend — parent waits for child; mirrors child status
+│
+└── GitLab API (REST)
+    ├── GET  /projects/:id/pipelines — list pipelines
+    ├── POST /projects/:id/pipeline — trigger pipeline
+    ├── GET  /projects/:id/jobs — list jobs
+    └── POST /projects/:id/trigger/pipeline — trigger token API
+```
+
+## First Principles
+
+- A cheatsheet is a lookup tool — entries should be copy-paste ready, not descriptive prose.
+- Every CI system reduces to: trigger → schedule → execute → report. The cheatsheet maps each phase to its keyword.
+- `rules:` replaces `only/except` because conditions compose — if/changes/when in one block beats separate include/exclude lists.
+- Cache keys are invalidation logic. A key tied to `package-lock.json` hash means the cache is always valid when deps haven't changed, and always busted when they have — no manual intervention.
+- `needs:` is the single most impactful keyword for pipeline performance: it converts sequential stage chains into a graph where each job starts the moment its actual inputs are ready.
+- Artifacts are a contract between jobs. Declaring `artifacts: paths:` is the producer side; `dependencies:` or implicit download is the consumer side.
+- The Dependency Proxy is a pull-through cache — it decouples your pipeline from Docker Hub rate limits without changing image references beyond the prefix.
+
 Quick reference for `.gitlab-ci.yml`, runner commands, CI/CD patterns, and GitLab API.
 
 ***
@@ -433,3 +527,23 @@ curl -X POST "$GITLAB_URL/api/v4/projects/$PROJECT_ID/variables" \
   -H "PRIVATE-TOKEN: $TOKEN" \
   -F "key=MY_VAR" -F "value=my-value" -F "protected=true" -F "masked=true"
 ```
+
+***
+
+## System Design Perspective
+
+**Distributed cache topology**
+
+Runner-local cache (default) is fast but breaks horizontal scaling — if job A runs on runner-1 and writes cache, job B on runner-2 gets a miss. The solution is shared cache via S3 (or GCS/Azure Blob) configured in `config.toml` under `[runners.cache]`. S3 cache adds ~5-15 seconds of upload/download per job; the tradeoff is worth it once runners scale beyond two instances. Key design: use `policy: pull` on test jobs (read-only, no write overhead) and `pull-push` only on build jobs.
+
+**DAG vs. stage pipeline performance**
+
+Sequential stages serialize work. A 10-stage pipeline where each stage takes 2 minutes = 20 minutes minimum regardless of actual dependencies. With `needs:`, the pipeline becomes a graph — jobs run as soon as their specific inputs are ready. Practical impact: a monorepo with frontend and backend build paths can reduce from 40 minutes (sequential) to 12 minutes (parallel DAG). The cost: `needs:` requires explicit dependency declaration; missing a dependency causes silent failures where a job runs without its expected artifacts.
+
+**Variable scoping architecture**
+
+Variable precedence runs: trigger variables > job-level variables > pipeline-level > project CI/CD settings > group settings > instance settings > predefined. The practical consequence: a trigger variable always wins. In multi-project pipelines, variables passed via `trigger:variables:` override everything in the child pipeline — use this to inject environment-specific values (IMAGE_TAG, DEPLOY_ENV) from the parent without the child needing environment-specific logic. Environment-scoped variables solve the staging/production branching problem: same YAML, different secrets based on `environment: name:`.
+
+**CI_JOB_TOKEN scope and security**
+
+`CI_JOB_TOKEN` is a short-lived token that expires when the job ends. By default in GitLab 16+, it can only authenticate to the same project's registry and API. Cross-project token access requires explicit allowlisting in project settings (Settings > CI/CD > Token Access). This is the most common source of "unauthorized" errors when a child pipeline tries to pull an artifact from a parent project — the child's `CI_JOB_TOKEN` cannot access the parent unless the parent project allowlists it.

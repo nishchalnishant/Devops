@@ -4,6 +4,53 @@ description: Git internals — objects, pack files, references, the index, and h
 
 # Git Internals — How Git Works Under the Hood
 
+```
+Git Internals
+├── Object Database (.git/objects/)
+│   ├── Content-addressable: SHA-1(content) → key
+│   ├── Loose objects — one file per object (first 2 chars = directory)
+│   └── Pack files — compressed delta-encoded batch (.pack + .idx)
+├── Four Object Types
+│   ├── Blob — raw file content (no filename, no metadata)
+│   ├── Tree — directory: maps filenames + mode → blob/tree SHAs
+│   ├── Commit — tree + parent SHA(s) + author + committer + message
+│   └── Tag — type + object SHA + tagger + message (annotated only)
+├── References (.git/refs/)
+│   ├── Branch — file containing a commit SHA (moves on each commit)
+│   ├── Tag — file containing a commit/tag SHA (never moves)
+│   ├── Remote — remote-tracking branches (origin/main)
+│   └── HEAD — symbolic ref (→ branch) or detached (→ commit SHA directly)
+├── Index (.git/index)
+│   ├── Binary file = "proposed next tree object"
+│   ├── git diff → working tree vs index
+│   ├── git diff --cached → index vs HEAD
+│   └── Conflict stages: 0=normal, 1=common ancestor, 2=ours, 3=theirs
+├── How Merge Works
+│   ├── Three-way merge: find common ancestor, apply both diffs
+│   └── Fast-forward: pointer advance, no merge commit
+├── How Rebase Works
+│   ├── Find common ancestor
+│   ├── Save patches (D, E)
+│   ├── Reset to tip of target branch
+│   └── Re-apply patches as D', E' (NEW SHAs — history rewritten)
+├── Pack Files
+│   ├── git gc --aggressive → pack loose objects
+│   └── git verify-pack -v *.idx → inspect pack contents by size
+└── Plumbing Commands
+    ├── git hash-object / git cat-file (read/write raw objects)
+    ├── git rev-parse (resolve refs to SHAs)
+    ├── git ls-tree / git rev-list (traverse object graph)
+    └── git fsck --full (verify object store integrity)
+```
+
+## First Principles
+
+- **Why store objects by hash, not by name?** Names change (rename a file, the name changes). Content doesn't — if two files are identical, they share one object. The hash IS the identity, making deduplication and integrity checking implicit.
+- **Why does a branch reference move but a tag doesn't?** A branch is the tip of current work — it must advance. A tag marks a specific point in history — it must be stable. Both are just files, but their semantics differ by convention.
+- **Why does rebase rewrite SHAs?** A commit's SHA includes its parent SHA. Change the parent (by rebasing onto a different branch tip), and the SHA changes. It's not the same commit anymore — it's a new one with the same changes. This is why rebasing shared branches is destructive.
+- **Why do pack files use delta compression?** Storing complete snapshots of every file at every commit wastes space for large files with small changes. Pack files encode similar objects as one full copy + deltas. This can reduce a repo from gigabytes to megabytes.
+- **Why does the index have conflict stages (1, 2, 3)?** During a merge conflict, the index stores three versions: the common ancestor (stage 1), your side (stage 2), and their side (stage 3). This allows merge tools to show a three-way diff. Staging the resolved file at stage 0 signals the conflict is resolved.
+
 ## The Object Database
 
 Git is fundamentally a **content-addressable key-value store**. Every piece of data (file, directory snapshot, commit) is stored as an object with a SHA-1 hash as its key.

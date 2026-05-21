@@ -1,5 +1,61 @@
 # DevOps Terms and Concepts
 
+```
+DevOps Terms and Concepts
+├── DevOps Philosophy
+│   ├── Cultural shift: Dev + Ops shared responsibility
+│   ├── Infinite loop: plan → code → build → test → release → deploy → operate → monitor
+│   ├── T-shaped skills: deep in one area, broad across many
+│   └── Automation mindset: if done twice manually, automate it
+├── Infrastructure Concepts
+│   ├── IaC (Infrastructure as Code): manage infra via config files
+│   ├── Vertical scaling: add CPU/RAM to existing server
+│   ├── Horizontal scaling: add more servers
+│   └── Immutable infrastructure: replace, never patch in place
+├── Linux & Systems Internals
+│   ├── Namespaces: isolate PID, net, mount, UTS, IPC, user
+│   ├── cgroups: limit CPU, memory, I/O per process group
+│   ├── Kernel: process scheduler, VFS, TCP/IP stack
+│   └── Performance: strace, perf, top, vmstat, iostat
+├── Networking Fundamentals
+│   ├── TCP/IP: 3-way handshake, congestion control, keepalives
+│   ├── DNS: A/AAAA/CNAME/MX records, TTL, recursive vs authoritative
+│   ├── Load balancing: L4 (TCP) vs L7 (HTTP), round-robin, least-conn
+│   └── TLS: cert chain, SNI, mTLS, OCSP stapling
+├── SRE Concepts
+│   ├── SLO/SLI/SLA: error budget = 1 - availability target
+│   ├── Error Budget Burn Rate: alert when budget consumed too fast
+│   ├── Toil: manual, repetitive, automatable ops work
+│   ├── MTTR: mean time to recovery (incident → resolution)
+│   └── Blameless postmortems: system failures, not people
+├── Platform Engineering Concepts
+│   ├── Golden Path: recommended way = easy way
+│   ├── IDP: self-service layer abstracting infra complexity
+│   ├── DORA metrics: Deployment Freq, Lead Time, CFR, MTTR
+│   ├── Self-service maturity: L0 (manual) → L4 (invisible)
+│   └── Value Stream Mapping: identify waste and bottlenecks
+├── Engineering Leadership Concepts
+│   ├── ADRs (Architecture Decision Records): document decisions + context
+│   ├── GameDay / Chaos Engineering: proactive failure simulation
+│   ├── Guardrails: automated policy enforcement (OPA, SCPs)
+│   ├── Staff/Principal SRE: platform vision, org-level reliability
+│   └── SPACE framework: Satisfaction, Performance, Activity, Communication, Efficiency
+└── Key Interview Vocabulary
+    ├── Idempotent: same result regardless of how many times applied
+    ├── Declarative vs Imperative: describe desired state vs steps
+    ├── Convergent: system eventually reaches desired state
+    └── Eventual consistency: replicas sync over time, not immediately
+```
+
+## First Principles
+
+- DevOps is not a tool — it is a feedback loop: ship faster by removing the wall between writing code and running it.
+- Automation is the multiplier: a manual process repeated 100 times is 100 opportunities to fail; an automated process is one.
+- Infrastructure as Code applies software engineering (versioning, review, testing) to the thing software runs on.
+- Scaling is a trade-off: vertical is simpler but has a ceiling; horizontal scales indefinitely but requires stateless design.
+- SRE principles exist because "keep the lights on" and "ship new features" are in constant tension — error budgets make that tension explicit and negotiable.
+- Platform engineering is SRE applied at scale: instead of each team re-solving the same reliability problems, the platform team solves them once and every team benefits.
+
 ### 1. What is DevOps?
 
 DevOps is not just a job title or a tool; it is a cultural shift and a set of practices that combine Software Development (Dev) and Information Technology Operations (Ops).
@@ -256,8 +312,27 @@ The following terms are the vocabulary of Senior and Staff engineers. In an inte
 
 ## Related Resources
 
-- [Senior DevOps Learning Path](../06_Advanced_DevOps_and_Architecture/Learning_Path/README.md)
+- [Senior DevOps Learning Path](../Learning_Path/README.md)
 - [DevOps Interview Playbook](../07_Interview_Preparation/devops-interview-playbook.md)
-- [Linux Fundamentals](../01_Prerequisites_and_Fundamentals/Linux/README.md)
-- [Networking Fundamentals](../01_Prerequisites_and_Fundamentals/Networking/README.md)
+- [Linux Fundamentals](../01_Linux_and_Scripting/README.md)
+- [Networking Fundamentals](../02_Networking/README.md)
+
+***
+
+## System Design Perspective
+
+**Platform-as-a-Product Design**
+- Treat developers as customers: run quarterly NPS surveys, track "time to first deploy" as a product metric, maintain a public roadmap for the IDP.
+- Define an SLA for the platform itself (e.g., 99.9% Backstage availability, < 30-minute self-service environment provisioning time).
+- Build an escape hatch: every golden path must have a documented way to deviate without opening a ticket — direct Terraform, raw kubectl access with audit logging.
+
+**Multi-Team Governance Architecture**
+- Hierarchical policy: global guardrails (OPA/SCPs) enforced by the platform team; team-level customization allowed within bounds.
+- Cost accountability: tag every resource at provisioning time (team, environment, service) — never let untagged resources exist; enforce with AWS Config rules or Azure Policy.
+- Audit trail: all IDP actions (template runs, Crossplane claims) emit structured events to a central audit log for compliance.
+
+**Reliability Engineering at Scale**
+- Error budget policy: if a team burns > 50% of their monthly error budget, freeze feature deploys until reliability work is completed.
+- Runbook automation: the first step of every runbook should be a link to the IDP self-service action (rollback, scale-out, cert rotation) — reduce mean time to mitigate by removing manual steps.
+- GameDay cadence: quarterly chaos exercises targeting the IDP itself (Backstage outage, ArgoCD unavailability, Crossplane provider failure) — validate that developer self-service degrades gracefully.
 - [Senior DevOps Roadmap](senior-devops-roadmap.md)

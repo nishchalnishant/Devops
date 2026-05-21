@@ -1,5 +1,62 @@
 # Observability & SRE — Deep Dive Notes
 
+```
+Observability & SRE — Deep Dive Notes
+├── Three Pillars Internals
+│   ├── Metrics (Prometheus): scrape → TSDB (2h chunks + WAL) → Counter / Gauge / Histogram / Summary
+│   ├── Histogram vs Summary: histogram aggregates across replicas; summary is client-side only
+│   ├── Logs (Loki): Promtail → Distributor → Ingester → Object Store (S3/GCS); label-only index
+│   └── Traces (OpenTelemetry): Trace = tree of spans; spanId + parentSpanId; BatchSpanProcessor + OTLP
+├── SLO / SLI / Error Budget
+│   ├── SLI: measurable indicator (e.g., % requests < 200ms)
+│   ├── SLO: target for the SLI (e.g., 99.9% over 30d)
+│   ├── Error Budget: 100% - SLO = allowed failure envelope (43.8 min/month at 99.9%)
+│   └── Burn Rate: 14.4x = depletes 30d budget in 2d → page; 6x → page; 3x → ticket
+├── Multi-Window Multi-Burn-Rate Alerting
+│   ├── Critical (14.4x): 1h + 5m windows → page immediately
+│   ├── High (6x): 6h + 30m windows → page
+│   └── Medium (3x): 3d + 6h windows → ticket
+├── PromQL Advanced Patterns
+│   ├── rate() / irate() / increase() for counters
+│   ├── histogram_quantile(0.99, sum by (le, service) (rate(..._bucket[5m])))
+│   ├── predict_linear for disk exhaustion
+│   ├── subquery: max_over_time((rate(...)[1h:5m]))
+│   └── recording rules: pre-compute to reduce dashboard query load
+├── Prometheus Operator / kube-prometheus-stack
+│   ├── ServiceMonitor: selector → endpoints → metricRelabelings (drop Go runtime metrics)
+│   └── PrometheusRule: alerting rules as CRD with release label matching
+├── Alertmanager Routing
+│   ├── group_by, group_wait, group_interval, repeat_interval
+│   ├── routes: match severity=page → pagerduty; match_re team → slack
+│   └── inhibit_rules: silence warning if page fires for same alert
+├── Distributed Tracing Sampling
+│   ├── Head-based: decision at trace start; misses rare errors
+│   ├── Tail-based: decision after completion; keeps slow/errored; requires buffering
+│   └── OTel Collector tail_sampling: errors-policy + slow-policy + probabilistic fallback
+├── eBPF Observability
+│   ├── Zero-instrumentation: hooks into kprobes/tracepoints → BPF map → user-space daemon
+│   ├── Cilium: eBPF CNI + no kube-proxy; Hubble: per-flow network visibility
+│   ├── Pixie: auto HTTP/gRPC/MySQL/Redis tracing via eBPF
+│   └── Parca: continuous CPU profiling; Tetragon: runtime security enforcement
+├── Chaos Engineering Maturity
+│   ├── Level 1-5: manual → semi-automated → staging → production canary → auto-abort on SLO breach
+│   └── Chaos Mesh: PodChaos, NetworkChaos with cron schedule and SLO-linked abort
+├── Incident Response
+│   ├── SEV1: revenue impact → immediate page; SEV2: degraded → team lead; SEV3 → ticket
+│   ├── Lifecycle: Detect → Triage → Mitigate → Resolve → Blameless Post-mortem (48-72h)
+│   └── Toil < 50%: count manual pages, runbook steps, resolution time for automatable alerts
+└── Key Gotchas
+    ├── rate() on gauge → garbage (use deriv() or delta())
+    ├── Label cardinality: user_id as label kills Prometheus
+    ├── histogram_quantile: +Inf bucket unreliable; bucket boundaries fixed at instrumentation
+    ├── for: clause resets on flap → flapping alerts never page
+    └── Loki without JSON: regex at query time is slow and brittle
+```
+
+## First Principles
+
+Observability is not monitoring — monitoring tells you a system is down; observability tells you why. The three pillars (metrics, logs, traces) are complementary: metrics alert you, logs explain what happened, traces show where time was spent. SLOs are contracts with users — error budgets make reliability a shared engineering problem, not a ops problem. Toil is the enemy of reliability: every repetitive manual action is a reliability debt that compounds.
+
 ## The Three Pillars — Internals
 
 ### Metrics (Prometheus)
@@ -459,3 +516,25 @@ Measure toil:
 | `for:` clause resets on flap | If an alert fires and recovers before `for:` completes, the timer resets — flapping alerts never page |
 | Trace sampling before SLO baseline | Don't implement tail sampling until you have enough data to know your normal latency distribution |
 | Loki without structured logging | Unstructured logs (no JSON) require regex extraction at query time — slow and brittle |
+
+## System Design Perspective
+
+**Prometheus at Scale — Thanos / Cortex:** A single Prometheus instance retains ~15 days and handles ~1-5M active series before query degradation. At scale: Thanos Sidecar uploads blocks to S3 every 2h (matches TSDB block interval), Thanos Query federates across multiple Prometheus instances with deduplication. The critical config decision is `external_labels` — every Prometheus instance needs unique labels (e.g., `replica`, `cluster`) so Thanos can deduplicate overlapping scrapes from HA pairs. Without this, Thanos Query returns duplicate data points in range queries.
+
+**eBPF Observability vs Instrumentation — When to Use Each:** eBPF (Pixie, Cilium Hubble) provides zero-instrumentation network and system visibility — ideal for third-party services, legacy apps, and network-level tracing. But eBPF cannot capture business context (user IDs, order amounts, feature flags). The design pattern: eBPF for infrastructure-layer observability (pod-to-pod latency, DNS failures, TCP retransmits), OTel SDK for application-layer observability (checkout latency by product category, fraud check duration). Use both layers, not one or the other.
+
+**Toil Reduction as a Metric:** Track toil as a first-class metric: expose `oncall_pages_requiring_manual_action_total` (a counter incremented by the on-call bot when an alert requires human action vs auto-resolves). Alert when weekly manual action rate exceeds SLO threshold. Create a Grafana dashboard tracking toil percentage over rolling 4-week windows per team. This makes toil reduction a measurable engineering goal rather than a subjective complaint — and provides the data needed to justify automation investment to engineering leadership.
+
+## System Design Perspective
+
+**VPC Peering vs Transit Gateway:** VPC Peering is direct, non-transitive, and suited for 2-5 VPCs with non-overlapping CIDRs. Transit Gateway is a managed cloud router that enables transitive routing, scales to thousands of VPCs, supports VPN and Direct Connect attachments, and allows inter-region peering. Cost: TGW charges per attachment plus per GB processed; use VPC Endpoints alongside TGW to keep S3/DynamoDB traffic off the TGW.
+
+**Identity Federation (OIDC/SAML):** IRSA (IAM Roles for Service Accounts) uses OIDC federation — the EKS cluster's OIDC issuer is registered in IAM, and pods exchange a projected ServiceAccount JWT for temporary STS credentials via sts:AssumeRoleWithWebIdentity. GitHub Actions and GitLab CI use the same pattern to assume IAM roles without storing access keys. SAML 2.0 is used for AWS SSO federation with enterprise IdPs (Okta, Azure AD).
+
+**Cross-Region DR:** Strategy selection depends on RTO/RPO targets. Backup and Restore (hours RTO, cheapest) uses S3 CRR plus RDS snapshots. Pilot Light (30 min RTO) keeps minimal standby infra running. Warm Standby (minutes RTO) runs a reduced-scale active stack. Active-Active (near-zero RTO) uses Route 53 latency routing plus Aurora Global Database with less than 1s replication lag. All strategies require IaC — without it, failover cannot meet aggressive RTOs.
+
+**Cost Allocation Tagging Strategy:** Enforce mandatory tags (Environment, Team, CostCenter, Owner) via AWS Config Rules or SCPs requiring tags on resource creation. Use AWS Cost Explorer grouped by tag to produce per-team cost reports. Activate cost allocation tags in the Billing Console. Use Tag Policies in AWS Organizations to standardize tag key formats across accounts.
+
+**Managed Identity vs Service Principals (AWS context):** IAM Roles are the equivalent of Managed Identities — they provide temporary credentials without stored secrets. Long-term access keys (equivalent to Service Principals with secrets) should only exist for external systems that cannot assume roles. IRSA and ECS task roles are the pod/task-level equivalent of Azure Workload Identity.
+
+**AWS Organizations SCPs vs Azure Policy:** SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions, act before IAM evaluation, and even the root user cannot exceed them. Azure Policy enforces at the ARM API layer with richer effects (Deny, Audit, DeployIfNotExists, Modify). Both use hierarchical policy inheritance but differ in execution layer: SCPs block at the IAM authorization step; Azure Policy intercepts at the resource provider level and supports auto-remediation.
