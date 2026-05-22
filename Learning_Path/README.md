@@ -138,9 +138,11 @@ If you are already mid-level and preparing quickly:
 |-------|-------|----------|
 | [Phase 1](phase-1-foundations.md) | Linux, Git, Scripting, Networking | Weeks 1-3 |
 | [Phase 2](phase-2-platform-and-delivery.md) | Cloud, CI/CD, Containers, Kubernetes, Terraform | Weeks 4-6 |
+| [Phase 2.5](phase-2.5-gitops-integration.md) | GitOps, ArgoCD, Flux, multi-environment promotion | 1-2 weeks |
 | [Phase 3](phase-3-sre-and-operations.md) | Observability, Troubleshooting, Reliability | Weeks 7-9 |
-| [Phase 4](phase-4-senior-role-readiness.md) | Architecture, Leadership, Governance | Weeks 10-12 |
+| [Phase 4](phase-4-senior-role-readiness.md) | Architecture, Leadership, Governance, Job Readiness | Weeks 10-12 |
 | [Capstones](capstone-projects.md) | Hands-on Projects | Ongoing |
+| [Certification Guide](certification-and-tool-progression.md) | Cert roadmap, tool sequence, timelines | Reference |
 
 ***
 

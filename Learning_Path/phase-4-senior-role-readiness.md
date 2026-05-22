@@ -199,3 +199,64 @@ You are senior-ready when you can:
 ***
 
 **Previous:** [Phase 3 - SRE and Operations](phase-3-sre-and-operations.md) | **Next:** [Capstone Projects](capstone-projects.md)
+
+---
+
+## Job Readiness Track: Interview Preparation Integration
+
+### Interview Preparation By Role
+
+After Phase 4, translate study into interview performance. Each role has distinct signals interviewers look for.
+
+**Senior DevOps Engineer**
+- System design: multi-region deployment, Kubernetes for 500+ engineers
+- Incident: specific outage you mitigated with RCA and prevention
+- Platform design: how you standardized CI/CD across multiple teams
+- Reliability: SLO/error budget reasoning, speed vs. stability trade-offs
+
+**Senior Platform Engineer**
+- Developer experience: what friction you eliminated for engineers
+- Golden paths: enforcing standards without blocking innovation
+- DORA metrics: what you track and how you improved deployment frequency
+- Scaling: handling 10x growth in team count without proportional platform headcount
+
+**Senior SRE**
+- SLO strategy: how you define SLOs for different service types
+- Failure: worst incident you handled and what you changed afterward
+- Observability: instrumentation for 99.99% uptime target
+- Trade-offs: cost vs. reliability, automation vs. operational simplicity
+
+**Senior DevSecOps**
+- Supply chain: how you think about artifact provenance and SLSA levels
+- Policy-as-code: design a policy framework for a 50-engineer organization
+- Compliance: how you automate SOC2 or PCI-DSS controls
+- Shift left: detecting security issues before production without blocking developers
+
+### Resume Translation: Capstone → Interview Bullets
+
+**Formula:**
+```
+[Action verb] [what you built] across [scope] using [tools], achieving [metric]:
+- Specific measurable outcome
+- Secondary outcome (reliability, cost, or velocity)
+```
+
+**Capstone 1 example:**
+
+Weak: "Built a CI/CD pipeline"
+
+Strong: "Designed a Kubernetes-native CI/CD platform using ArgoCD and GitHub Actions, reducing deployment time from 30 minutes to 2 minutes. Enabled 12 feature teams to self-serve deployments, reducing on-call burden by 40%. Implemented canary rollouts, reducing production incidents from deployments by 60%."
+
+**Capstone 3 example:**
+
+Weak: "Set up monitoring"
+
+Strong: "Established SLO framework (99.5% availability) with Prometheus and Grafana; symptom-based alerting reduced MTTR from 15 minutes to 5 minutes. Authored runbooks enabling any on-call engineer to self-resolve 80% of CrashLoopBackOff incidents without escalation."
+
+### 6-Week Interview Sprint (After Completing Phase 4)
+
+**Weeks 1–2:** Finish one capstone. Practice explaining it in 15 minutes (record yourself). Write one post-mortem for a real or simulated incident. Translate capstone into 3–5 resume bullets.
+
+**Weeks 3–4:** Practice system design — "design a CI/CD platform for 100 engineers." Practice incident response role-play with a peer. Answer 5–7 hard interview questions out loud. Revise resume against the [interview question files](../Interview_Prep/).
+
+**Weeks 5–6:** Two or three mock interviews with peers or mentors. Prepare your "failure and learning" story. Prepare your "hard trade-off decision" story. Research target company engineering blog; identify one architectural choice to ask about.

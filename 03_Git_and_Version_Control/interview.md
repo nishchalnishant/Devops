@@ -1019,3 +1019,161 @@ fi
 npm install --save-dev @commitlint/cli @commitlint/config-conventional husky
 npx husky add .husky/commit-msg 'npx --no -- commitlint --edit "$1"'
 ```
+
+---
+
+## Hard (continued) — Git Internals, Scale & Security
+
+**Q: Explain Git's object model. What are the four object types and how do they form the commit graph?**
+
+Git is a content-addressable filesystem. Every piece of data is stored as an object identified by `SHA1(type + size + content)`, written to `.git/objects/`.
+
+**The four object types:**
+
+| Type | Content | Purpose |
+|---|---|---|
+| **blob** | Raw file content (no filename, no path) | Stores file data |
+| **tree** | List of `(mode, name, SHA)` entries pointing to blobs or other trees | Represents a directory |
+| **commit** | tree SHA + parent SHA(s) + author/committer/timestamps + message | A snapshot in history |
+| **tag** | Object SHA + tag name + tagger + message (annotated tags only) | Named pointer to any object |
+
+**Inspecting objects directly:**
+```bash
+git cat-file -t HEAD           # "commit"
+git cat-file -p HEAD           # pretty-print the commit object
+git cat-file -p HEAD^{tree}    # pretty-print the root tree
+git cat-file -p <blob-sha>     # raw file content
+```
+
+**How a commit forms the DAG:**
+- A commit's `parent` field points to the previous commit's SHA → forms a chain.
+- A merge commit has two or more `parent` entries → forms a directed acyclic graph (DAG).
+- A branch (`refs/heads/main`) is simply a file containing one commit SHA — a mutable pointer.
+- A tag (`refs/tags/v1.0`) is an immutable pointer (annotated tags add a tag object in between).
+
+**Why this matters for DevOps:** `git rebase` rewrites commits (creates new SHA), which is why force-push is required after rebase. `git merge` adds a merge commit without rewriting history. Cherry-pick creates a new commit with the same diff but a different SHA and parent — it is not the same object.
+
+---
+
+**Q: Your monorepo has grown to 500 GB with 10 years of history. CI clone time is 45 minutes. How do you fix this without restructuring the repo?**
+
+**Root cause:** A full `git clone` transfers the entire object database — all blobs, trees, and commits across all branches and tags, forever. 500 GB of history means fetching data that most CI jobs will never read.
+
+**Fix 1: Partial clone (fetch blobs on demand)**
+```bash
+# Clone metadata only (commits + trees), defer blob download until checkout
+git clone --filter=blob:none --no-checkout <url>
+cd repo
+git sparse-checkout init --cone
+git sparse-checkout set services/my-service   # only check out this path
+git checkout main
+```
+Result: clone transfers ~5 GB of metadata instead of 500 GB. Blobs are fetched lazily when accessed. Requires Git ≥ 2.27 and a server that supports partial clone (`git upload-pack --filter`).
+
+**Fix 2: Shallow clone for CI**
+```bash
+# Fetch only the last N commits — sufficient for most CI builds
+git clone --depth=1 --single-branch --branch main <url>
+```
+Limitation: `git log`, `git bisect`, and release pipelines that need full history must use `--unshallow`. Never shallow-clone a repo and then run `git merge` or `git rebase` — missing history causes incorrect conflict resolution.
+
+**Fix 3: Reference repository (shared cache on CI agents)**
+```bash
+# Pre-clone the full repo once on the agent
+git clone --mirror <url> /shared/git-cache/repo.git
+
+# Each CI job references the cache, fetching only new objects
+git clone --reference /shared/git-cache/repo.git --dissociate <url>
+```
+The `--dissociate` flag copies objects from the reference into the new clone, making it self-contained (so the cache can be updated independently).
+
+**Fix 4: Server-side pack file optimization**
+```bash
+# Maximize delta compression on the server (run as admin)
+git repack -adf --window=250 --depth=250
+git prune
+```
+Better delta chains = smaller pack files = faster transfer. One-time operation; schedule quarterly.
+
+**Fix 5: Sparse checkout for large monorepos**
+```bash
+git clone --filter=blob:none <url>
+git sparse-checkout set services/payments infra/terraform
+# Working tree contains only these paths; other paths not fetched
+```
+
+**Expected impact:** Combining `--depth=1` + `--filter=blob:none` + `sparse-checkout` typically reduces a 45-minute clone to under 2 minutes for a typical CI workload.
+
+---
+
+**Q: How does `git bisect` work internally and how do you automate it in CI to find which commit broke a test?**
+
+**Mechanism:** `git bisect` performs a binary search over the commit DAG between a known-bad and a known-good commit. At each step it checks out the midpoint commit and waits for you to mark it good or bad, halving the search space each iteration.
+
+For a range of N commits: `log₂(N)` steps. 1,024 commits → 10 checkouts.
+
+**Automated bisect with a test script:**
+```bash
+git bisect start
+git bisect bad HEAD                    # current commit is broken
+git bisect good v2.3.1                 # this tag was known good
+
+# Automate: git calls test.sh at each midpoint
+# Exit 0 = good, exit 1 = bad, exit 125 = skip (untestable commit)
+git bisect run ./scripts/test.sh
+
+# Git prints: "abc1234 is the first bad commit"
+git bisect reset                       # return to original HEAD
+```
+
+**CI integration (GitHub Actions):**
+```yaml
+- name: Find regression commit
+  run: |
+    git fetch --unshallow           # bisect needs full history
+    git bisect start
+    git bisect bad ${{ github.sha }}
+    git bisect good ${{ env.LAST_KNOWN_GOOD_SHA }}
+    git bisect run bash -c "make test 2>&1; exit $?"
+    git bisect reset
+```
+
+**Gotcha:** `git bisect run` requires the test to work across all intermediate commits — build dependencies, schema migrations, and API contracts may differ. Use `exit 125` to skip commits where the build itself fails (unrelated to the regression).
+
+---
+
+**Q: What is the risk of `git push --force` on a shared branch and what are the safer alternatives?**
+
+**The risk:**
+
+Force-push rewrites the remote ref to point to a different commit history. Any collaborator who fetched the old commits now has a diverged local branch. Their next `git pull` either fails or, worse, silently creates a merge commit that re-introduces the commits you intended to remove.
+
+**Safer alternatives:**
+
+1. **`--force-with-lease`** — the safest option. Force-push only if the remote ref matches what you last fetched. Fails if someone else pushed in the meantime.
+   ```bash
+   git push --force-with-lease origin feature/my-branch
+   ```
+
+2. **`git revert`** (preferred for shared/main branches) — creates a new commit that reverses the changes. History is additive; no one's local clone is invalidated.
+   ```bash
+   git revert abc1234..HEAD   # revert a range of commits
+   git push origin main       # regular push, no force needed
+   ```
+
+3. **`git revert -m 1 <merge-commit>`** — revert a merge commit. The `-m 1` flag specifies which parent is the "mainline" to revert to.
+
+**Branch protection enforcement:**
+
+```yaml
+# GitHub branch protection rule (via API / Terraform)
+branch_protection_rules:
+  - pattern: "main"
+    require_linear_history: true    # blocks merge commits
+    allow_force_pushes: false       # blocks git push --force
+    allow_deletions: false
+    required_status_checks:
+      strict: true
+```
+
+**When force-push IS acceptable:** On a personal feature branch that no one else has fetched, after an interactive rebase to clean up commits before opening a PR. Always communicate to teammates before force-pushing any shared branch, even if unprotected.

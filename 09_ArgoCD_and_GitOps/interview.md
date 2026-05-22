@@ -577,3 +577,784 @@ The anti-pattern is bidirectional coupling: ArgoCD triggering Terraform, or Terr
 **Admission webhook + ArgoCD conflict**
 
 OPA Gatekeeper and Kyverno policies can conflict with ArgoCD sync if the policies reject resources that ArgoCD is trying to apply. Common failure: Gatekeeper requires all Deployments to have resource limits, but ArgoCD is trying to sync a Deployment without them — the webhook rejects the apply, ArgoCD reports SyncFailed, and the Application stays OutOfSync forever. Diagnosis: `argocd app get my-app --hard-refresh` shows SyncFailed; `kubectl describe deploy` or webhook logs show admission denial. Fix: either add resource limits to the manifest (correct fix) or add a Gatekeeper exclusion for the ArgoCD service account (workaround). The ArgoCD service account itself should be excluded from policies that target developer RBAC (e.g., "developers cannot create ClusterRoles") since ArgoCD often applies cluster-scoped resources legitimately.
+
+---
+
+## Hard (continued) — Argo Rollouts, ApplicationSets, Secrets & Custom Health
+
+**Q: Explain how Argo Rollouts implements a canary deployment with automated analysis. Walk through the full lifecycle: traffic splitting, AnalysisTemplate, promotion, and rollback.**
+
+**A:**
+
+Argo Rollouts extends Kubernetes with a `Rollout` CRD that replaces `Deployment` for progressive delivery. A canary strategy splits traffic between a stable version and a new canary version, then uses automated analysis to decide whether to promote or abort.
+
+**Rollout resource with canary + analysis:**
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: checkout-service
+spec:
+  replicas: 10
+  strategy:
+    canary:
+      canaryService: checkout-service-canary    # separate Service for canary pods
+      stableService: checkout-service-stable    # separate Service for stable pods
+      trafficRouting:
+        nginx:
+          stableIngress: checkout-ingress       # NGINX Ingress splits traffic by weight
+      steps:
+      - setWeight: 10          # step 1: send 10% to canary
+      - analysis:              # step 2: run analysis for 10 min at 10%
+          templates:
+          - templateName: success-rate
+          args:
+          - name: service-name
+            value: checkout-service-canary
+      - setWeight: 30          # step 3: if analysis passed, increase to 30%
+      - pause: {duration: 5m}  # step 4: pause 5 min (optional human review gate)
+      - setWeight: 60
+      - setWeight: 100         # step 5: full promotion
+```
+
+**AnalysisTemplate — defines what "healthy" means:**
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: success-rate
+spec:
+  args:
+  - name: service-name
+  metrics:
+  - name: success-rate
+    interval: 60s          # query every 60 seconds
+    count: 10              # run 10 measurements
+    successCondition: result[0] >= 0.95   # 95% success rate required
+    failureLimit: 2        # allow 2 failures before aborting
+    provider:
+      prometheus:
+        address: http://prometheus:9090
+        query: |
+          sum(rate(http_requests_total{
+            service="{{args.service-name}}",
+            status=~"2.."
+          }[5m])) /
+          sum(rate(http_requests_total{
+            service="{{args.service-name}}"
+          }[5m]))
+```
+
+**Traffic splitting mechanics (NGINX):**
+
+Argo Rollouts controller patches the Ingress resource's annotation to adjust traffic weights:
+```yaml
+nginx.ingress.kubernetes.io/canary: "true"
+nginx.ingress.kubernetes.io/canary-weight: "10"
+```
+
+At step `setWeight: 10`, 10% of Ingress traffic is routed to `checkout-service-canary` (canary pods), 90% to `checkout-service-stable` (stable pods). The actual weight is implemented in NGINX as upstream weighted balancing.
+
+**Full lifecycle:**
+
+```
+1. kubectl argo rollouts set image checkout-service \
+       checkout-service=myrepo/checkout:v2.1.0
+
+2. Controller creates canary ReplicaSet (1 pod = 10% of 10)
+3. NGINX weight patched to 10% canary / 90% stable
+4. AnalysisRun created — Prometheus queried every 60s for 10 min
+5a. All 10 measurements ≥ 0.95 → analysis succeeds → setWeight: 30
+5b. 3 measurements < 0.95 → analysis fails → automatic rollback:
+     - canary ReplicaSet scaled to 0
+     - NGINX weight reset to 0% canary / 100% stable
+     - Rollout status: Degraded
+6. If promotion completes: stable ReplicaSet updated to v2.1.0
+   canary ReplicaSet deleted
+```
+
+**Rollback commands:**
+
+```bash
+# Manual abort (triggers rollback)
+kubectl argo rollouts abort checkout-service
+
+# Undo (jump back to previous stable)
+kubectl argo rollouts undo checkout-service
+
+# Watch rollout progress
+kubectl argo rollouts get rollout checkout-service --watch
+```
+
+**Key insight for interviews:** The AnalysisTemplate is reusable across many Rollouts. Centralize metric definitions in a shared AnalysisTemplate library (e.g., `success-rate`, `p99-latency`, `error-budget-burn`). Teams reference the template by name — they don't write Prometheus queries per service.
+
+---
+
+**Q: Explain ArgoCD's ApplicationSet controller. Compare the cluster generator, git generator, and matrix generator. What safety measures exist to prevent mass-deleting applications?**
+
+**A:**
+
+The ApplicationSet controller generates multiple `Application` CRDs from a single `ApplicationSet` template, eliminating repetitive Application definitions for multi-cluster or multi-environment deployments.
+
+**Cluster Generator — one Application per registered cluster:**
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: guestbook-all-clusters
+  namespace: argocd
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchLabels:
+          environment: production   # only production clusters
+  template:
+    metadata:
+      name: '{{name}}-guestbook'   # {{name}} = cluster name from ArgoCD secret
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/myorg/gitops-repo
+        targetRevision: HEAD
+        path: apps/guestbook
+      destination:
+        server: '{{server}}'        # cluster API URL from ArgoCD secret
+        namespace: guestbook
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+```
+
+When a new cluster is registered in ArgoCD with label `environment: production`, the ApplicationSet controller automatically creates a new `guestbook-<cluster-name>` Application. When a cluster is removed, the Application is deleted.
+
+**Git Generator — one Application per directory:**
+
+```yaml
+generators:
+- git:
+    repoURL: https://github.com/myorg/gitops-repo
+    revision: HEAD
+    directories:
+    - path: apps/*/          # matches apps/auth/, apps/payments/, etc.
+```
+
+Each directory becomes a separate Application. Adding a new directory to the repo automatically creates a new Application — no ApplicationSet modification needed.
+
+**Git Generator with config files:**
+
+```yaml
+generators:
+- git:
+    repoURL: https://github.com/myorg/gitops-repo
+    revision: HEAD
+    files:
+    - path: "clusters/**/config.json"  # each JSON file = one Application
+```
+
+`clusters/eu-west-1/config.json`:
+```json
+{
+  "cluster": {"name": "eu-west-1", "server": "https://k8s.eu-west-1.example.com"},
+  "environment": "production",
+  "region": "eu-west-1"
+}
+```
+
+Template uses `{{cluster.name}}`, `{{environment}}`, `{{region}}` as variables.
+
+**Matrix Generator — combine two generators:**
+
+```yaml
+generators:
+- matrix:
+    generators:
+    - clusters:
+        selector:
+          matchLabels:
+            environment: production
+    - git:
+        repoURL: https://github.com/myorg/gitops-repo
+        revision: HEAD
+        directories:
+        - path: apps/*/
+```
+
+Produces: `N_clusters × M_apps` Applications. 10 clusters × 5 apps = 50 Applications from one ApplicationSet. The risk: a bad commit to the git repo (e.g., deleting an `apps/` directory) can trigger deletion of all 10 Applications for that service simultaneously.
+
+**Safety measures against mass deletion:**
+
+1. **`preserveResourcesOnDeletion: true`** — when an Application is deleted by the ApplicationSet controller, Kubernetes resources are NOT pruned:
+```yaml
+spec:
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+```
+
+2. **`ignoreApplicationDeletion: true`** (ApplicationSet-level) — ApplicationSet controller will not delete Applications even if the generator no longer produces them. Requires manual cleanup:
+```yaml
+spec:
+  ignoreApplicationDeletion: true
+```
+
+3. **Git branch protection** — require PR review before merging directory deletions. The ApplicationSet's git generator picks up changes only from the target revision — a PR gate prevents accidental mass-delete from reaching HEAD.
+
+4. **Separate ApplicationSets per generator type** — don't combine cluster + git in a matrix if the git repo is high-churn. Matrix amplifies the impact of any single generator change.
+
+5. **Dry-run / review phase in CI** — before merging, run `argocd appset generate <appset.yaml>` in CI to preview which Applications would be created/modified/deleted:
+```bash
+argocd appset generate applicationset.yaml
+```
+
+---
+
+**Q: How do you manage secrets in a GitOps workflow? Compare Sealed Secrets, External Secrets Operator, and SOPS. When would you choose each?**
+
+**A:**
+
+In GitOps, everything is committed to Git — including secret references. But plaintext secrets in Git are a catastrophic security failure. Three patterns solve this at different layers:
+
+**1. Sealed Secrets (Bitnami)**
+
+Encrypts Kubernetes Secrets in-cluster using a controller-held key pair. The SealedSecret CRD is safe to commit to Git; the controller decrypts it to a regular Secret.
+
+```bash
+# Seal a secret (requires cluster connectivity)
+kubectl create secret generic db-password \
+  --from-literal=password=supersecret \
+  --dry-run=client -o yaml | \
+  kubeseal --controller-namespace sealed-secrets \
+           --format yaml > db-password-sealed.yaml
+
+# Commit db-password-sealed.yaml to Git (safe — encrypted)
+```
+
+```yaml
+# db-password-sealed.yaml (in Git)
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: db-password
+  namespace: production
+spec:
+  encryptedData:
+    password: AgBy3i4OJSWK+PiTySYZZA==...   # asymmetrically encrypted
+```
+
+**Advantages:** Simple, no external dependency, cluster-native.
+**Disadvantages:** Tied to a single cluster's key pair. Key rotation requires re-sealing all secrets. No dynamic rotation (secrets are static once sealed). Key backup is critical — lose the key, lose access to all sealed secrets.
+
+**2. External Secrets Operator (ESO)**
+
+Syncs secrets from an external secret store (AWS SSM, AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager, Azure Key Vault) into Kubernetes Secrets. Git only contains the ExternalSecret CRD (a reference, not the value).
+
+```yaml
+# In Git — safe, no secret values
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: db-password
+  namespace: production
+spec:
+  refreshInterval: 1h             # re-sync from source every hour
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: db-password             # creates this K8s Secret
+  data:
+  - secretKey: password           # key in K8s Secret
+    remoteRef:
+      key: production/db/password # path in AWS Secrets Manager
+      version: AWSCURRENT
+```
+
+**SecretStore (cluster-level, references AWS):**
+```yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: aws-secrets-manager
+spec:
+  provider:
+    aws:
+      service: SecretsManager
+      region: us-east-1
+      auth:
+        jwt:                        # uses IRSA / Workload Identity
+          serviceAccountRef:
+            name: external-secrets
+            namespace: external-secrets
+```
+
+**Advantages:** Supports rotation (ESO re-syncs on `refreshInterval`). Source of truth is the external store, not Git. Multi-cluster: same secret in AWS Secrets Manager accessed from all clusters. Access controlled via IAM/Vault policies.
+**Disadvantages:** Requires external secret store (operational dependency). Secret values not in Git (some teams want full auditability of secret values — use Vault audit log instead).
+
+**3. SOPS (Mozilla)**
+
+Encrypts secret files directly using age, PGP, or AWS KMS. The encrypted file is committed to Git. Decryption happens at deploy time (in CI or by the GitOps operator).
+
+```bash
+# Encrypt a values file with AWS KMS
+sops --kms arn:aws:kms:us-east-1:123456789:key/abc-def \
+     --encrypt secrets/production.yaml > secrets/production.enc.yaml
+
+# Decrypt in CI (using IAM role)
+sops --decrypt secrets/production.enc.yaml | kubectl apply -f -
+```
+
+ArgoCD integration via `argocd-vault-plugin` or Helm secrets plugin:
+```yaml
+# values.yaml.enc (committed to Git)
+database:
+  password: ENC[AES256_GCM,data:abc...==,tag:xyz==,type:str]
+```
+
+**Advantages:** Works offline — no cluster connectivity needed to seal/unseal (unlike Sealed Secrets). Supports any file format (YAML, JSON, env files). Granular: only encrypted values are opaque; keys are visible in Git.
+**Disadvantages:** Decryption key access must be managed carefully. No dynamic rotation — secrets are static snapshots.
+
+**Decision matrix:**
+
+| Factor | Sealed Secrets | ESO | SOPS |
+|--------|----------------|-----|------|
+| External dependency | None | Secret store required | KMS/age key |
+| Rotation support | Manual (re-seal) | Automatic (refreshInterval) | Manual |
+| Multi-cluster | Hard (key per cluster) | Easy (shared store) | Easy |
+| Offline use | No (needs controller) | No (needs store) | Yes |
+| Secret audit trail | Git history | External store log | Git history (encrypted) |
+| Setup complexity | Low | Medium | Low–Medium |
+| **Best for** | Small clusters, simple secrets | Enterprise multi-cluster | Air-gapped, audit-heavy |
+
+**Most common production pattern:** ESO for live clusters (rotation, multi-cluster), SOPS for bootstrap secrets (before the cluster or ESO is ready).
+
+---
+
+**Q: How does ArgoCD's health assessment system work? How do you write a custom health check for a CRD? Give an example for a database provisioning CRD.**
+
+**A:**
+
+ArgoCD assesses application health by evaluating each managed Kubernetes resource. Built-in health checks exist for standard resources (Deployment, StatefulSet, DaemonSet, PVC, Ingress, etc.). For CRDs, you must write Lua-based custom health checks.
+
+**Built-in health logic (example — Deployment):**
+
+ArgoCD considers a Deployment healthy when:
+- `status.updatedReplicas == spec.replicas`
+- `status.availableReplicas == spec.replicas`
+- No ongoing rollout (`status.observedGeneration == metadata.generation`)
+
+If any condition fails, the Application is `Progressing` or `Degraded`.
+
+**Custom health check in Lua:**
+
+Configured in `argocd-cm` ConfigMap:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+data:
+  resource.customizations.health.database.mycompany.com_DatabaseCluster: |
+    hs = {}
+    hs.status = "Progressing"
+    hs.message = "Waiting for database to be ready"
+    
+    if obj.status == nil then
+      return hs
+    end
+    
+    -- Check provisioning phase
+    if obj.status.phase == "Failed" then
+      hs.status = "Degraded"
+      hs.message = obj.status.message or "Database provisioning failed"
+      return hs
+    end
+    
+    if obj.status.phase == "Ready" then
+      -- Also verify all replicas are up
+      if obj.status.readyReplicas ~= nil and obj.status.replicas ~= nil then
+        if obj.status.readyReplicas < obj.status.replicas then
+          hs.status = "Progressing"
+          hs.message = string.format("Ready: %d/%d replicas", 
+            obj.status.readyReplicas, obj.status.replicas)
+          return hs
+        end
+      end
+      hs.status = "Healthy"
+      hs.message = "Database cluster is ready"
+      return hs
+    end
+    
+    -- All other phases (Provisioning, Configuring, etc.) = Progressing
+    hs.message = string.format("Phase: %s", obj.status.phase or "Unknown")
+    return hs
+```
+
+**Example DatabaseCluster CRD status:**
+
+```yaml
+status:
+  phase: Ready              # or: Provisioning, Configuring, Failed
+  replicas: 3
+  readyReplicas: 3
+  endpoint: "postgres://my-db.internal:5432"
+  message: ""
+```
+
+**Health check key format:**
+
+`resource.customizations.health.<group>_<kind>`
+
+Where `group` uses underscores instead of dots: `database.mycompany.com` → `database_mycompany_com`.
+
+**ignoreDifferences for CRDs:**
+
+CRDs often have fields that change at runtime (e.g., `status`, `lastTransitionTime`) that ArgoCD shouldn't track as drift:
+
+```yaml
+spec:
+  ignoreDifferences:
+  - group: database.mycompany.com
+    kind: DatabaseCluster
+    jsonPointers:
+    - /status                          # ignore status subresource
+    - /metadata/resourceVersion
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas                   # ignore if HPA manages replicas
+  - group: ""
+    kind: Secret
+    jsonPointers:
+    - /data                            # ignore Secret data (managed externally by ESO)
+```
+
+**Testing custom health checks:**
+
+```bash
+# ArgoCD provides a CLI tool to test Lua scripts
+argocd admin settings resource-overrides health \
+  database.mycompany.com/DatabaseCluster \
+  --yaml-input - <<EOF
+status:
+  phase: Ready
+  replicas: 3
+  readyReplicas: 3
+EOF
+# Expected output: status=Healthy
+```
+
+---
+
+**Q: How does ArgoCD's sync wave and sync hook system work? Design a deployment ordering for: namespace → CRDs → database → application → smoke test → notification.**
+
+**A:**
+
+Sync waves and hooks give precise control over resource application order within a single ArgoCD sync operation.
+
+**Sync waves (ordering by annotation):**
+
+Resources with lower wave numbers are applied first. ArgoCD waits for all resources in wave N to be Healthy before applying wave N+1.
+
+```yaml
+# Wave -1: Namespace (must exist before everything)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+
+# Wave 0: CRDs (must exist before controllers that use them)
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: databaseclusters.database.mycompany.com
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+
+# Wave 1: Database
+apiVersion: database.mycompany.com/v1
+kind: DatabaseCluster
+metadata:
+  name: payments-db
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+
+# Wave 2: Application (waits for DB to be Healthy)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-service
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+```
+
+**Sync hooks (jobs that run at specific phases):**
+
+```yaml
+# PreSync hook: run database migrations before any resource changes
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: migrate
+        image: myrepo/payments:v2.1.0
+        command: ["./migrate.sh"]
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-password
+              key: url
+
+# PostSync hook: smoke test after all resources are applied
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: smoke-test
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: test
+        image: myrepo/smoke-tests:latest
+        command: ["./run-smoke-tests.sh"]
+        env:
+        - name: BASE_URL
+          value: https://payments.example.com
+
+# SyncFail hook: notify Slack if sync fails
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: notify-failure
+  annotations:
+    argocd.argoproj.io/hook: SyncFail
+    argocd.argoproj.io/hook-delete-policy: HookFailed
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: notify
+        image: curlimages/curl
+        command:
+        - sh
+        - -c
+        - |
+          curl -X POST $SLACK_WEBHOOK \
+            -d '{"text":"Sync failed for payments-service"}'
+```
+
+**Complete ordering for the interview scenario:**
+
+```
+Phase 1: PreSync hooks
+  - db-migrate Job (runs migrations against current DB)
+
+Phase 2: Sync — Wave -1
+  - Namespace "payments" applied and healthy
+
+Phase 3: Sync — Wave 0
+  - DatabaseCluster CRD applied
+
+Phase 4: Sync — Wave 1
+  - DatabaseCluster "payments-db" applied → health check: wait for phase=Ready
+
+Phase 5: Sync — Wave 2
+  - Deployment "payments-service" applied → wait for availableReplicas == replicas
+
+Phase 6: PostSync hooks
+  - smoke-test Job → runs HTTP checks against the service endpoint
+  → If smoke-test Job succeeds: sync completes as Healthy
+  → If smoke-test Job fails: sync completes as Failed → SyncFail hook fires
+
+Phase 7: SyncFail hook (only if any phase failed)
+  - notify-failure Job → Slack alert
+```
+
+**Hook delete policies:**
+
+| Policy | When hook resource is deleted |
+|--------|-------------------------------|
+| `HookSucceeded` | After the hook Job/Pod succeeds |
+| `HookFailed` | After the hook Job/Pod fails |
+| `BeforeHookCreation` | Before creating the hook on next sync |
+
+Use `HookSucceeded` for migration jobs (clean up after success). Use `BeforeHookCreation` for notification jobs you want to keep for debugging.
+
+**Sync wave deadlock — diagnosis:**
+
+A deadlock occurs when a resource in wave N never becomes Healthy (e.g., a Deployment waiting for a Secret that is in wave N+1, or a Job that depends on an external system that hasn't been provisioned yet). ArgoCD will wait indefinitely.
+
+Diagnosis:
+```bash
+argocd app get my-app --hard-refresh
+# Look for resources stuck in "Progressing" with no forward movement
+
+kubectl describe job db-migrate -n payments
+# Check for ImagePullBackOff, OOM, connection refused to DB
+```
+
+Resolution: restructure wave ordering so dependencies are always in lower waves, or add a `readinessGate` to the waiting resource pointing at a ConfigMap that the dependency populates.
+
+---
+
+**Q: How do you implement multi-tenancy in ArgoCD? Explain AppProjects, RBAC, and namespace isolation. How do you prevent one team from accessing or modifying another team's applications?**
+
+**A:**
+
+ArgoCD multi-tenancy is enforced through AppProjects, RBAC policies, and namespace scoping. Without these controls, any user with ArgoCD access can sync arbitrary manifests to any cluster.
+
+**AppProject — the tenancy boundary:**
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: payments-team
+  namespace: argocd
+spec:
+  description: "Payments team - production and staging"
+  
+  # Which Git repos this project can deploy from
+  sourceRepos:
+  - https://github.com/myorg/payments-gitops
+  - https://github.com/myorg/shared-charts   # allowed shared chart repo
+  
+  # Which clusters and namespaces this project can deploy to
+  destinations:
+  - namespace: payments-*      # wildcard: payments-prod, payments-staging
+    server: https://prod-cluster.example.com
+  - namespace: payments-*
+    server: https://staging-cluster.example.com
+  
+  # Which Kubernetes resource types are allowed
+  clusterResourceWhitelist: []   # no cluster-scoped resources (no ClusterRole, no CRD)
+  namespaceResourceBlacklist:
+  - group: ""
+    kind: ResourceQuota           # team cannot modify their own quotas
+  
+  # Deny all capabilities by default; grant specific ones
+  roles:
+  - name: deploy
+    description: "Can sync and create apps in this project"
+    policies:
+    - p, proj:payments-team:deploy, applications, create, payments-team/*, allow
+    - p, proj:payments-team:deploy, applications, sync, payments-team/*, allow
+    - p, proj:payments-team:deploy, applications, get, payments-team/*, allow
+    groups:
+    - payments-engineers   # SSO group name (from Dex/LDAP)
+  
+  - name: readonly
+    policies:
+    - p, proj:payments-team:readonly, applications, get, payments-team/*, allow
+    groups:
+    - payments-stakeholders
+```
+
+**Global ArgoCD RBAC (argocd-rbac-cm):**
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+data:
+  policy.default: role:readonly           # default: read-only for all users
+  policy.csv: |
+    # Platform team: full admin
+    g, platform-engineers, role:admin
+
+    # Payments team: can only act within payments-team project
+    p, role:payments-deploy, applications, *, payments-team/*, allow
+    p, role:payments-deploy, projects, get, payments-team, allow
+    g, payments-engineers, role:payments-deploy
+    
+    # Security team: read-only across all
+    p, role:security-readonly, applications, get, */*, allow
+    g, security-team, role:security-readonly
+```
+
+**Namespace isolation in the cluster:**
+
+AppProject alone only controls what ArgoCD will deploy — it doesn't prevent an attacker who already has `kubectl` access from deploying to other namespaces. Enforce at the Kubernetes RBAC layer:
+
+```yaml
+# payments-engineers can only manage resources in payments-* namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: payments-team-binding
+  namespace: payments-prod
+subjects:
+- kind: Group
+  name: payments-engineers
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: edit               # can create/update/delete pods, services, etc.
+  apiGroup: rbac.authorization.k8s.io
+```
+
+```yaml
+# NetworkPolicy: payments pods cannot communicate with auth pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: isolate-payments
+  namespace: payments-prod
+spec:
+  podSelector: {}   # applies to all pods in namespace
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          team: payments   # only allow ingress from payments namespaces
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          team: payments
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system  # DNS
+```
+
+**Preventing cross-project Application creation:**
+
+An ArgoCD user with create permission on their project can only create Applications within that project. The AppProject's `destinations` field enforces where those Applications can deploy — a payments-team member cannot create an Application targeting `auth-*` namespaces.
+
+**Audit and observability:**
+
+```bash
+# ArgoCD audit log — who synced what
+kubectl logs -n argocd -l app.kubernetes.io/name=argocd-server | \
+  grep '"action":"sync"' | jq '{user: .user, app: .app, project: .proj}'
+
+# List all apps a specific project owns
+argocd app list --project payments-team
+```
+
+**vCluster for stronger isolation:**
+
+For teams requiring full cluster-admin within their tenant (custom CRDs, ClusterRoles), deploy virtual clusters (vCluster) instead of namespace-based isolation. Each team gets a dedicated vCluster with full control, while the host cluster admin retains control of the underlying nodes. ArgoCD manages vCluster-scoped Applications through a separate ArgoCD instance or cluster secret pointing to the vCluster API server.

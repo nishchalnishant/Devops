@@ -2058,4 +2058,149 @@ The service is immediately overwhelmed and crashes again. This is a **Thundering
 - Shared root CA for multi-cluster mTLS simplifies trust establishment but creates a single cryptographic root — a compromised root CA invalidates all certificates across all clusters. SPIRE with separate intermediate CAs per cluster provides better blast-radius containment.
 - Quorum-based consensus requires a minimum of 3 nodes to tolerate 1 failure (N/2+1 = 2 agreeing nodes). Running 2-node etcd clusters provides zero fault tolerance — the second node exists only for read performance, not HA.
 
+---
+
+## Hard (continued) — Kernel Networking Internals & Troubleshooting
+
+**Q: Walk a packet from NIC interrupt to an application `recv()` call, naming every kernel subsystem it traverses.**
+
+```
+NIC receives frame
+  ↓
+Hardware DMA writes frame into ring buffer; raises IRQ
+  ↓
+CPU handles IRQ → schedules NAPI poll (defers further processing to softirq)
+  ↓
+NAPI poll: netif_receive_skb() allocates sk_buff, passes to network stack
+  ↓
+XDP hook (if attached): runs eBPF program — can XDP_DROP, XDP_TX, XDP_PASS
+  ↓
+TC ingress qdisc hook: traffic control (filtering, shaping, redirect)
+  ↓
+ip_rcv(): validates IP header, decrements TTL
+  ↓
+Netfilter PREROUTING chain (iptables/nftables):
+  - conntrack: creates or looks up connection tracking entry
+  - DNAT rules (kube-proxy Service rules rewrite destination IP/port here)
+  ↓
+Routing decision: ip_route_input() — is this packet for us or forward?
+  ↓
+Netfilter INPUT chain: further filtering for locally destined packets
+  ↓
+Transport layer: tcp_v4_rcv() or udp_rcv()
+  - TCP: sequence number validation, ACK generation, data placed in receive buffer
+  ↓
+Socket receive queue: data waits in sk->sk_receive_queue
+  ↓
+Application calls recv() / read() → kernel copies data from socket buffer to userspace
+```
+
+**Per-stage drop counters** (use these to locate where packets are lost):
+```bash
+nstat -az | grep -E 'Drop|Miss|Error'   # aggregate kernel counters
+ethtool -S eth0 | grep -i drop          # NIC-level drops (ring buffer overflow)
+ss -s                                    # socket buffer statistics
+cat /proc/net/snmp | grep -A1 Ip        # IP layer drop counters
+```
+
+**Common drop sites and causes:**
+
+| Stage | Counter | Cause |
+|---|---|---|
+| NIC ring buffer | `rx_missed_errors` | Interrupt coalescing too aggressive; increase ring: `ethtool -G eth0 rx 4096` |
+| softirq budget | `netdev_rx_dropped` | NAPI poll budget exhausted; tune `net.core.netdev_budget` |
+| conntrack | `nf_conntrack_count` == max | Table full; increase `nf_conntrack_max` or reduce `tcp_established_timeout` |
+| Socket receive buffer | `TCPRcvQDrop` | Application not reading fast enough; increase `SO_RCVBUF` |
+
+---
+
+**Q: `TIME_WAIT` sockets are accumulating to 60,000 on a high-throughput API server. What causes this and how do you resolve it safely?**
+
+**Root cause:**
+
+`TIME_WAIT` is the final TCP state after the active closer sends its last ACK. The kernel holds the connection in `TIME_WAIT` for `2 × MSL` (Maximum Segment Lifetime, typically 60 seconds) to prevent a delayed packet from a previous connection being misinterpreted by a new connection using the same 4-tuple (src IP, src port, dst IP, dst port).
+
+At 1,000 short-lived requests/second: `1,000 req/s × 60s = 60,000 TIME_WAIT sockets`. This exhausts the ephemeral port range (default: `32,768–60,999` = ~28,000 ports), causing `EADDRINUSE` errors on new outbound connections.
+
+**Diagnosis:**
+```bash
+ss -s                          # summary: TIME-WAIT count
+ss -tan state time-wait | wc -l   # exact count
+cat /proc/net/sockstat          # socket state breakdown
+```
+
+**Safe mitigations (in order of preference):**
+
+1. **HTTP keep-alive / connection pooling** — reuse TCP connections so they never enter TIME_WAIT. The most effective fix; reduces new connections by 10–100×.
+
+2. **`tcp_tw_reuse`** — allows reusing a TIME_WAIT socket for a new outbound connection if the timestamp option (RFC 1323) proves the old session is finished. Safe for outbound connections only.
+   ```bash
+   sysctl -w net.ipv4.tcp_tw_reuse=1
+   ```
+
+3. **`SO_REUSEPORT`** — multiple listeners share the same port; the kernel load-balances incoming connections. Reduces per-listener pressure.
+
+4. **Expand ephemeral port range:**
+   ```bash
+   sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+   ```
+
+5. **Reduce `tcp_fin_timeout`** — shortens the FIN_WAIT2 state (not TIME_WAIT directly, but often confused):
+   ```bash
+   sysctl -w net.ipv4.tcp_fin_timeout=15
+   ```
+
+**What NOT to do:** `tcp_tw_recycle` was removed in Linux 4.12 — it broke connections from clients behind NAT by using per-destination timestamp tracking that failed when multiple clients shared one external IP.
+
+---
+
+**Q: A service is reachable from one pod but times out from another in the same namespace. Both pods can ping the Service ClusterIP. What is your debugging methodology?**
+
+**Why ping succeeds but TCP fails:**
+
+`ping` uses ICMP, which bypasses iptables DNAT rules entirely (DNAT only applies to TCP/UDP). A successful ping proves IP routing works but says nothing about Service endpoint health or kube-proxy rules.
+
+**Systematic debugging steps:**
+
+```bash
+# Step 1: Verify endpoints exist and are Ready
+kubectl get endpoints <service-name> -n <namespace>
+# If no endpoints: the pod selector doesn't match, or pod's readiness probe is failing
+
+# Step 2: Test TCP directly (bypassing Service VIP)
+kubectl exec -it <source-pod> -- curl http://<pod-ip>:<container-port>
+# If this works but the Service VIP doesn't: kube-proxy rule issue
+
+# Step 3: Check kube-proxy iptables rules on the affected node
+# SSH to the node where the source pod runs
+iptables -t nat -L KUBE-SERVICES -n | grep <service-cluster-ip>
+iptables -t nat -L KUBE-SVC-<hash> -n    # load-balancing chain
+iptables -t nat -L KUBE-SEP-<hash> -n    # endpoint DNAT rule
+
+# Step 4: Check conntrack table saturation
+dmesg | grep -i conntrack
+cat /proc/sys/net/netfilter/nf_conntrack_count
+cat /proc/sys/net/netfilter/nf_conntrack_max
+# If count ≈ max → new connections are silently dropped
+
+# Step 5: Check kube-proxy is running on the node
+kubectl get pods -n kube-system -o wide | grep kube-proxy
+# A crashing kube-proxy leaves stale iptables rules that miss new endpoints
+
+# Step 6: Check DNS resolution (Service discovery via CoreDNS)
+kubectl exec -it <source-pod> -- nslookup <service-name>.<namespace>.svc.cluster.local
+# NXDOMAIN → CoreDNS is not receiving the Service record (check kube-dns ConfigMap)
+# Timeout → CoreDNS pods are not reachable (check NetworkPolicy on kube-system namespace)
+```
+
+**Common root causes by symptom:**
+
+| Symptom | Likely cause |
+|---|---|
+| `kubectl get endpoints` shows `<none>` | Pod label doesn't match Service selector, or pod not Ready |
+| Direct pod-IP works, VIP doesn't | kube-proxy not running on source node; iptables rules missing |
+| Intermittent failures | conntrack table full; increase `nf_conntrack_max` |
+| DNS timeout only | NetworkPolicy blocking egress to port 53 on `kube-system` namespace |
+| Works from some namespaces, not others | NetworkPolicy `ingress` rule on destination pod missing the source namespace |
+
 ***

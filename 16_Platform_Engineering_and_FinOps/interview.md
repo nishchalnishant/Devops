@@ -953,3 +953,742 @@ Structure:
 - All IDP service-to-service calls use mTLS with SPIFFE/SPIRE workload identity — no static credentials in Backstage plugins.
 - Crossplane providers authenticate to cloud APIs via IRSA (AWS), Workload Identity (GCP), or Managed Identity (Azure) — no long-lived cloud keys.
 - Every IDP action emits an audit event (actor, action, resource, timestamp) to an immutable log (S3 + CloudTrail, or similar) for SOC 2 compliance.
+
+## Hard (continued) — Backstage Internals, Crossplane XRD Breaking Changes, DORA in Practice, Kubecost Chargeback, Service Mesh Selection & Platform Canary Rollouts
+
+**Q: Walk through a production Backstage software catalog failure where stale data caused developer confusion. How do you design the catalog refresh pipeline for reliability and freshness?**
+
+A: Backstage's software catalog is only as reliable as its ingestion pipeline. A common production failure: an engineer deletes a GitHub repo, but Backstage continues serving its component page for days because the entity processor hasn't reconciled. Another: an annotation is misspelled, silently ignored, and the dependency graph shows no owner for a critical service.
+
+**Root cause — entity processing pipeline:**
+
+Backstage uses a "catalog processor" loop. Each registered location (GitHub org URL, static YAML, S3 bucket) is polled on a configurable interval (default 30s–5m). The processor fetches `catalog-info.yaml` files, validates against kind schemas, and upserts into the entity store (PostgreSQL). Deletion is not automatic — orphaned entities persist until explicitly unregistered or a `catalog.processingInterval` refresh cycle detects the source is gone.
+
+**Reliability design:**
+
+```yaml
+# app-config.yaml — catalog processor tuning
+catalog:
+  processingInterval: { minutes: 1 }     # How often each location is re-processed
+  orphanStrategy: delete                  # Remove entities whose source is gone
+  rules:
+    - allow: [Component, API, System, Resource, Group, User, Location]
+
+  providers:
+    github:
+      myOrg:
+        organization: myorg
+        catalogPath: '/**/catalog-info.yaml'
+        filters:
+          branch: main
+        schedule:
+          frequency: { minutes: 5 }
+          timeout: { minutes: 3 }
+```
+
+**Freshness monitoring:**
+
+```typescript
+// Custom Backstage backend plugin: catalog health exporter
+import { CatalogClient } from '@backstage/catalog-client';
+import { register } from 'prom-client';
+
+const staleCatalogEntities = new Gauge({
+  name: 'backstage_catalog_stale_entities_total',
+  help: 'Entities not refreshed in > 10 minutes',
+  labelNames: ['kind'],
+});
+
+async function monitorCatalogFreshness(catalogClient: CatalogClient) {
+  const allEntities = await catalogClient.getEntities({
+    filter: [{ kind: 'Component' }],
+  });
+
+  const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+  const stale = allEntities.items.filter(e => {
+    const refreshedAt = new Date(
+      e.metadata.annotations?.['backstage.io/managed-by-location-updated-at'] ?? 0
+    ).getTime();
+    return refreshedAt < tenMinutesAgo;
+  });
+
+  staleCatalogEntities.labels('Component').set(stale.length);
+  if (stale.length > 50) {
+    alertPagerDuty(`Backstage catalog: ${stale.length} stale Component entities`);
+  }
+}
+```
+
+**Deletion propagation (orphan detection):**
+
+When a repo is deleted, GitHub fires a `repository.deleted` webhook. Wire it to a Backstage webhook handler that calls `catalogClient.removeEntityByUid()` immediately — don't wait for the next poll cycle:
+
+```typescript
+// GitHub webhook handler (Express middleware)
+app.post('/webhooks/github', async (req, res) => {
+  const event = req.headers['x-github-event'];
+  if (event === 'repository' && req.body.action === 'deleted') {
+    const repoName = req.body.repository.full_name;
+    const entities = await catalogClient.getEntities({
+      filter: [{ 'metadata.annotations.github.com/project-slug': repoName }],
+    });
+    for (const entity of entities.items) {
+      await catalogClient.removeEntityByUid(entity.metadata.uid!);
+    }
+  }
+  res.status(200).send('ok');
+});
+```
+
+**Annotation validation (prevent silent misconfiguration):**
+
+Add a CI check in every service repo that validates `catalog-info.yaml` before merge:
+
+```yaml
+# .github/workflows/catalog-lint.yaml
+- name: Validate catalog-info.yaml
+  run: |
+    npx @backstage/catalog-validator validate catalog-info.yaml
+    # Fails if required annotations missing: backstage.io/owner, backstage.io/system
+```
+
+**SLA target:** Catalog freshness < 5 minutes for entity updates; < 30 seconds for deletions (via webhook). Monitor with `backstage_catalog_stale_entities_total` Prometheus gauge.
+
+---
+
+**Q: You need to make a breaking change to a Crossplane Composition (XRD schema change that removes a required field). How do you do this without breaking existing Claims?**
+
+A: Crossplane XRD schema changes are one of the most dangerous platform operations. An XRD field removal deletes data from existing Composite Resources (XRs) and Claims, potentially triggering unwanted reconciliation or resource deletion.
+
+**Understanding the blast radius:**
+
+- Removing a required field from the XRD schema causes all existing XRs to fail validation.
+- Crossplane will mark them as not ready and stop reconciling managed resources (cloud infrastructure).
+- If the Composition references the removed field, `Patch` operations fail silently and infrastructure drifts.
+
+**Safe migration procedure (5 steps):**
+
+**Step 1 — Make the field optional before removing it:**
+
+```yaml
+# Current XRD (field is required)
+spec:
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              properties:
+                legacyRegion:   # This field is being removed
+                  type: string
+              required: [legacyRegion, environment]
+
+# New XRD (field made optional first)
+spec:
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            spec:
+              properties:
+                legacyRegion:
+                  type: string
+                  description: "DEPRECATED: use region instead"
+              required: [environment]   # legacyRegion removed from required
+```
+
+**Step 2 — Add a new version with the clean schema (multi-version XRD):**
+
+```yaml
+spec:
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: false    # Old version, still served for existing claims
+      schema:
+        openAPIV3Schema: ...  # Includes legacyRegion (optional)
+    - name: v1beta1
+      served: true
+      referenceable: true     # New version for new claims
+      schema:
+        openAPIV3Schema: ...  # legacyRegion absent
+```
+
+**Step 3 — Migrate existing Claims to the new version:**
+
+```bash
+# List all Claims using the old version
+kubectl get claims.platform.example.com -A -o json | \
+  jq '.items[] | select(.apiVersion | endswith("v1alpha1")) | .metadata | {name, namespace}'
+
+# For each claim, update apiVersion
+for ns in $(kubectl get ns -o name | cut -d/ -f2); do
+  kubectl get claims.platform.example.com -n $ns -o json | \
+    jq '.items[] | .apiVersion = "platform.example.com/v1beta1" | del(.metadata.resourceVersion)' | \
+    kubectl apply -f -
+done
+```
+
+**Step 4 — Update the Composition to handle both versions (transition period):**
+
+```yaml
+spec:
+  compositeTypeRef:
+    apiVersion: platform.example.com/v1beta1
+    kind: XDatabase
+  patches:
+    # Handle old claims that still have legacyRegion
+    - type: FromCompositeFieldPath
+      fromFieldPath: "spec.legacyRegion"
+      toFieldPath: "spec.forProvider.region"
+      transforms:
+        - type: map
+          map:
+            "us-east": "us-east-1"
+            "eu-west": "eu-west-1"
+      policy:
+        fromFieldPath: Optional   # Don't fail if field is absent
+```
+
+**Step 5 — Remove the old version after all Claims are migrated:**
+
+```bash
+# Verify zero claims on old version
+kubectl get claims.platform.example.com -A \
+  --field-selector=apiVersion=platform.example.com/v1alpha1
+
+# Once empty, remove v1alpha1 from XRD
+kubectl patch xrd databases.platform.example.com --type=json \
+  -p='[{"op": "remove", "path": "/spec/versions/0"}]'
+```
+
+**Guard rails:**
+- Never remove a version that has `referenceable: true` while claims exist.
+- Use `kubectl get managed` to verify all managed resources are healthy after each step.
+- Add an OPA/Kyverno policy that blocks `served: false` on a version with active claims.
+
+---
+
+**Q: Your engineering org wants DORA metrics. How do you actually instrument them end-to-end — not just define them?**
+
+A: DORA metrics are frequently defined but rarely measured correctly. The gap between "we track deployments" and "we measure lead time for change" is significant.
+
+**The four metrics and their correct measurement sources:**
+
+| Metric | Correct Source | Common Mistake |
+|--------|---------------|----------------|
+| Deployment Frequency | CD system (ArgoCD sync events, not CI builds) | Counting CI builds (counts failed attempts, not deliveries) |
+| Lead Time for Change | First commit timestamp → production sync timestamp | Measuring deploy time only (misses dev cycle) |
+| Change Failure Rate | Rollbacks + hotfixes ÷ total deploys | Counting incidents (incidents ≠ deployment failures) |
+| MTTR | Incident open timestamp → first successful deploy or mitigation timestamp | Measuring incident duration (includes non-deployment recovery) |
+
+**Instrumentation architecture:**
+
+```python
+# ArgoCD webhook → DORA metrics aggregator (Python example)
+from flask import Flask, request
+import redis
+import time
+
+app = Flask(__name__)
+r = redis.Redis()
+
+@app.route('/webhooks/argocd', methods=['POST'])
+def argocd_event():
+    event = request.json
+    app_name = event['application']['metadata']['name']
+    sync_status = event['application']['status']['sync']['status']
+    operation_phase = event['application']['status']['operationState']['phase']
+
+    if sync_status == 'Synced' and operation_phase == 'Succeeded':
+        # Record successful deployment
+        deploy_time = time.time()
+        r.lpush(f'deploys:{app_name}', deploy_time)
+        r.ltrim(f'deploys:{app_name}', 0, 999)  # Keep last 1000
+
+        # Lead time: time from first commit in this sync to deploy
+        commit_sha = event['application']['status']['sync']['revision']
+        first_commit_time = get_first_commit_time_for_sha(commit_sha)
+        lead_time_seconds = deploy_time - first_commit_time
+
+        prometheus_push('dora_lead_time_seconds', lead_time_seconds,
+                       labels={'app': app_name, 'env': 'production'})
+
+    elif operation_phase in ('Failed', 'Error'):
+        r.incr(f'failed_deploys:{app_name}')
+
+    return '', 200
+
+def get_first_commit_time_for_sha(sha):
+    """
+    Walk the commit ancestry to find the first commit in this release
+    that is not in the previous release (i.e., the merge base point).
+    """
+    import subprocess
+    # Get timestamp of the oldest commit reachable from sha but not from previous release tag
+    result = subprocess.run(
+        ['git', 'log', '--format=%at', f'{sha}', '--not', 'refs/tags/previous-release'],
+        capture_output=True, text=True
+    )
+    timestamps = [int(t) for t in result.stdout.strip().split('\n') if t]
+    return min(timestamps) if timestamps else time.time()
+```
+
+**Deployment Frequency — Prometheus recording rule:**
+
+```yaml
+# Prometheus recording rules
+- record: dora:deployment_frequency:rate24h
+  expr: |
+    increase(argocd_app_sync_total{phase="Succeeded", dest_namespace="production"}[24h])
+
+- record: dora:deployment_frequency:rate7d
+  expr: |
+    increase(argocd_app_sync_total{phase="Succeeded", dest_namespace="production"}[7d]) / 7
+```
+
+**Change Failure Rate — requires rollback signal:**
+
+```bash
+# Tag rollback events in ArgoCD with a label
+kubectl annotate app myapp \
+  dora.io/is-rollback=true \
+  dora.io/rollback-reason="latency-spike" \
+  -n argocd
+```
+
+```python
+# Change failure rate calculation (weekly)
+def compute_change_failure_rate(app_name, days=7):
+    total_deploys = len(r.lrange(f'deploys:{app_name}', 0, -1))
+    rollbacks = int(r.get(f'rollbacks:{app_name}') or 0)
+    hotfixes = int(r.get(f'hotfixes:{app_name}') or 0)
+
+    cfr = (rollbacks + hotfixes) / max(total_deploys, 1)
+    return cfr
+
+# Elite performers: < 5% CFR
+# High performers: 5–10%
+# Medium: 10–15%
+# Low: > 15%
+```
+
+**MTTR — link PagerDuty incidents to ArgoCD deploys:**
+
+```python
+import pdpyras
+
+def compute_mttr_for_incident(incident_id):
+    pd = pdpyras.APISession(PD_TOKEN)
+    incident = pd.rget(f'incidents/{incident_id}')
+
+    created_at = incident['created_at']   # Incident opened
+    resolved_at = incident['resolved_at'] # Incident closed
+
+    mttr_seconds = (
+        datetime.fromisoformat(resolved_at) -
+        datetime.fromisoformat(created_at)
+    ).total_seconds()
+
+    prometheus_push('dora_mttr_seconds', mttr_seconds,
+                   labels={'service': incident['service']['summary']})
+    return mttr_seconds
+```
+
+**Grafana DORA dashboard — four panels:**
+
+| Panel | Query | Target (Elite) |
+|-------|-------|---------------|
+| Deploy Frequency | `dora:deployment_frequency:rate7d` | Multiple/day |
+| Lead Time | `histogram_quantile(0.50, dora_lead_time_seconds_bucket)` | < 1 hour |
+| Change Failure Rate | `dora_change_failure_rate` | < 5% |
+| MTTR | `histogram_quantile(0.50, dora_mttr_seconds_bucket)` | < 1 hour |
+
+**Common failure mode:** Teams measure CI pipeline duration as "lead time." The correct measurement is first commit to production deploy — spanning days of code review, staging dwell, and approval. Short lead times require trunk-based development and feature flags, not faster CI.
+
+---
+
+**Q: You are implementing Kubernetes cost chargeback across 30 teams using Kubecost. How do you build an accurate, fair allocation model?**
+
+A: Cost chargeback requires solving three hard problems: accurate attribution (which team caused which cost), fair overhead allocation (shared cluster components), and timely reporting (teams need data before month-end budget reviews).
+
+**Kubecost allocation model:**
+
+```bash
+# Install Kubecost with Prometheus integration
+helm install kubecost cost-analyzer \
+  --repo https://kubecost.github.io/cost-analyzer/ \
+  --namespace kubecost --create-namespace \
+  --set global.prometheus.enabled=false \
+  --set global.prometheus.fqdn=http://prometheus.monitoring:9090 \
+  --set kubecostToken="<token>" \
+  --set networkCosts.enabled=true \   # Enable network cost attribution
+  --set persistentVolumes.enabled=true  # Include PV costs
+```
+
+**Namespace-to-team mapping (required for chargeback):**
+
+```yaml
+# Every namespace must have cost-center and team labels
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+  labels:
+    cost-center: "CC-1042"
+    team: "payments-platform"
+    environment: "production"
+    business-unit: "fintech"
+```
+
+Enforce via OPA:
+```rego
+# Kyverno policy: require cost labels on namespaces
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-cost-labels
+spec:
+  validationFailureAction: enforce
+  rules:
+    - name: check-cost-labels
+      match:
+        resources:
+          kinds: [Namespace]
+      validate:
+        message: "Namespaces must have cost-center and team labels"
+        pattern:
+          metadata:
+            labels:
+              cost-center: "?*"
+              team: "?*"
+```
+
+**Overhead allocation strategies:**
+
+| Component | Allocation Method | Rationale |
+|-----------|------------------|-----------|
+| System namespace pods (kube-system) | Proportional to namespace CPU request | Shared infrastructure, fair split |
+| Ingress controllers | Proportional to HTTP request count per team | Consumers drive the cost |
+| Monitoring stack | Equal share per team | Benefit is roughly equal |
+| Idle node cost | Proportional to max reserved capacity | Teams that reserve large nodes pay for idle |
+
+```bash
+# Kubecost API: allocation report with overhead split
+curl -G "http://kubecost.kubecost.svc/model/allocation" \
+  --data-urlencode "window=30d" \
+  --data-urlencode "aggregate=label:team" \
+  --data-urlencode "shareIdle=weighted" \        # Distribute idle cost proportionally
+  --data-urlencode "shareNamespaces=kube-system,monitoring" \  # Include system namespaces
+  --data-urlencode "shareCost=true" | \
+  jq '.data[0] | to_entries[] | {team: .key, cost: .value.totalCost}'
+```
+
+**Monthly chargeback report automation:**
+
+```python
+import requests
+from datetime import datetime, timedelta
+import pandas as pd
+
+def generate_chargeback_report(month: str) -> pd.DataFrame:
+    """
+    month: '2024-01' format
+    Returns: DataFrame with team, namespace, cpu_cost, memory_cost, network_cost, pv_cost, total
+    """
+    start = f"{month}-01T00:00:00Z"
+    end = (datetime.strptime(start, "%Y-%m-%dT%H:%M:%SZ") + timedelta(days=31)).strftime(
+        "%Y-%m-01T00:00:00Z"
+    )
+
+    resp = requests.get(
+        "http://kubecost.kubecost.svc/model/allocation",
+        params={
+            "window": f"{start},{end}",
+            "aggregate": "namespace",
+            "shareIdle": "weighted",
+            "shareNamespaces": "kube-system,cert-manager,monitoring,ingress-nginx",
+            "shareTenancyCosts": True,
+        }
+    )
+    data = resp.json()['data'][0]
+
+    rows = []
+    for ns, costs in data.items():
+        team = costs.get('labels', {}).get('team', 'unassigned')
+        cost_center = costs.get('labels', {}).get('cost-center', 'UNKNOWN')
+        rows.append({
+            'namespace': ns,
+            'team': team,
+            'cost_center': cost_center,
+            'cpu_cost': round(costs['cpuCost'], 2),
+            'memory_cost': round(costs['ramCost'], 2),
+            'network_cost': round(costs.get('networkCost', 0), 2),
+            'pv_cost': round(costs.get('pvCost', 0), 2),
+            'total': round(costs['totalCost'], 2),
+        })
+
+    df = pd.DataFrame(rows)
+    # Flag high-spend namespaces for rightsizing
+    df['efficiency'] = df['cpu_cost'] / (df['cpu_cost'] + df['memory_cost'] + 0.01)
+    return df.sort_values('total', ascending=False)
+
+report = generate_chargeback_report('2024-01')
+report.to_csv('chargeback_2024_01.csv', index=False)
+```
+
+**Showback vs. chargeback decision:**
+
+- **Showback:** Teams see their costs but are not billed internally. Best for initial adoption (no team friction).
+- **Chargeback:** Costs deducted from team budget. Best for mature orgs where teams control their own infrastructure decisions.
+
+Transition path: showback for 3 months → teams understand their spend → chargeback with 60-day warning → monthly billing with per-team dashboards in Grafana.
+
+**Target:** < 5% unattributed cost (namespaces without team labels). Monitor with `kubecost_namespace_unallocated_cost_ratio` alert.
+
+---
+
+**Q: Compare Istio, Linkerd, and Cilium for service mesh. When would you choose each in a Kubernetes platform?**
+
+A: Service mesh selection is a commitment — migrating between meshes is a multi-month effort. The choice depends on the primary driver: observability, mTLS enforcement, performance overhead, or operational simplicity.
+
+**Feature comparison matrix:**
+
+| Feature | Istio | Linkerd | Cilium (mesh mode) |
+|---------|-------|---------|-------------------|
+| mTLS | Full (cert-manager or istiod CA) | Full (automatic, Linkerd CA) | Full (eBPF-based, no sidecar) |
+| Traffic management | Extensive (VirtualService, DestinationRule, retries, circuit breaking) | Basic (retry, timeout, traffic split) | Basic via CiliumNetworkPolicy |
+| Observability | Deep (per-route metrics, distributed tracing, access logs) | Good (Prometheus metrics, per-route) | Good (Hubble for network flows) |
+| Sidecar overhead | 50–200ms p99 latency add; ~100MB RAM per pod | 5–10ms p99 add; ~25MB RAM per pod | Zero (eBPF in kernel, no sidecar) |
+| Operational complexity | High (CRD proliferation: 50+ CRDs) | Low (minimal config surface) | Medium (requires kernel 4.9+) |
+| Ambient mesh (no sidecar) | Istio ambient (stable in 1.22+) | Not available | Native (eBPF is always ambient) |
+| Multi-cluster | Istio multi-primary, multi-remote | Linkerd multicluster (service mirroring) | Cluster Mesh (BGP + routing) |
+| WASM extensibility | Yes (EnvoyFilter) | No | Limited |
+
+**Decision framework:**
+
+**Choose Istio when:**
+- You need fine-grained traffic control: canary by header, fault injection, circuit breaking.
+- You have advanced security requirements: JWT validation at the mesh layer, OPA integration via ext_authz.
+- Your team has Envoy expertise.
+
+```yaml
+# Istio canary by header
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: payments
+spec:
+  http:
+    - match:
+        - headers:
+            x-canary-user:
+              exact: "true"
+      route:
+        - destination:
+            host: payments
+            subset: v2
+    - route:
+        - destination:
+            host: payments
+            subset: v1
+          weight: 100
+```
+
+**Choose Linkerd when:**
+- You want mTLS and basic observability with minimal ops overhead.
+- You are on a resource-constrained cluster (Linkerd uses ~4x less RAM per pod vs Istio).
+- You want zero-config automatic mTLS (no annotation required per namespace).
+
+```bash
+# Linkerd: inject mesh into namespace (all pods get proxy automatically)
+kubectl annotate namespace payments linkerd.io/inject=enabled
+
+# Verify mTLS is active
+linkerd viz tap deploy/payments-api --namespace payments | \
+  grep "tls=true"
+```
+
+**Choose Cilium (eBPF mesh) when:**
+- You are on a managed K8s where sidecar injection is problematic (EKS Fargate, GKE Autopilot).
+- You want kernel-level network visibility without per-pod overhead.
+- Your primary driver is network policy enforcement and visibility, not traffic management.
+
+```yaml
+# Cilium: mTLS via WireGuard (encryption between nodes, not pods)
+apiVersion: cilium.io/v2alpha1
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: require-encryption
+spec:
+  endpointSelector: {}
+  egress:
+    - toEndpoints:
+        - {}
+      toPorts:
+        - ports:
+            - port: "0"
+              protocol: ANY
+      authentication:
+        mode: required   # mTLS required for all pod-to-pod traffic
+```
+
+**Performance benchmark (rough, 1000 RPS, 1KB payload):**
+
+| Mesh | Added p50 latency | Added p99 latency | CPU overhead |
+|------|------------------|------------------|-------------|
+| No mesh | baseline | baseline | baseline |
+| Linkerd | +1ms | +5ms | +5% |
+| Istio (sidecar) | +3ms | +20ms | +15% |
+| Cilium (eBPF) | +0.5ms | +2ms | +2% |
+| Istio (ambient) | +1.5ms | +8ms | +7% |
+
+**Migration path (existing cluster → mesh):**
+
+1. Start with namespace-scoped injection (don't mesh the whole cluster).
+2. Use `--dry-run` or `linkerd check` / `istioctl analyze` to validate before applying.
+3. Monitor error rate and latency for 24h after each namespace mesh-ification.
+4. Never enable strict mTLS before verifying all services have sidecars (causes 503s).
+
+---
+
+**Q: How do you safely canary-deploy a platform component (e.g., OPA Gatekeeper version upgrade) that affects all 50 tenant clusters?**
+
+A: Platform components are "blast radius unlimited" — a broken Gatekeeper admission webhook can block all pod scheduling across the entire cluster. Canary deployment of platform components requires treating the platform itself as a product with staged rollouts.
+
+**Cluster tiering strategy:**
+
+```
+Tier 0: dev-cluster (platform team's test cluster, 0 tenants)
+Tier 1: 2 canary production clusters (5% of traffic, volunteer teams)
+Tier 2: 10 early-adopter clusters (25%)
+Tier 3: remaining 38 clusters (70%)
+```
+
+**Automated rollout via ArgoCD ApplicationSets:**
+
+```yaml
+# ApplicationSet: deploys Gatekeeper to clusters in phases
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: gatekeeper-rollout
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            upgrade-tier: "1"   # Start with tier 1 only
+  template:
+    metadata:
+      name: "gatekeeper-{{name}}"
+    spec:
+      source:
+        repoURL: https://github.com/myorg/platform-config
+        path: gatekeeper/
+        targetRevision: v3.14.0   # New version
+      destination:
+        server: "{{server}}"
+        namespace: gatekeeper-system
+      syncPolicy:
+        automated:
+          prune: false        # Never auto-prune platform components
+          selfHeal: false     # Manual approval for platform changes
+        syncOptions:
+          - RespectIgnoreDifferences=true
+```
+
+**Pre-upgrade validation (Gatekeeper specific):**
+
+```bash
+# Test the new version in dev cluster first
+# 1. Run conformance test suite
+helm upgrade gatekeeper gatekeeper/gatekeeper \
+  --version 3.14.0 \
+  --namespace gatekeeper-system \
+  --set validatingWebhookTimeoutSeconds=10 \  # Increase timeout during upgrade
+  --atomic \   # Rollback automatically if pods don't become ready
+  --wait
+
+# 2. Run constraint dry-run to verify no existing resources would be newly blocked
+kubectl run constraint-dryrun --image=openpolicyagent/gatekeeper:v3.14.0 \
+  -- gator test --filename=./constraints/
+
+# 3. Verify webhook is responding
+kubectl run test-pod --image=nginx --dry-run=server -o json | \
+  jq '.metadata.annotations["admission.gatekeeper.sh/status"]'
+```
+
+**Rollout gate — automated health check before promoting to next tier:**
+
+```python
+import subprocess, time, sys
+
+def check_gatekeeper_health(cluster_context, timeout_minutes=10):
+    """
+    After deploying Gatekeeper to tier 1, verify:
+    1. All pods are running
+    2. Webhook endpoint is responding
+    3. No constraint violations increased
+    4. Admission latency p99 < 100ms
+    """
+    deadline = time.time() + timeout_minutes * 60
+
+    while time.time() < deadline:
+        # Check pod readiness
+        result = subprocess.run(
+            ['kubectl', '--context', cluster_context,
+             'get', 'pods', '-n', 'gatekeeper-system',
+             '-o', 'jsonpath={.items[*].status.containerStatuses[*].ready}'],
+            capture_output=True, text=True
+        )
+        all_ready = all(r == 'true' for r in result.stdout.split())
+
+        # Check admission webhook latency
+        latency_p99 = query_prometheus(
+            cluster_context,
+            'histogram_quantile(0.99, rate(gatekeeper_request_duration_seconds_bucket[5m]))'
+        )
+
+        if all_ready and latency_p99 < 0.1:
+            print(f"Cluster {cluster_context}: Gatekeeper healthy (p99={latency_p99*1000:.0f}ms)")
+            return True
+
+        time.sleep(30)
+
+    print(f"FAIL: Cluster {cluster_context} health check timed out")
+    return False
+
+# Gate: all tier 1 clusters must be healthy before promoting to tier 2
+tier1_clusters = ['prod-us-east-canary', 'prod-eu-west-canary']
+all_healthy = all(check_gatekeeper_health(c) for c in tier1_clusters)
+
+if not all_healthy:
+    print("Halting rollout — rolling back tier 1")
+    for cluster in tier1_clusters:
+        subprocess.run(['argocd', 'app', 'rollback', f'gatekeeper-{cluster}'])
+    sys.exit(1)
+
+# Promote to tier 2
+subprocess.run(['kubectl', 'patch', 'applicationset', 'gatekeeper-rollout',
+                '--type=json', '-p',
+                '[{"op":"replace","path":"/spec/generators/0/clusters/selector/matchLabels/upgrade-tier","value":"2"}]'])
+```
+
+**Emergency rollback — patch all clusters simultaneously:**
+
+```bash
+# If tier 2 rollout breaks, revert ALL clusters at once
+argocd app list --selector component=gatekeeper | \
+  awk 'NR>1{print $1}' | \
+  xargs -P 10 -I{} argocd app rollback {} --revision HEAD~1
+```
+
+**Key safeguards:**
+- `--atomic` flag on Helm installs: auto-rollback if pods don't reach Ready within timeout.
+- Gatekeeper `dryrun` enforcement action on all constraints before switching to `deny`: lets you see what *would* break before enforcing.
+- Set `validatingWebhookConfiguration` `failurePolicy: Ignore` during the upgrade window (reverts to `Fail` after health check passes).
+
+**Platform SLO for upgrades:** Zero tenant-visible incidents during platform component upgrades. Measured as: zero increase in `apiserver_admission_webhook_rejection_count{webhook="gatekeeper"}` during rollout window.

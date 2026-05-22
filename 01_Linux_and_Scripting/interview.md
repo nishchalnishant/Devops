@@ -630,3 +630,178 @@ Use a `while` loop that pings a service or checks for a lock file, sleeps for X 
 - The **vruntime Red-Black Tree** in CFS gives O(log n) scheduling decisions. A simple sorted list would be O(n) on process count. At thousands of threads, this matters.
 - **Namespaces + cgroups = containers.** Docker did not invent a new technology — it packaged existing kernel primitives (PID namespaces, mount namespaces, cgroups, overlay filesystems) into a usable interface.
 - **Dirty ratio two-level design** (`dirty_background_ratio` < `dirty_ratio`) exists to smooth writes: background flush starts early so the hard stop (`dirty_ratio`) is rarely hit. Without the two levels, writes would be smooth until a sudden full stop.
+
+---
+
+## Hard (continued) — Kubernetes, Observability & Production Debugging
+
+**Q: How do Kubernetes QoS classes map to Linux cgroups, and which pod gets evicted first under memory pressure?**
+
+Kubernetes assigns every pod a QoS class based on its resource spec, which directly maps to cgroup configuration on the node:
+
+| QoS Class | Condition | cgroup `memory.limit_in_bytes` |
+|---|---|---|
+| **Guaranteed** | `requests == limits` for every container | Set to exactly the limit value |
+| **Burstable** | `requests < limits` (at least one container) | Set to the limit; requests are a scheduling hint only |
+| **BestEffort** | No requests or limits | No cgroup memory limit (can use all available memory) |
+
+**Eviction order** when the kubelet's eviction manager detects pressure (triggered before the kernel OOM killer fires):
+
+1. **BestEffort** pods are evicted first — they hold no cgroup memory reservation.
+2. **Burstable** pods are next — evicted in order of how far their usage exceeds their requests.
+3. **Guaranteed** pods are evicted last — only if all BestEffort and Burstable pods are already gone.
+
+**Soft vs. hard eviction thresholds:**
+- `evictionSoft` (e.g., `memory.available < 500Mi`) — kubelet waits a grace period (`evictionSoftGracePeriod`) before evicting. Pods receive SIGTERM and can drain.
+- `evictionHard` (e.g., `memory.available < 100Mi`) — kubelet evicts immediately with no grace period.
+
+**Preventing eviction of critical services:**
+```yaml
+# Set requests == limits → Guaranteed QoS (never evicted first)
+resources:
+  requests:
+    memory: "512Mi"
+  limits:
+    memory: "512Mi"
+```
+
+```yaml
+# PodDisruptionBudget prevents simultaneous eviction
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: critical-service
+```
+
+**Senior nuance:** The kernel OOM killer fires within the pod's cgroup if a container exceeds its `memory.limit_in_bytes`. The kubelet's eviction manager is a higher-level, proactive mechanism that acts at lower thresholds so the kernel OOM killer should rarely fire in a well-configured cluster.
+
+---
+
+**Q: How would you use `bpftrace` to measure `openat()` syscall latency in production without the overhead of strace?**
+
+**Why strace is unsuitable for production:**
+`strace` uses `ptrace(PTRACE_SYSCALL)`, which forces a kernel→user context switch on every syscall entry and exit. On a busy process making 100k syscalls/sec, this adds ~200k context switches — 50–100× CPU overhead. The act of measuring changes the system's behavior (Heisenbug).
+
+**eBPF approach with bpftrace:**
+
+```bash
+sudo bpftrace -e '
+  tracepoint:syscalls:sys_enter_openat {
+    @start[tid] = nsecs;
+    @filename[tid] = str(args->filename);
+  }
+  tracepoint:syscalls:sys_exit_openat /@start[tid]/ {
+    @lat[comm, @filename[tid]] = hist(nsecs - @start[tid]);
+    delete @start[tid];
+    delete @filename[tid];
+  }
+'
+```
+
+**Interpreting the output — distinguishing root cause:**
+
+```
+@lat[myapp, /data/db/records.db]:
+[1us,   10us)    50  |@@@                        |
+[10us, 100us)   200  |@@@@@@@@@@@@               |
+[100us,  1ms)  8000  |@@@@@@@@@@@@@@@@@@@@@@@@@@@@| ← modal latency here
+[1ms,   10ms)   500  |@@@@@@@@                   |
+```
+
+- **Consistent high latency for specific paths** → filesystem metadata (cold inode/dentry cache, NFS round-trip).
+- **High latency across all files** → kernel scheduling (process being preempted while waiting for I/O).
+
+**Distinguish scheduling vs. I/O with `pidstat`:**
+```bash
+pidstat -w -p <pid> 1
+# cswch/s   = voluntary context switches (process sleeping for I/O)
+# nvcswch/s = involuntary context switches (CPU oversubscribed, preempted)
+```
+
+High `nvcswch` → CPU contention. High `cswch` → I/O wait (pages not in page cache).
+
+**Key advantages over strace:**
+- Overhead < 1% CPU even at 1M syscalls/sec (eBPF runs in kernel, no context switch per event).
+- BPF bytecode is verified by the kernel verifier before loading — cannot crash the kernel.
+- Attach to `tracepoint:` (not `kprobe:`) so probes survive function inlining across kernel versions.
+
+---
+
+**Q: A Go service's OS-reported RSS grows from 200 MB to 500 MB over 24 hours while Go's heap stays stable. What are the causes and how do you diagnose a goroutine leak?**
+
+**Why RSS and heap diverge:**
+
+Go's runtime reports heap via `runtime.MemStats.HeapInuse`. RSS (Resident Set Size) is what the OS actually has mapped into physical pages. The gap comes from:
+
+1. **Goroutine stack accumulation** — each goroutine starts with a 2–8 KB stack that grows as needed. 10,000 leaked goroutines = 20–80 MB of stacks invisible to the heap allocator.
+2. **cgo allocations** — memory from `C.malloc()` is outside Go's GC; the OS accounts for it in RSS but Go's `MemStats` does not.
+3. **Memory-mapped files** — `syscall.Mmap()` appears in RSS but not in Go's heap.
+4. **Freed pages not returned to OS** — Go's GC frees objects but the runtime may retain virtual address ranges, returning them to the OS via `MADV_DONTNEED` lazily (controllable with `GOGC` and `runtime/debug.FreeOSMemory()`).
+
+**Diagnosing a goroutine leak:**
+
+Expose the pprof endpoint (standard in any Go service):
+```go
+import _ "net/http/pprof"
+go func() { http.ListenAndServe("localhost:6060", nil) }()
+```
+
+```bash
+# Capture goroutine profile
+curl http://localhost:6060/debug/pprof/goroutine > goroutine.prof
+go tool pprof goroutine.prof
+
+(pprof) top
+# If you see thousands of goroutines blocked at the same stack frame,
+# that is your leak site.
+```
+
+**Programmatic monitoring:**
+```go
+func monitorGoroutines() {
+    for range time.Tick(30 * time.Second) {
+        n := runtime.NumGoroutine()
+        if n > 5000 {
+            // Dump stack traces to logs
+            buf := make([]byte, 1<<20)
+            buf = buf[:runtime.Stack(buf, true)]
+            log.Errorf("goroutine leak: %d goroutines\n%s", n, buf)
+        }
+    }
+}
+```
+
+**Common leak pattern and fix:**
+```go
+// BUG: goroutine blocks on conn.Read() forever if client hangs
+go func() {
+    buf := make([]byte, 4096)
+    conn.Read(buf) // never returns if client stalls
+}()
+
+// FIX: always propagate context with deadline
+go func(ctx context.Context) {
+    conn.SetDeadline(time.Now().Add(30 * time.Second))
+    buf := make([]byte, 4096)
+    select {
+    case <-ctx.Done():
+        conn.Close()
+        return
+    default:
+        conn.Read(buf)
+    }
+}(ctx)
+```
+
+**Heap profile for memory leaks (In-Use vs. Allocated):**
+```bash
+curl http://localhost:6060/debug/pprof/heap > heap.prof
+go tool pprof heap.prof
+(pprof) top -inuse_space   # memory currently held (leak indicator)
+(pprof) top -alloc_space   # all memory ever allocated (hotspot indicator)
+```
+
+A function with high `inuse_space` that keeps growing over time is holding memory that the GC cannot collect — a memory leak.

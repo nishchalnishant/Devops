@@ -3458,3 +3458,488 @@ password = "example_password"
 - Increase `TF_CLI_ARGS_apply=-parallelism=30` to parallelize resource operations. Stay under provider API rate limits (AWS IAM is the typical bottleneck).
 - Use partial configuration + workspace-scoped IAM roles to ensure each team's apply assumes the least-privilege role for their service boundary.
 
+---
+
+## Hard (continued) — Import Blocks, Testing, CDK, and Provider Development
+
+**Q: Explain Terraform's `import` block (1.5+) vs the older `terraform import` CLI command. What does code generation with `terraform plan -generate-config-out` do, and when is it safe to use?**
+
+**A:**
+
+Before Terraform 1.5, importing an existing resource required two steps:
+1. `terraform import <address> <provider-id>` — writes state only, no config
+2. Manually write the HCL to match the now-imported state, then `terraform plan` to verify zero diff
+
+This was error-prone: the manual HCL step required reading the provider docs to reproduce every attribute, and mistakes caused `terraform plan` to show unexpected changes.
+
+**Import block (Terraform 1.5+):**
+
+```hcl
+# import.tf — declarative, version-controlled import
+import {
+  to = aws_security_group.legacy_app_sg
+  id = "sg-0abc123def456"
+}
+
+# The resource block must exist (or be generated) alongside the import block
+resource "aws_security_group" "legacy_app_sg" {
+  name        = "app-sg-legacy"
+  description = "Legacy application security group"
+  vpc_id      = "vpc-0xyz789"
+  
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+```
+
+Running `terraform plan` with this import block shows:
+```
+Plan: 1 to import, 0 to add, 0 to change, 0 to destroy.
+```
+
+Running `terraform apply` imports the resource into state. The `import` block is then removed from the code (or left in — it's idempotent; subsequent plans show 0 changes if state matches).
+
+**Advantages over `terraform import` CLI:**
+- Version-controlled: the import intent lives in `.tf` files, not someone's terminal history
+- Reviewable via PR: the import block + resource block are reviewed together
+- Plannable: `terraform plan` shows a preview before any state change — `terraform import` CLI wrote to state immediately with no plan preview
+
+**Code generation with `-generate-config-out`:**
+
+```bash
+# Write import block (but don't write the resource block)
+cat >> import.tf <<'EOF'
+import {
+  to = aws_s3_bucket.data_lake
+  id = "my-company-data-lake-prod"
+}
+EOF
+
+# Generate HCL for the resource block
+terraform plan -generate-config-out=generated.tf
+```
+
+Terraform reads the existing resource from the provider API and synthesizes HCL in `generated.tf`:
+
+```hcl
+# generated.tf — auto-generated, review before committing
+resource "aws_s3_bucket" "data_lake" {
+  bucket        = "my-company-data-lake-prod"
+  force_destroy = false
+  tags = {
+    Environment = "production"
+    Team        = "data-platform"
+  }
+}
+```
+
+**Safety caveats for generated code:**
+- Generated HCL includes every attribute at its current value, including computed attributes (like `arn`, `hosted_zone_id`) that Terraform normally doesn't need in config (it reads them from state). These must be removed or plan will show perpetual diff.
+- Sensitive attributes (passwords, keys) are omitted with `(sensitive)` placeholder — you must add them manually or via variable references.
+- Always `terraform plan` after editing `generated.tf` and verify zero diff before committing.
+- Generated code is a starting point, not production-ready HCL. Review every attribute: remove computed ones, extract magic strings to variables, apply naming conventions.
+
+**Bulk import workflow (importing 50 existing S3 buckets):**
+
+```hcl
+# Use for_each in import block (Terraform 1.7+)
+locals {
+  existing_buckets = {
+    data-lake     = "my-company-data-lake-prod"
+    ml-artifacts  = "my-company-ml-artifacts"
+    audit-logs    = "my-company-audit-logs-2023"
+  }
+}
+
+import {
+  for_each = local.existing_buckets
+  to       = aws_s3_bucket.existing[each.key]
+  id       = each.value
+}
+
+resource "aws_s3_bucket" "existing" {
+  for_each = local.existing_buckets
+  bucket   = each.value
+}
+```
+
+---
+
+**Q: Explain Terraform's `terraform test` framework (1.6+). How does it differ from Terratest? Write a test for a module that creates an S3 bucket with required tags.**
+
+**A:**
+
+Terraform 1.6 introduced a native testing framework using `.tftest.hcl` files. Unlike Terratest (Go-based, external), `terraform test` is built into the CLI, uses HCL syntax, and can test modules without writing Go.
+
+**Module under test: `modules/s3-bucket/main.tf`:**
+
+```hcl
+variable "bucket_name" { type = string }
+variable "environment" { type = string }
+variable "team"        { type = string }
+
+resource "aws_s3_bucket" "this" {
+  bucket = var.bucket_name
+  tags = {
+    Environment = var.environment
+    Team        = var.team
+    ManagedBy   = "terraform"
+  }
+}
+
+resource "aws_s3_bucket_versioning" "this" {
+  bucket = aws_s3_bucket.this.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+output "bucket_id"  { value = aws_s3_bucket.this.id }
+output "bucket_arn" { value = aws_s3_bucket.this.arn }
+```
+
+**Test file: `modules/s3-bucket/s3_bucket.tftest.hcl`:**
+
+```hcl
+# Provider configuration for tests
+provider "aws" {
+  region = "us-east-1"
+  # Tests should use a dedicated test account or localstack
+}
+
+# Test 1: verify bucket creation and tags
+run "creates_bucket_with_required_tags" {
+  variables {
+    bucket_name = "test-bucket-${run.creates_bucket_with_required_tags.timestamp}"
+    environment = "test"
+    team        = "platform"
+  }
+
+  # Assert on plan output (no actual AWS resources created)
+  command = plan   # or "apply" for full integration test
+
+  assert {
+    condition     = aws_s3_bucket.this.tags["Environment"] == "test"
+    error_message = "Environment tag must be set"
+  }
+
+  assert {
+    condition     = aws_s3_bucket.this.tags["Team"] == "platform"
+    error_message = "Team tag must be set"
+  }
+
+  assert {
+    condition     = aws_s3_bucket.this.tags["ManagedBy"] == "terraform"
+    error_message = "ManagedBy tag must be 'terraform'"
+  }
+}
+
+# Test 2: verify versioning is enabled (requires apply to read status)
+run "versioning_enabled" {
+  variables {
+    bucket_name = "test-versioned-bucket-unique-123"
+    environment = "test"
+    team        = "data"
+  }
+
+  command = apply   # creates real resources; Terraform destroys after test
+
+  assert {
+    condition     = aws_s3_bucket_versioning.this.versioning_configuration[0].status == "Enabled"
+    error_message = "Versioning must be Enabled"
+  }
+
+  assert {
+    condition     = output.bucket_arn != ""
+    error_message = "bucket_arn output must be set"
+  }
+}
+
+# Test 3: invalid input validation
+run "rejects_empty_team_tag" {
+  variables {
+    bucket_name = "test-empty-team"
+    environment = "test"
+    team        = ""           # should fail validation
+  }
+
+  command = plan
+
+  expect_failures = [
+    var.team,   # expect this variable validation to fail
+  ]
+}
+```
+
+**Run the tests:**
+
+```bash
+# Run all tests in the module directory
+terraform test
+
+# Run specific test file
+terraform test -filter=s3_bucket.tftest.hcl
+
+# Run with verbose output
+terraform test -verbose
+
+# Run only plan-mode tests (no AWS resources created)
+terraform test -filter=creates_bucket_with_required_tags
+```
+
+**`terraform test` vs Terratest:**
+
+| Factor | `terraform test` | Terratest |
+|--------|------------------|-----------|
+| Language | HCL | Go |
+| Setup overhead | Zero (built into CLI) | Go module + AWS SDK |
+| Real resource testing | Yes (`command = apply`) | Yes |
+| Plan-only assertions | Yes (`command = plan`) | No (requires apply) |
+| Parallelism | Per-file parallel | Configurable with `t.Parallel()` |
+| Custom logic | Limited (HCL expressions) | Full Go: HTTP checks, retries, regex |
+| CI integration | `terraform test` in any CI | `go test -timeout 30m ./...` |
+| **Best for** | Module validation, tag policies | Complex integration tests with external checks |
+
+**Key difference:** `terraform test` with `command = plan` never creates real infrastructure — it validates the generated plan. `command = apply` creates real resources and destroys them after the test block. Use plan-mode for unit tests (fast, free), apply-mode for integration tests (slow, costs money).
+
+**localstack for free integration tests:**
+
+```hcl
+provider "aws" {
+  region                      = "us-east-1"
+  access_key                  = "test"
+  secret_key                  = "test"
+  skip_credentials_validation = true
+  skip_metadata_api_check     = true
+  endpoints {
+    s3 = "http://localhost:4566"
+  }
+}
+```
+
+---
+
+**Q: Explain Terraform's `moved` block. When would you use it at scale? What happens if you rename a resource without one?**
+
+**A:**
+
+The `moved` block records that a resource has been renamed or moved within the configuration, without destroying and recreating the infrastructure. Terraform updates state to reflect the new address, then continues managing the resource normally.
+
+**Without `moved` block — destructive refactor:**
+
+```hcl
+# Before refactor
+resource "aws_instance" "app" { ... }
+
+# After rename (WRONG: Terraform plans destroy + create)
+resource "aws_instance" "application_server" { ... }
+```
+
+```
+Plan: 1 to add, 0 to change, 1 to destroy.
+```
+
+A production EC2 instance is destroyed and a new one created — downtime, data loss risk.
+
+**With `moved` block — non-destructive refactor:**
+
+```hcl
+# main.tf: resource renamed
+resource "aws_instance" "application_server" { ... }
+
+# moved.tf: record the rename
+moved {
+  from = aws_instance.app
+  to   = aws_instance.application_server
+}
+```
+
+```
+Plan: 0 to add, 0 to change, 0 to destroy.
+  # aws_instance.app has moved to aws_instance.application_server
+```
+
+Terraform updates the state file's address from `aws_instance.app` to `aws_instance.application_server`. No API call to AWS; no infrastructure change.
+
+**Moved block for for_each refactors:**
+
+Most impactful use case — converting a single resource to `for_each`:
+
+```hcl
+# Before: three separate resource blocks
+resource "aws_s3_bucket" "logs"     { bucket = "company-logs" }
+resource "aws_s3_bucket" "backups"  { bucket = "company-backups" }
+resource "aws_s3_bucket" "artifacts"{ bucket = "company-artifacts" }
+
+# After: for_each
+resource "aws_s3_bucket" "this" {
+  for_each = toset(["logs", "backups", "artifacts"])
+  bucket   = "company-${each.key}"
+}
+
+# moved.tf
+moved {
+  from = aws_s3_bucket.logs
+  to   = aws_s3_bucket.this["logs"]
+}
+moved {
+  from = aws_s3_bucket.backups
+  to   = aws_s3_bucket.this["backups"]
+}
+moved {
+  from = aws_s3_bucket.artifacts
+  to   = aws_s3_bucket.this["artifacts"]
+}
+```
+
+Without these `moved` blocks, all three buckets would be destroyed and three new ones created.
+
+**Moved block in modules (module refactoring):**
+
+```hcl
+# Before: inline resource
+resource "aws_security_group" "app" { ... }
+
+# After: moved into a module
+module "app_sg" {
+  source = "./modules/security-group"
+  ...
+}
+
+# moved.tf
+moved {
+  from = aws_security_group.app
+  to   = module.app_sg.aws_security_group.this
+}
+```
+
+**Scale considerations:**
+
+At scale (500+ resources per workspace), `moved` blocks accumulate. After all teams have applied:
+1. Old addresses are gone from state — the `moved` block is now a no-op
+2. `moved` blocks can be safely deleted in the next release
+3. **Never delete a `moved` block before all workspaces have applied** — a workspace that hasn't applied yet still has the old address and will plan a destroy without the `moved` block
+
+Document `moved` block lifecycle in your team's Terraform conventions:
+```
+1. PR adds moved block + rename
+2. All workspaces apply (verified via Terraform Cloud run history)
+3. Cleanup PR removes the moved block
+```
+
+---
+
+**Q: What is CDK for Terraform (CDKTF)? When would you choose it over HCL? Walk through a CDKTF stack in TypeScript.**
+
+**A:**
+
+CDKTF (CDK for Terraform) lets you define Terraform infrastructure in general-purpose languages (TypeScript, Python, Go, Java, C#) instead of HCL. It synthesizes HCL-compatible JSON that Terraform executes.
+
+**When to choose CDKTF over HCL:**
+
+| Choose CDKTF | Choose HCL |
+|--------------|------------|
+| Dynamic infrastructure: N identical stacks with programmatic variation | Static infrastructure: predictable, declarative config |
+| Complex conditional logic: if/else, loops, map/filter on infrastructure | Simple `count` / `for_each` is enough |
+| Type safety matters: IDE autocomplete, compile-time errors | Team is already fluent in HCL |
+| Reuse via programming language constructs (classes, inheritance) | Module composition is sufficient |
+| Integration with app code (read build artifacts, app config) | Clear separation of app and infra |
+
+**CDKTF stack in TypeScript:**
+
+```bash
+# Initialize
+cdktf init --template=typescript --providers=aws
+npm install @cdktf/provider-aws
+```
+
+```typescript
+// main.ts
+import { App, TerraformStack, TerraformOutput } from "cdktf";
+import { AwsProvider } from "@cdktf/provider-aws/lib/provider";
+import { S3Bucket } from "@cdktf/provider-aws/lib/s3-bucket";
+import { S3BucketVersioningA } from "@cdktf/provider-aws/lib/s3-bucket-versioning";
+
+interface MicroserviceBucketConfig {
+  serviceName: string;
+  environment: string;
+  region: string;
+}
+
+// Reusable construct: encapsulates a versioned S3 bucket per service
+class MicroserviceBucket extends Construct {
+  public readonly bucket: S3Bucket;
+
+  constructor(scope: Construct, id: string, config: MicroserviceBucketConfig) {
+    super(scope, id);
+
+    this.bucket = new S3Bucket(this, "bucket", {
+      bucket: `${config.serviceName}-${config.environment}-artifacts`,
+      tags: {
+        Service:     config.serviceName,
+        Environment: config.environment,
+        ManagedBy:   "cdktf",
+      },
+    });
+
+    new S3BucketVersioningA(this, "versioning", {
+      bucket: this.bucket.id,
+      versioningConfiguration: { status: "Enabled" },
+    });
+  }
+}
+
+// Stack: creates buckets for all microservices
+class InfraStack extends TerraformStack {
+  constructor(scope: App, id: string, environment: string) {
+    super(scope, id);
+
+    new AwsProvider(this, "aws", { region: "us-east-1" });
+
+    const services = ["auth", "payments", "orders", "notifications"];
+
+    services.forEach((service) => {
+      const svcBucket = new MicroserviceBucket(this, `${service}-bucket`, {
+        serviceName: service,
+        environment,
+        region: "us-east-1",
+      });
+
+      new TerraformOutput(this, `${service}-bucket-arn`, {
+        value: svcBucket.bucket.arn,
+      });
+    });
+  }
+}
+
+// Create stacks per environment
+const app = new App();
+new InfraStack(app, "infra-staging",    "staging");
+new InfraStack(app, "infra-production", "production");
+app.synth();
+```
+
+**Commands:**
+
+```bash
+# Synthesize HCL JSON (review before deploying)
+cdktf synth
+
+# Plan
+cdktf plan infra-production
+
+# Apply
+cdktf deploy infra-production
+
+# Destroy
+cdktf destroy infra-staging
+```
+
+**Output:** `cdktf.out/stacks/infra-production/cdk.tf.json` — valid Terraform JSON that `terraform apply` can consume directly.
+
+**Key tradeoff:** CDKTF adds a synthesis step, a Node.js/language runtime dependency, and debugging complexity (errors occur in both TypeScript and Terraform layers). For straightforward infrastructure, HCL modules are simpler to read, review, and operate. CDKTF pays off when the infrastructure is genuinely data-driven or when developer ergonomics (type safety, IDE support, unit tests in Jest/pytest) outweigh the added complexity.
+

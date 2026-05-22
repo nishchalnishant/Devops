@@ -489,3 +489,415 @@ GitLab Compliance Pipelines are configured at the group level (Compliance Framew
 **Merge Train failure isolation**
 
 When a Merge Train entry fails, GitLab resets the train from that MR forward. If MRs A→B→C→D are queued and C fails, D is retested in isolation, then against [main+D] if D passes alone. This means a broken MR only costs the pipeline runs for MRs behind it in the queue, not a full reset of all queued MRs. Design implication: fast-failing pipelines (abort on first error, `retry: 0`) minimize the blast radius when a merge train entry fails.
+
+---
+
+## Hard (continued) — Pipeline Variants, Executor Internals, Security Scanning & GitOps
+
+**Q: Explain the differences between MR pipelines, merged results pipelines, and merge trains. When would you use each?**
+
+**A:**
+
+GitLab provides three pipeline variants for merge requests, each solving a different correctness problem:
+
+**MR Pipeline (default):**
+Runs on the source branch tip as-is, before any merge. Tests "does this code work in isolation?" Fast feedback, but can pass in isolation and fail after merge if the target branch has diverged.
+
+```yaml
+rules:
+  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+```
+
+**Merged Results Pipeline:**
+GitLab creates a speculative merge commit (source merged into target) and runs the pipeline on that temporary commit. Tests "does this code work when merged?" Catches conflicts and integration failures before the merge button is clicked. Enable in:
+```
+Settings → Merge Requests → Merged Results Pipeline → Enable
+```
+
+**Merge Trains:**
+Queues multiple MRs and tests each combined with all queued MRs ahead of it:
+- If A, B, C are queued: test [main+A], then [main+A+B], then [main+A+B+C]
+- Prevents "A and B each pass merged results but [A+B] breaks main"
+- Cost: O(n) pipeline runs per queue entry at high throughput
+- Enable in: Settings → Merge Requests → Merge method → Merge Trains
+
+**Comparison:**
+
+| Feature | MR Pipeline | Merged Results | Merge Train |
+|---------|------------|----------------|-------------|
+| Tests on | Source branch | Source + target | Source + all queued ahead |
+| Speed | Fastest | Slower | Slowest |
+| Correctness | Code bugs | Merge conflicts + order | Queue ordering bugs |
+| Pipeline cost | O(1) | O(1) | O(n) per entry |
+
+**Senior tuning:** Set `interruptible: true` globally so test jobs cancel when an upstream train entry fails — prevents wasted compute on jobs that will be re-run:
+```yaml
+default:
+  interruptible: true
+```
+
+---
+
+**Q: Compare GitLab Runner executor types (shell, docker, kubernetes). What are the isolation, performance, and security tradeoffs?**
+
+**A:**
+
+**Shell Executor:**
+- Runs script directly on runner host OS
+- No containerization, no isolation
+- State persists between jobs (leftover files, env vars, installed packages)
+- Startup: ~1–2 s (fastest)
+- Security: dangerous — all jobs share the same OS context
+- Use only for fully-trusted, same-team internal CI
+
+```toml
+[[runners]]
+  executor = "shell"
+```
+
+**Docker Executor:**
+- Spins a fresh container per job, destroyed after completion
+- No state persists between jobs
+- Startup: 10–30 s (image pull + container create)
+- Security: strong — OS-level isolation per job
+
+```toml
+[[runners]]
+  executor = "docker"
+  [runners.docker]
+    image = "alpine:latest"
+    privileged = false      # NEVER enable for untrusted code
+    pull_policy = ["if-not-present"]
+```
+
+`privileged: true` grants root-equivalent host access — use only on dedicated runners for Docker-in-Docker builds, never in multi-tenant contexts.
+
+**Kubernetes Executor:**
+- Spawns a pod per job, deleted after completion
+- Startup: 5–20 s (pod scheduling + image pull)
+- Security: pod-level isolation + network policies possible
+- Scalability: integrates with cluster autoscaler (scale to zero when idle)
+
+```toml
+[[runners]]
+  executor = "kubernetes"
+  [runners.kubernetes]
+    namespace = "gitlab-runners"
+    cpu_request = "100m"
+    memory_limit = "512Mi"
+    service_account = "gitlab-runner"
+```
+
+**Decision framework:**
+
+| Scenario | Executor |
+|----------|----------|
+| Trusted internal CI, max speed | Shell |
+| Standard CI with isolation | Docker |
+| Spiky workloads, cost-sensitive | Kubernetes |
+| Untrusted forks, public projects | Docker or Kubernetes |
+| GPU / hardware-dependent builds | Shell (dedicated node) |
+
+---
+
+**Q: How does GitLab's built-in security scanning (SAST, dependency scanning, container scanning, secret detection, DAST) integrate into a pipeline? When does each fire and how do you interpret results?**
+
+**A:**
+
+GitLab provides five complementary scanners operating at different stages:
+
+**1. Secret Detection** (fastest — runs first):
+- Gitleaks scanning for accidentally committed secrets
+- Runs on the diff of changed files; full repo on first scan
+- Should block merge (secrets committed = assume compromised, rotate immediately)
+
+```yaml
+include:
+  - template: Security/Secret-Detection.gitlab-ci.yml
+```
+
+**2. SAST (Static Analysis):**
+- Source code pattern analysis (Semgrep, Bandit, Brakeman, ESLint)
+- Runs on every push, every MR
+- Informational by default; can block on critical findings
+
+```yaml
+include:
+  - template: Security/SAST.gitlab-ci.yml
+variables:
+  SAST_EXCLUDED_PATHS: "spec,test,vendor,node_modules"
+```
+
+**3. Dependency Scanning (SCA):**
+- Scans declared dependencies (npm, pip, Maven) for known CVEs
+- Runs per MR when lockfiles change
+- Response: CVSS ≥ 9 → update immediately; 7–8.9 → update this sprint
+
+```yaml
+include:
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+```
+
+**4. Container Scanning:**
+- Scans the built Docker image for OS package CVEs (Trivy/Grype)
+- Runs after build job produces an image
+- Key: smaller base images (Alpine/distroless) have fewer CVEs by having fewer packages
+
+```yaml
+include:
+  - template: Security/Container-Scanning.gitlab-ci.yml
+variables:
+  CS_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  CS_SEVERITY_THRESHOLD: "HIGH"
+```
+
+**5. DAST (Dynamic Analysis):**
+- Active scanning against a running staging environment
+- Catches runtime flaws (XSS, CSRF, auth bypasses) that SAST misses
+- Slow (minutes to hours); typically `allow_failure: true` (informational)
+
+```yaml
+dast:
+  needs: [deploy-staging]
+  include:
+    - template: Security/DAST.gitlab-ci.yml
+  variables:
+    DAST_WEBSITE: "https://staging.myapp.com"
+  allow_failure: true
+```
+
+**Pipeline ordering:**
+```
+build → [sast, secret-detection, dependency-scan] (parallel) → container-scan → deploy-staging → dast
+```
+
+**Onboarding strategy:** Enable all scanners with `allow_failure: true` for two weeks, triage existing findings, add to baseline, then switch to `allow_failure: false` for new findings only.
+
+All scanner results surface in the MR security widget and the group-level Security Dashboard. GitLab Premium supports MR approval policies that require security team sign-off when critical findings are introduced.
+
+---
+
+**Q: How does GitLab Agent for Kubernetes (agentk) work? How does it differ from push-based deployments and what are the security advantages?**
+
+**A:**
+
+GitLab Agent (agentk) is a pull-based GitOps agent running inside your cluster. It continuously syncs manifests from a GitLab repository without requiring inbound access to the cluster.
+
+**Push-based (traditional):**
+```
+Pipeline runner (external) → kubectl apply → Cluster API
+```
+Problems:
+- Kubeconfig or service account tokens stored in CI variables (secret exposure)
+- Runner needs network access to cluster API (firewall complexity)
+- No continuous reconciliation — manual changes cause drift
+
+**Pull-based (GitLab Agent):**
+```
+Cluster → agentk pod → polls GitLab for manifest changes → applies locally
+```
+
+All traffic is outbound HTTPS from the cluster to GitLab. No inbound firewall rules needed.
+
+**Setup:**
+```bash
+# Install agent helm chart
+helm repo add gitlab https://charts.gitlab.io
+helm install gitlab-agent gitlab/gitlab-agent \
+  --set gitlabAddress=https://gitlab.mycompany.com \
+  --set agentToken=$AGENT_TOKEN \
+  -n gitlab-agent --create-namespace
+```
+
+**Agent config (`.gitlab/agents/my-agent/config.yaml`):**
+```yaml
+gitops:
+  manifest_projects:
+  - id: mygroup/myproject
+    paths:
+    - glob: "k8s/**/*.yaml"
+```
+
+**Security advantages:**
+
+| Aspect | Push (kubectl) | Pull (agentk) |
+|--------|----------------|---------------|
+| Credentials in CI | Kubeconfig/token in variables | None |
+| Network | Cluster needs inbound | Cluster outbound only |
+| Drift detection | None | Automatic (continuous recon) |
+| Audit trail | GitLab logs only | Git history + K8s audit log |
+| RBAC | Usually cluster-admin | Fine-grained per agent |
+
+**When to use:** Security-sensitive environments, clusters behind corporate firewalls, teams adopting GitOps discipline, multi-cluster synchronization from a single manifest repo.
+
+---
+
+**Q: Explain GitLab CI/CD variable precedence. How do variables scope differently across trigger levels, environments, and child pipelines? How do you debug variable visibility issues?**
+
+**A:**
+
+**Full precedence hierarchy (highest wins):**
+
+1. Trigger variables (`trigger: variables:`) — HIGHEST
+2. Job-level `variables:` block
+3. Pipeline-level `variables:` block (top of `.gitlab-ci.yml`)
+4. Project CI/CD variables (Settings → CI/CD → Variables)
+5. Group CI/CD variables
+6. Instance CI/CD variables
+7. Predefined variables (`$CI_COMMIT_SHA`, etc.) — LOWEST
+
+**Additional scoping dimensions:**
+
+- **Protected:** Only injected on protected branches and tags. A secret marked Protected will not appear in feature branch pipelines — common source of "why is my variable missing?" bugs.
+- **Masked:** Value redacted in logs. Requirements: ≥8 chars, no whitespace. If value is invalid for masking, GitLab silently drops the variable.
+- **Environment-scoped:** Only injected when a job declares `environment: name: <scope>`. Server-side filtering — the runner never receives variables from non-matching scopes.
+- **File-type:** Value written to a temp file; variable holds the path.
+
+**Environment scoping — correct pattern:**
+
+```yaml
+# Bad: branch logic in YAML
+deploy:
+  script:
+    - if [ "$CI_COMMIT_BRANCH" = "main" ]; then export DB_URL=$PROD_DB_URL; fi
+
+# Good: environment-scoped variable in project settings
+# DB_URL = postgresql://prod-host/db, scope: production
+deploy:
+  environment:
+    name: production
+  script:
+    - psql $DB_URL   # GitLab injects prod-scoped DB_URL automatically
+```
+
+**Child pipeline variable inheritance:**
+
+Parent variables are NOT automatically inherited by child pipelines. Pass them explicitly:
+
+```yaml
+trigger-child:
+  trigger:
+    include: child.yml
+    strategy: depend
+  variables:
+    IMAGE_TAG: $CI_COMMIT_SHORT_SHA  # Captured at trigger time (parent's value)
+    ENVIRONMENT: production
+```
+
+**Debugging variable visibility:**
+
+```yaml
+debug-vars:
+  stage: .pre
+  environment:
+    name: production   # Match the env scope you're debugging
+  script:
+    - echo "Checking DB_URL"
+    - if [ -z "$DB_URL" ]; then echo "NOT SET — check protected/scope/masked config"; fi
+    - env | grep -i db | sed 's/=.*/=[REDACTED]/'
+```
+
+For masked variables: if the value is invalid for masking (too short, has spaces), GitLab drops it silently. Check value requirements before debugging elsewhere.
+
+---
+
+**Q: Design a monorepo CI/CD setup with path-based triggering for 50 microservices. How do you ensure shared library changes trigger dependent service pipelines?**
+
+**A:**
+
+**Root pipeline as dispatcher:**
+
+```yaml
+# .gitlab-ci.yml (root)
+stages: [generate, trigger]
+
+generate-pipeline:
+  stage: generate
+  image: python:3.12-slim
+  script:
+    - pip install pyyaml -q
+    - python3 scripts/generate_pipeline.py > generated-pipeline.yml
+  artifacts:
+    paths: [generated-pipeline.yml]
+
+trigger-services:
+  stage: trigger
+  trigger:
+    include:
+      - artifact: generated-pipeline.yml
+        job: generate-pipeline
+    strategy: depend
+```
+
+**Generator script (`scripts/generate_pipeline.py`):**
+
+```python
+import subprocess, yaml, sys
+from pathlib import Path
+
+# Each service declares its shared-lib dependencies
+def load_service_deps():
+    deps = {}
+    for svc_dir in Path("services").iterdir():
+        cfg = svc_dir / "ci-config.yaml"
+        if cfg.exists():
+            import yaml as y
+            deps[svc_dir.name] = y.safe_load(cfg.read_text()).get("depends_on", [])
+    return deps
+
+def get_changed_files():
+    result = subprocess.check_output(
+        ["git", "diff", "--name-only", "origin/main...HEAD"], text=True
+    )
+    return set(result.strip().split("\n")) if result.strip() else set()
+
+def get_affected_services(changed, deps):
+    affected = set()
+    for f in changed:
+        parts = f.split("/")
+        if parts[0] == "services" and len(parts) > 1:
+            affected.add(parts[1])
+        elif parts[0] == "shared-libs":
+            lib_path = "/".join(parts[:2])
+            for svc, svc_deps in deps.items():
+                if any(lib_path.startswith(d) for d in svc_deps):
+                    affected.add(svc)
+    return affected
+
+deps = load_service_deps()
+changed = get_changed_files()
+affected = get_affected_services(changed, deps)
+
+pipeline = {"stages": ["trigger"]}
+for svc in sorted(affected):
+    pipeline[f"trigger-{svc}"] = {
+        "stage": "trigger",
+        "trigger": {
+            "include": f"services/{svc}/.gitlab-ci.yml",
+            "strategy": "depend"
+        }
+    }
+
+print(yaml.dump(pipeline))
+```
+
+**Service dependency declaration (`services/payments/ci-config.yaml`):**
+
+```yaml
+depends_on:
+  - shared-libs/payment-sdk
+  - shared-libs/logger
+```
+
+**Shared library change → correct service rebuild:**
+- Change to `shared-libs/payment-sdk/` → payments service rebuilds, auth service does not
+- Change to `shared-libs/logger/` → all services that list it as a dependency rebuild
+- Change to `services/auth/` → only auth service rebuilds
+
+**Efficiency impact:**
+```
+Before (rebuild all): 50 services × 8 min avg = 400 min of pipeline
+After (targeted):     changed service + dependents only → typically 3–5 services × 8 min = 24–40 min
+```
+
+**Additional hardening:** Set `interruptible: true` on all test jobs so a new push on the same branch immediately cancels in-progress runs and starts fresh, preventing stale test results from blocking merges.

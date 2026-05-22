@@ -495,3 +495,549 @@ build-services:
 ```
 
 Advanced: use Nx affected commands (`nx affected:test`) which understand project dependency graphs — if shared library changes, automatically test all downstream services.
+
+---
+
+## Hard (continued) — OIDC Internals, Runner Security & Cost Optimization
+
+**Q: How does OIDC federation between GitHub Actions and AWS work at the JWT level? What prevents a workflow in a different repo from assuming your role?**
+
+**A:**
+
+GitHub Actions OIDC eliminates long-lived AWS credentials stored as secrets. Instead, each workflow job receives a short-lived JWT signed by GitHub's OIDC provider.
+
+**JWT flow:**
+
+```
+1. Job requests OIDC token from GitHub's token endpoint
+   (actions/oidc/token — internal, no explicit step needed)
+
+2. GitHub signs a JWT with claims:
+   {
+     "iss": "https://token.actions.githubusercontent.com",
+     "sub": "repo:myorg/myrepo:ref:refs/heads/main",
+     "aud": "sts.amazonaws.com",
+     "repository": "myorg/myrepo",
+     "repository_owner": "myorg",
+     "job_workflow_ref": "myorg/myrepo/.github/workflows/deploy.yml@refs/heads/main",
+     "environment": "production",
+     "exp": <now + 300s>
+   }
+
+3. Workflow calls sts:AssumeRoleWithWebIdentity, passing the JWT
+
+4. AWS validates JWT signature against GitHub's JWKS endpoint:
+   https://token.actions.githubusercontent.com/.well-known/jwks
+
+5. AWS evaluates the IAM role's trust policy conditions against JWT claims
+
+6. If conditions match → short-lived AWS credentials returned (15 min TTL)
+```
+
+**Trust policy that locks to a specific repo and branch:**
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": {
+      "Federated": "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+    },
+    "Action": "sts:AssumeRoleWithWebIdentity",
+    "Condition": {
+      "StringEquals": {
+        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+        "token.actions.githubusercontent.com:sub": "repo:myorg/myrepo:ref:refs/heads/main"
+      }
+    }
+  }]
+}
+```
+
+**What prevents a different repo from assuming the role:**
+
+The `sub` claim encodes the exact repo and ref. A workflow in `myorg/other-repo` would receive a JWT with `sub: repo:myorg/other-repo:...` — the `StringEquals` condition on `sub` rejects it. Even within the same org, the repo name must match exactly.
+
+**More granular conditions:**
+
+```json
+"Condition": {
+  "StringEquals": {
+    "token.actions.githubusercontent.com:sub":
+      "repo:myorg/myrepo:environment:production"
+  }
+}
+```
+
+This ties the role to the `production` GitHub environment, so only workflows that reference that environment can assume the role — adding GitHub's environment protection rules (required reviewers, deployment branch policies) as a gate.
+
+**Workflow configuration:**
+
+```yaml
+permissions:
+  id-token: write   # REQUIRED to request OIDC token
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::123456789012:role/github-deploy
+        aws-region: us-east-1
+```
+
+**Common mistake:** Using `StringLike` instead of `StringEquals` for `sub` allows wildcard matches, which can be exploited if an attacker controls a branch name matching your pattern.
+
+---
+
+**Q: Explain the difference between composite actions and reusable workflows. When should you use each? Show input/output passing and secrets handling for both.**
+
+**A:**
+
+**Composite Actions (`action.yml`):**
+
+A composite action bundles steps into a reusable unit that runs **within the calling job's runner**. It has no separate runner — it shares the file system, environment variables, and job context of the parent.
+
+```yaml
+# .github/actions/build-docker/action.yml
+name: Build Docker Image
+inputs:
+  image-name:
+    required: true
+  dockerfile:
+    default: Dockerfile
+outputs:
+  image-digest:
+    value: ${{ steps.build.outputs.digest }}
+
+runs:
+  using: composite
+  steps:
+  - name: Build
+    id: build
+    shell: bash
+    run: |
+      docker build -t ${{ inputs.image-name }} -f ${{ inputs.dockerfile }} .
+      echo "digest=$(docker inspect --format='{{.Id}}' ${{ inputs.image-name }})" >> $GITHUB_OUTPUT
+```
+
+Usage — runs inside the calling job's runner:
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./.github/actions/build-docker
+      with:
+        image-name: myapp:latest
+```
+
+**Secrets in composite actions:** Cannot accept `secrets:` as typed inputs. Secrets must be passed as regular `inputs:` (which are still masked in logs if they're secrets from the calling workflow):
+```yaml
+inputs:
+  registry-password:
+    required: true  # caller passes ${{ secrets.REGISTRY_PASSWORD }}
+```
+
+**Reusable Workflows (`.github/workflows/reusable.yml`):**
+
+A reusable workflow runs as a **separate job** with its own runner. It is isolated from the calling workflow's environment.
+
+```yaml
+# .github/workflows/deploy.yml (reusable)
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+    secrets:
+      deploy-token:
+        required: true
+    outputs:
+      deploy-url:
+        value: ${{ jobs.deploy.outputs.url }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+    - name: Deploy
+      id: deploy
+      run: |
+        ./deploy.sh --env ${{ inputs.environment }} --token ${{ secrets.deploy-token }}
+        echo "url=https://${{ inputs.environment }}.example.com" >> $GITHUB_OUTPUT
+```
+
+Caller:
+```yaml
+jobs:
+  call-deploy:
+    uses: myorg/platform/.github/workflows/deploy.yml@main
+    with:
+      environment: production
+    secrets:
+      deploy-token: ${{ secrets.PROD_DEPLOY_TOKEN }}
+      # OR: secrets: inherit (passes all caller secrets to reusable workflow)
+```
+
+**`secrets: inherit` — use carefully:**
+Passes every secret available in the calling workflow to the reusable workflow. Convenient but reduces secret scoping — prefer explicitly named secrets for audit clarity.
+
+**Decision matrix:**
+
+| Factor | Composite Action | Reusable Workflow |
+|--------|-----------------|-------------------|
+| Runs on | Caller's runner | Own separate runner |
+| File system | Shared with caller | Isolated |
+| Secrets typed input | No | Yes |
+| Can call other workflows | No | Yes |
+| Startup overhead | None | Runner provisioning |
+| Max nesting | 10 levels | 4 levels |
+| Best for | Shared steps, utilities | Full deployment pipelines, policy enforcement |
+
+**Rule of thumb:** Use composite actions for step-level reuse (build, test steps). Use reusable workflows for job-level pipelines (full CI flow, deploy pipeline) where you need isolation or secrets typing.
+
+---
+
+**Q: How does the GitHub Actions cache work internally? Design a cache key strategy for a monorepo with Python and Node services. How do you handle cache misses gracefully?**
+
+**A:**
+
+**Cache internals:**
+
+GitHub Actions cache stores key→archive pairs in a per-repo cache backed by Azure Blob Storage. Each cache entry has:
+- A primary key (exact match)
+- A list of restore-keys (prefix fallback)
+- A 7-day TTL (unused entries evicted)
+- Per-repo 10 GB total limit (larger repos get more on paid plans)
+
+**Cache hit/miss mechanics:**
+
+```yaml
+- uses: actions/cache@v4
+  with:
+    path: ~/.npm
+    key: npm-${{ runner.os }}-${{ hashFiles('services/api/package-lock.json') }}
+    restore-keys: |
+      npm-${{ runner.os }}-
+      npm-
+```
+
+1. **Exact key match** → restore cache, skip download
+2. **No exact match** → try restore-keys in order (prefix match, most recent wins)
+3. **No restore-key match** → cache miss, start fresh
+4. **After job:** if primary key had a miss, upload current state as new cache entry
+
+**Key insight:** A restore-key hit restores a stale cache (partial match) but still uploads a new entry at job end with the primary key. The stale cache speeds up package installs even when the lockfile changed.
+
+**Monorepo cache key strategy:**
+
+```yaml
+# services/api/ — Node service
+- uses: actions/cache@v4
+  with:
+    path: services/api/node_modules
+    key: node-${{ runner.os }}-api-${{ hashFiles('services/api/package-lock.json') }}
+    restore-keys: |
+      node-${{ runner.os }}-api-
+
+# services/ml/ — Python service
+- uses: actions/cache@v4
+  with:
+    path: |
+      ~/.cache/pip
+      services/ml/.venv
+    key: python-${{ runner.os }}-ml-${{ hashFiles('services/ml/requirements.txt', 'services/ml/requirements-dev.txt') }}
+    restore-keys: |
+      python-${{ runner.os }}-ml-
+
+# shared tools (e.g., pre-commit, linters) — shared across services
+- uses: actions/cache@v4
+  with:
+    path: ~/.cache/pre-commit
+    key: precommit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+    restore-keys: precommit-${{ runner.os }}-
+```
+
+**Service-specific vs shared caches:** Hash only the lockfile for that service, not the whole repo. This prevents a Python change from busting the Node cache.
+
+**Graceful cache-miss handling:**
+
+A cache miss should not break the build — it only slows it down. Structure installs to work regardless:
+
+```yaml
+- uses: actions/cache@v4
+  id: cache-node
+  with:
+    path: services/api/node_modules
+    key: node-${{ runner.os }}-api-${{ hashFiles('services/api/package-lock.json') }}
+
+- name: Install dependencies
+  if: steps.cache-node.outputs.cache-hit != 'true'  # skip install if cache hit
+  working-directory: services/api
+  run: npm ci
+
+# If cache-hit IS true, node_modules already restored — no install needed
+```
+
+**Cache eviction issues:** 10 GB limit shared across all branches. Feature branches evict oldest entries. Use `save-always: true` only when cache misses are very expensive (e.g., 20-minute pip install). Otherwise, default behavior is sufficient.
+
+**Cross-branch cache:** Cache entries from `main` are accessible to feature branches (read-only). Feature branches cannot write to `main`'s cache namespace. This prevents pollution while allowing warm starts from the base branch.
+
+---
+
+**Q: Explain workflow concurrency controls. How do you prevent concurrent deployments to production while allowing concurrent test runs?**
+
+**A:**
+
+GitHub Actions concurrency groups limit simultaneous workflow runs that share a group name. When a new run enters a group that's already occupied:
+- If `cancel-in-progress: true`: the in-progress run is cancelled
+- If `cancel-in-progress: false`: the new run queues (waits)
+
+**Allow concurrent tests, serialize deploys:**
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # No concurrency group — tests run in parallel across all branches
+    steps:
+    - run: pytest
+
+  deploy-production:
+    needs: test
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production        # Only one deploy at a time
+      cancel-in-progress: false       # Queue rather than cancel (safety)
+    environment: production
+    steps:
+    - run: ./deploy.sh production
+```
+
+**Branch-scoped concurrency (prevent redundant runs per branch):**
+
+```yaml
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true   # New push cancels old run on same branch
+```
+
+This allows concurrent runs on different branches (different `github.ref`) while cancelling stale runs when a developer pushes again rapidly.
+
+**Merge queue / sequential deploys:**
+
+```yaml
+jobs:
+  deploy-staging:
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: true  # Latest wins — staging is not critical
+
+  deploy-production:
+    needs: deploy-staging
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false  # Queue — never interrupt a production deploy
+```
+
+**Concurrency with environments:**
+
+When a job declares `environment: production` and a concurrency group, both mechanisms apply:
+1. Environment protection rules (required reviewers) gate entry
+2. Concurrency group serializes execution after approval
+
+**Anti-pattern:** Using `cancel-in-progress: true` for production deploys. If a deploy is half-way through when cancelled, you may leave infrastructure in a partially-updated state. Always use `cancel-in-progress: false` for production and let deploys queue.
+
+---
+
+**Q: How do you harden self-hosted runners? What are the security risks and mitigations for ephemeral vs persistent runners?**
+
+**A:**
+
+Self-hosted runners execute arbitrary workflow code with access to the runner's file system, network, and any credentials available to the runner process. Compared to GitHub-hosted runners (fresh VM per job, no persistent state), self-hosted runners introduce significant attack surface.
+
+**Persistent runner risks:**
+
+1. **Poison pipeline execution (PPE):** A PR from a fork modifies a workflow and runs malicious code on the runner.
+2. **Secret leakage via `/tmp` or environment:** A previous job writes secrets to disk; the next job reads them.
+3. **Dependency confusion:** A malicious package installs a backdoor that persists in `node_modules` between jobs.
+4. **Lateral movement:** The runner has IAM permissions or kubeconfig access; a compromised job pivots to cloud resources.
+
+**Mitigation: Ephemeral runners (strongly recommended):**
+
+Each job gets a fresh runner VM/container that is destroyed after the job completes.
+
+```yaml
+# ARC (Actions Runner Controller) ephemeral config
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+spec:
+  template:
+    spec:
+      ephemeral: true        # Runner deregisters and pod deleted after each job
+      image: summerwind/actions-runner:latest
+```
+
+With ephemeral runners:
+- No state persists between jobs
+- Compromised runner is discarded after one use
+- Cost: pod startup time per job (mitigated with pre-pulled images)
+
+**Runner group isolation:**
+
+```yaml
+# Restrict which repos can use which runner group
+# Organization Settings → Actions → Runner Groups
+# Group: production-runners → Only: myorg/deploy-service
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, production]  # Routes to production-runners group only
+```
+
+**Network isolation:**
+
+Self-hosted runners should have:
+- **Egress:** GitHub API, package registries (npm, pypi, docker.io)
+- **No ingress:** Runners connect outbound to GitHub — no ports open
+- **No direct Internet egress for build artifacts** — route through an internal proxy
+
+**Minimum IAM/RBAC:**
+
+Give the runner only the permissions it needs for its job. A test runner needs no cloud permissions. A deploy runner needs exactly the IAM role for that deployment target and nothing more. Use OIDC to avoid storing static credentials on the runner at all.
+
+**Fork PR protection:**
+
+```yaml
+on:
+  pull_request:
+    # By default, fork PRs cannot access secrets and use GITHUB_TOKEN with read-only permissions
+    # For self-hosted runners, restrict further:
+
+jobs:
+  test:
+    # Only run on self-hosted for trusted contributors, not forks
+    runs-on: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'self-hosted' || 'ubuntu-latest' }}
+```
+
+This routes fork PRs to GitHub-hosted runners (no access to internal network) and contributor PRs to self-hosted runners.
+
+---
+
+**Q: Explain GitHub Actions environment protection rules. How do you implement a multi-stage promotion pipeline (dev → staging → production) with appropriate gates at each stage?**
+
+**A:**
+
+GitHub Environments are named deployment targets that can have protection rules applied. Rules are evaluated before a job that references the environment can start.
+
+**Available protection rules:**
+
+| Rule | Effect |
+|------|--------|
+| Required reviewers | Named users/teams must approve before job proceeds |
+| Wait timer | Delay N minutes after trigger before job starts |
+| Deployment branch policy | Only protected branches / specific branch patterns can deploy |
+| Custom deployment protection rules | Call an external webhook (Jira, ServiceNow, etc.) |
+
+**Multi-stage promotion pipeline:**
+
+```yaml
+# .github/workflows/deploy.yml
+name: Promote
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+      url: https://dev.example.com
+    steps:
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::111111111111:role/dev-deploy
+        aws-region: us-east-1
+    - run: ./deploy.sh dev
+
+  deploy-staging:
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.example.com
+    # Staging environment: wait 5 minutes after dev deploy
+    # (Configured in GitHub Settings → Environments → staging → Wait timer: 5)
+    steps:
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::222222222222:role/staging-deploy
+        aws-region: us-east-1
+    - run: ./deploy.sh staging
+
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://example.com
+    # Production environment: required reviewers (on-call engineer)
+    # (Configured in GitHub Settings → Environments → production → Required reviewers)
+    steps:
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::333333333333:role/prod-deploy
+        aws-region: us-east-1
+    - run: ./deploy.sh production
+```
+
+**Environment configuration (in GitHub UI / via API):**
+
+```
+dev:
+  - No protection rules (auto-deploys)
+  - Deployment branch: main only
+
+staging:
+  - Wait timer: 5 minutes
+  - Deployment branch: main only
+
+production:
+  - Required reviewers: @myorg/oncall-engineers (1 approval)
+  - Wait timer: 0
+  - Deployment branch: main only
+  - Prevent self-review: true
+```
+
+**OIDC trust per environment:**
+
+Each environment maps to a separate IAM role with a trust policy scoped to that environment:
+
+```json
+"Condition": {
+  "StringEquals": {
+    "token.actions.githubusercontent.com:sub":
+      "repo:myorg/myrepo:environment:production"
+  }
+}
+```
+
+A deploy-dev job cannot assume the production role even if it tries — the JWT `sub` claim only matches `environment:dev`.
+
+**Deployment status tracking:**
+
+GitHub records a deployment event and deployment status for each environment job. This feeds:
+- GitHub Deployments API (queryable for audit)
+- DORA metrics tools (lead time, deployment frequency) via the Deployments API
+- `environment.url` shown in PR comments for review apps

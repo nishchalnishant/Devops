@@ -2391,3 +2391,500 @@ AppTraces
 **Managed Identity vs Service Principals:** Managed Identities are the default choice for any Azure resource accessing other Azure services — zero credential management, auto-rotation. Use Service Principals only for external systems (on-prem, third-party) that cannot use Managed Identity. Workload Identity Federation is the bridge for Kubernetes pods and CI/CD pipelines.
 
 **Azure Policy vs AWS Organizations SCPs:** Azure Policy enforces guardrails at the ARM layer with effects including Deny, Audit, and DeployIfNotExists (auto-remediation). AWS SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions and act before IAM evaluation. Both use top-down policy inheritance through a hierarchy (Management Group in Azure; Root/OU/Account in AWS).
+
+---
+
+## Hard (continued) — AKS Identity, Policy Remediation, Private Link, Upgrades & Multi-Region HA
+
+**Q: Explain AKS Workload Identity in depth. Walk through the full token exchange flow from pod to Azure resource. How does it differ from AAD Pod Identity v1?**
+
+**A:**
+
+AKS Workload Identity (GA in 2023) enables pods to authenticate to Azure services using Kubernetes ServiceAccount tokens, eliminating static client secrets or IMDS-based identity.
+
+**Full token exchange flow:**
+
+```
+1. Pod starts: kubelet injects projected ServiceAccount token at
+   /var/run/secrets/azure/tokens/azure-identity-token
+2. App calls: credential = WorkloadIdentityCredential()
+3. Azure SDK reads the token file
+4. SDK POST to https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token:
+   {
+     grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+     client_id: "{federated_app_client_id}",
+     client_assertion: "{kubernetes_sa_token}",
+     client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+     scope: "https://vault.azure.net/.default"
+   }
+5. Entra ID validates:
+   a. issuer == AKS OIDC issuer URL (registered as Federated Credential)
+   b. audience == "api://AzureADTokenExchange"
+   c. subject == "system:serviceaccount:{namespace}:{sa-name}"
+6. Entra ID returns Azure access token (1-hour lifetime)
+7. Pod uses access token to call Key Vault / Storage / etc.
+```
+
+**Complete setup:**
+
+```bash
+# Enable OIDC issuer + Workload Identity on AKS
+az aks update \
+  --name my-aks-cluster --resource-group my-rg \
+  --enable-oidc-issuer --enable-workload-identity
+
+OIDC_ISSUER=$(az aks show --name my-aks-cluster --resource-group my-rg \
+  --query "oidcIssuerProfile.issuerUrl" -o tsv)
+
+# Create Managed Identity
+az identity create --name payments-workload-identity --resource-group my-rg --location eastus
+CLIENT_ID=$(az identity show --name payments-workload-identity --resource-group my-rg \
+  --query clientId -o tsv)
+
+# Grant it access to Key Vault
+az role assignment create --assignee $CLIENT_ID --role "Key Vault Secrets User" \
+  --scope "/subscriptions/{sub}/resourceGroups/my-rg/providers/Microsoft.KeyVault/vaults/my-kv"
+
+# Create Federated Identity Credential
+az identity federated-credential create \
+  --name payments-aks-federation \
+  --identity-name payments-workload-identity \
+  --resource-group my-rg \
+  --issuer $OIDC_ISSUER \
+  --subject "system:serviceaccount:payments:payments-sa" \
+  --audiences '["api://AzureADTokenExchange"]'
+```
+
+```yaml
+# Kubernetes ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payments-sa
+  namespace: payments
+  annotations:
+    azure.workload.identity/client-id: "<CLIENT_ID>"
+    azure.workload.identity/tenant-id: "<TENANT_ID>"
+```
+
+```yaml
+# Pod: label triggers mutating webhook to inject token + env vars
+spec:
+  template:
+    metadata:
+      labels:
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: payments-sa
+```
+
+```python
+# App code
+from azure.identity import WorkloadIdentityCredential
+from azure.keyvault.secrets import SecretClient
+
+credential = WorkloadIdentityCredential()
+client = SecretClient(vault_url="https://my-kv.vault.azure.net", credential=credential)
+secret = client.get_secret("db-password")
+```
+
+**Comparison with AAD Pod Identity v1:**
+
+| Aspect | AAD Pod Identity v1 | Workload Identity |
+|--------|---------------------|-------------------|
+| Mechanism | NMI DaemonSet intercepts IMDS calls | OIDC federation, no interception |
+| Added latency | ~20ms (IMDS proxy) | None |
+| Attack surface | NMI runs with elevated privileges | No privileged DaemonSet |
+| Windows/ARM64 | No | Yes |
+| Maintenance | Deprecated | GA, actively maintained |
+
+---
+
+**Q: Explain Azure Policy's `DeployIfNotExists` effect. How does remediation work? Write a policy that automatically deploys a Log Analytics extension to new Windows VMs.**
+
+**A:**
+
+`DeployIfNotExists` (DINE) allows resource creation, evaluates an existence condition, and if non-compliant, triggers an ARM deployment of a related resource. Unlike `Deny` (blocks) or `Audit` (flags), DINE auto-remediates.
+
+**DINE policy definition (deploy MMA extension):**
+
+```json
+{
+  "policyRule": {
+    "if": {
+      "allOf": [
+        { "field": "type", "equals": "Microsoft.Compute/virtualMachines" },
+        { "field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.osType",
+          "equals": "Windows" }
+      ]
+    },
+    "then": {
+      "effect": "DeployIfNotExists",
+      "details": {
+        "type": "Microsoft.Compute/virtualMachines/extensions",
+        "name": "MicrosoftMonitoringAgent",
+        "existenceCondition": {
+          "allOf": [
+            { "field": "Microsoft.Compute/virtualMachines/extensions/type",
+              "equals": "MicrosoftMonitoringAgent" },
+            { "field": "Microsoft.Compute/virtualMachines/extensions/provisioningState",
+              "equals": "Succeeded" }
+          ]
+        },
+        "roleDefinitionIds": [
+          "/providers/Microsoft.Authorization/roleDefinitions/9980e02c-c2be-4d73-94e8-173b1dc7cf3c"
+        ],
+        "deployment": {
+          "properties": {
+            "mode": "incremental",
+            "template": {
+              "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+              "contentVersion": "1.0.0.0",
+              "parameters": {
+                "vmName": { "type": "string" },
+                "location": { "type": "string" },
+                "workspaceId": { "type": "string" }
+              },
+              "resources": [{
+                "type": "Microsoft.Compute/virtualMachines/extensions",
+                "apiVersion": "2021-03-01",
+                "name": "[concat(parameters('vmName'), '/MicrosoftMonitoringAgent')]",
+                "location": "[parameters('location')]",
+                "properties": {
+                  "publisher": "Microsoft.EnterpriseCloud.Monitoring",
+                  "type": "MicrosoftMonitoringAgent",
+                  "typeHandlerVersion": "1.0",
+                  "autoUpgradeMinorVersion": true,
+                  "settings": {
+                    "workspaceId": "[reference(parameters('workspaceId'), '2015-03-20').customerId]"
+                  },
+                  "protectedSettings": {
+                    "workspaceKey": "[listKeys(parameters('workspaceId'), '2015-03-20').primarySharedKey]"
+                  }
+                }
+              }]
+            },
+            "parameters": {
+              "vmName":      { "value": "[field('name')]" },
+              "location":    { "value": "[field('location')]" },
+              "workspaceId": { "value": "[parameters('logAnalyticsWorkspaceId')]" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Remediation flow:**
+
+```
+1. VM created → ARM event → policy evaluates within ~30 min
+2. existenceCondition false (MMA not installed) → non-compliant
+3. Remediation task queued
+4. Task uses assignment's Managed Identity (needs roleDefinitionIds role)
+5. ARM deploys extension template to VM
+6. Re-evaluation → extension Succeeded → Compliant
+```
+
+**Assign + trigger remediation for existing VMs:**
+
+```bash
+az policy assignment create \
+  --name "deploy-mma-windows-vms" --policy "{def-id}" \
+  --scope "/subscriptions/{sub}" --location eastus \
+  --mi-system-assigned --identity-scope "/subscriptions/{sub}" \
+  --role "Virtual Machine Contributor" \
+  --params '{"logAnalyticsWorkspaceId":{"value":"/subscriptions/{sub}/resourceGroups/my-rg/providers/Microsoft.OperationalInsights/workspaces/my-law"}}'
+
+# Remediate existing non-compliant VMs (DINE only auto-triggers on new/updated resources)
+az policy remediation create \
+  --name "remediate-mma-existing" \
+  --policy-assignment "deploy-mma-windows-vms" \
+  --resource-discovery-mode ReEvaluateCompliance \
+  --resource-group my-rg
+```
+
+---
+
+**Q: Explain the difference between Azure Private Link and Service Endpoints. Walk through the network path for each.**
+
+**A:**
+
+**Service Endpoints — network path:**
+
+```
+VM (10.0.1.10)
+→ VNet route table: add optimized route for Microsoft.Storage service tag
+→ Traffic exits VNet via Azure backbone
+→ Azure Storage public endpoint (storage.blob.core.windows.net = public IP)
+→ Azure validates: source is VNet subnet with endpoint enabled → allow
+```
+
+The PaaS resource still has a public endpoint — only restricted to specific VNets.
+
+**Private Link / Private Endpoint — network path:**
+
+```
+VM (10.0.1.10) → DNS: myaccount.blob.core.windows.net
+→ Private DNS Zone (privatelink.blob.core.windows.net) → 10.0.2.5 (private IP)
+→ Traffic: 10.0.1.10 → 10.0.2.5 (stays in VNet, never leaves)
+→ Private Endpoint NIC → Private Link service → Azure Storage
+```
+
+The PaaS resource's public endpoint can be fully disabled.
+
+**Comparison:**
+
+| Aspect | Service Endpoint | Private Link |
+|--------|-----------------|--------------|
+| Traffic path | Azure backbone (exits VNet) | Never leaves VNet |
+| Public endpoint | Still exists (restricted) | Can be fully disabled |
+| DNS | Resolves to public IP | Private DNS Zone → private IP |
+| Peered VNet access | Does NOT extend | Yes (NIC is in VNet) |
+| On-premises (ER/VPN) | Not supported | Yes (with Private DNS forwarding) |
+| Cost | Free | ~$7/month + data transfer |
+| Setup | Low (subnet setting) | Higher (NIC + DNS Zone + link) |
+| **Best for** | Simple restriction, low cost | Compliance, on-prem, hub-and-spoke |
+
+**Private DNS setup for Storage Blob:**
+
+```bash
+az network private-endpoint create \
+  --name pe-storage-myaccount --resource-group my-rg \
+  --vnet-name my-vnet --subnet private-endpoints-subnet \
+  --private-connection-resource-id "/subscriptions/{sub}/resourceGroups/my-rg/providers/Microsoft.Storage/storageAccounts/myaccount" \
+  --group-id blob --connection-name myaccount-blob-connection
+
+az network private-dns zone create --resource-group my-rg \
+  --name "privatelink.blob.core.windows.net"
+
+az network private-dns link vnet create --resource-group my-rg \
+  --zone-name "privatelink.blob.core.windows.net" \
+  --name dns-link-my-vnet --virtual-network my-vnet --registration-enabled false
+
+az network private-endpoint dns-zone-group create \
+  --resource-group my-rg --endpoint-name pe-storage-myaccount \
+  --name dns-zone-group \
+  --private-dns-zone "privatelink.blob.core.windows.net" \
+  --zone-name "privatelink.blob.core.windows.net"
+```
+
+After setup: `nslookup myaccount.blob.core.windows.net` from the VNet resolves to `10.0.2.5`, not the public IP.
+
+---
+
+**Q: Design an AKS upgrade strategy. Compare surge upgrade vs blue-green node pool. How do you handle PodDisruptionBudgets and stateful workloads?**
+
+**A:**
+
+**Option 1: In-place surge upgrade:**
+
+```bash
+# Upgrade control plane first (required — nodes cannot be ahead of control plane)
+az aks upgrade --name my-aks-cluster --resource-group my-rg \
+  --kubernetes-version 1.29.3 --control-plane-only
+
+# Upgrade node pool with surge
+az aks nodepool upgrade \
+  --cluster-name my-aks-cluster --resource-group my-rg --name apppool \
+  --kubernetes-version 1.29.3 --max-surge 33% --node-soak-duration 5
+```
+
+Surge process: provision 33% extra 1.29 nodes → cordon + drain old nodes (PDB-aware) → migrate pods → delete old nodes.
+
+**Option 2: Blue-green node pool:**
+
+```bash
+# Create green pool with taint to hold workloads back
+az aks nodepool add --cluster-name my-aks-cluster --resource-group my-rg \
+  --name apppool129 --kubernetes-version 1.29.3 --node-count 5 \
+  --node-taints "version=1.29:NoSchedule"
+
+# Validate green pool, then open it to workloads
+az aks nodepool update --cluster-name my-aks-cluster --resource-group my-rg \
+  --name apppool129 --node-taints ""
+
+# Drain and delete old pool
+kubectl cordon -l agentpool=apppool128
+kubectl drain -l agentpool=apppool128 --ignore-daemonsets --delete-emptydir-data --grace-period=60
+az aks nodepool delete --cluster-name my-aks-cluster --resource-group my-rg --name apppool128
+```
+
+**Comparison:**
+
+| Factor | Surge | Blue-Green |
+|--------|-------|------------|
+| Rollback | Difficult | Easy (re-taint green, restore old) |
+| Cost during upgrade | ~33% extra | ~100% extra |
+| Validation before migration | No | Yes |
+| Best for | Routine patches | Major version upgrades |
+
+**PodDisruptionBudgets:**
+
+```yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payments-pdb
+  namespace: payments
+spec:
+  selector:
+    matchLabels:
+      app: payments-api
+  minAvailable: 2   # drain waits if draining would violate this
+```
+
+**Common mistake:** `minAvailable: 100%` on a 1-replica Deployment blocks drain forever — the pod cannot be moved without violating the PDB. Fix: `maxUnavailable: 1`.
+
+**Stateful workloads:**
+
+```bash
+kubectl get pvc -A | grep -v Bound   # verify all PVCs bound before draining
+
+# For StatefulSets with ReadWriteOnce PVCs: drain followers first, primary last
+kubectl drain <follower-node> --ignore-daemonsets --delete-emptydir-data
+# Wait for follower to reschedule and rejoin cluster
+kubectl drain <primary-node> --ignore-daemonsets --delete-emptydir-data
+```
+
+**Pre-upgrade checklist:**
+
+```bash
+kubectl get nodes && kubectl get pods -A | grep -v Running | grep -v Completed
+kubectl describe pdb -A | grep "Disruptions Allowed: 0"   # will block drain
+```
+
+---
+
+**Q: Write production-grade Azure Monitor KQL queries for SRE use cases.**
+
+**A:**
+
+**1. HTTP error rate by service (5xx %, 5-minute buckets):**
+
+```kql
+requests
+| where timestamp > ago(1h)
+| where cloud_RoleName != ""
+| summarize
+    total  = count(),
+    errors = countif(resultCode startswith "5")
+    by bin(timestamp, 5m), cloud_RoleName
+| extend errorRate = round(todouble(errors) / todouble(total) * 100, 2)
+| where total > 10
+| project timestamp, Service = cloud_RoleName, total, errors, errorRate
+| order by errorRate desc
+```
+
+**2. P50/P95/P99 latency trend:**
+
+```kql
+requests
+| where timestamp > ago(6h)
+| where success == true
+| summarize pct = percentiles(duration, 50, 95, 99)
+    by bin(timestamp, 5m), cloud_RoleName
+| project timestamp, Service = cloud_RoleName,
+    p50_ms = pct[0], p95_ms = pct[1], p99_ms = pct[2]
+| where p99_ms > 500
+| order by p99_ms desc
+```
+
+**3. AKS pod OOM kill detection:**
+
+```kql
+KubeEvents
+| where TimeGenerated > ago(24h)
+| where Reason == "OOMKilling"
+| project TimeGenerated, Namespace, PodName = Name, Message
+| order by TimeGenerated desc
+```
+
+**4. OOM kills joined with memory limits:**
+
+```kql
+let oomEvents = KubeEvents
+| where TimeGenerated > ago(24h)
+| where Reason == "OOMKilling"
+| extend PodName = Name, NS = Namespace;
+
+let memLimits = KubePodInventory
+| where TimeGenerated > ago(1h)
+| where isnotempty(ContainerID)
+| summarize MemoryLimitMB = max(todouble(ContainerResourceLimitsMemoryMb))
+    by PodName, ContainerName, Namespace;
+
+oomEvents
+| join kind=leftouter memLimits on $left.PodName == $right.PodName
+| project TimeGenerated, Namespace = NS, PodName, ContainerName, MemoryLimitMB, Message
+| order by TimeGenerated desc
+```
+
+**KQL idioms:** `bin(timestamp, 5m)` for time buckets; `percentiles(col, 50, 95, 99)` returns array indexed at `[0]`,`[1]`,`[2]`; always scope with `ago(1h)`.
+
+---
+
+**Q: Design a multi-region HA architecture on Azure. When do you use Traffic Manager vs Azure Front Door? What are the data layer challenges?**
+
+**A:**
+
+**Traffic Manager vs Azure Front Door:**
+
+| Feature | Traffic Manager | Azure Front Door |
+|---------|----------------|------------------|
+| Layer | DNS (L4) | HTTP/HTTPS (L7) |
+| Failover speed | DNS TTL (60–300s) | Sub-minute (anycast + health probe) |
+| SSL termination | At origin | At Microsoft edge POP |
+| WAF | Not included | Built-in |
+| Path-based routing | No | Yes |
+| Private origins | No | Yes (Private Link) |
+| Cost | Low | Higher |
+| **Best for** | Non-HTTP workloads | HTTP APIs, web apps |
+
+**Active-active multi-region architecture:**
+
+```
+Azure Front Door (global WAF + health probes)
+    ├── East US 2: AKS cluster (priority 1, weight 1000)
+    └── West Europe: AKS cluster (priority 1, weight 1000)
+
+Data layer:
+  Azure SQL Failover Group  → Primary: East US 2, Secondary: West Europe
+                               async replication, auto-failover (RPO ~5s)
+  Cosmos DB multi-master    → Both regions write, RPO = 0
+  Redis geo-replication     → Premium tier, read from local replica
+```
+
+**SQL auto-failover group:**
+
+```bash
+az sql failover-group create \
+  --name myapp-failover-group \
+  --server myapp-sql-eastus2 --resource-group my-rg \
+  --partner-server myapp-sql-westeu \
+  --failover-policy Automatic --grace-period 1
+# Use endpoint: myapp-failover-group.database.windows.net (resolves to current primary)
+```
+
+**Cosmos DB multi-master:**
+
+```bash
+az cosmosdb update --name myapp-cosmos --resource-group my-rg \
+  --locations regionName=eastus2 failoverPriority=0 isZoneRedundant=true \
+              regionName=westeurope failoverPriority=1 isZoneRedundant=true \
+  --enable-multiple-write-locations true
+```
+
+**RTO/RPO targets:**
+
+| Component | Strategy | RTO | RPO |
+|-----------|----------|-----|-----|
+| AKS compute | Active-active via AFD | <1 min | 0 |
+| Azure SQL | Auto-failover group | ~1 min | ~5 sec |
+| Cosmos DB | Multi-master | ~0 | 0 |
+| Redis Cache | Geo-replication | ~1 min | <1 sec |
+| Azure Storage | GRS/GZRS | Microsoft-managed | ~15 min |
+
+**Key point:** The data layer — not compute — determines real RTO/RPO. Cosmos DB multi-master gives RPO=0 but requires conflict resolution. Azure SQL geo-replication is simpler but accepts ~5s data loss. Choose the consistency model based on business tolerance for data loss, not just recovery time.

@@ -3493,3 +3493,521 @@ This is a distributed systems problem: you must avoid data loss AND avoid downti
 - **Karpenter consolidation and the spot instance risk:** Karpenter's consolidation feature can terminate a node that becomes underutilized — even if it was provisioned on-demand. For spot instances, consolidation + spot interruption can create a cascade: spot interruption drains pods to a new node, which then triggers further consolidation. Set `disruption.consolidationPolicy: WhenEmpty` (not `WhenUnderutilized`) for critical workloads, and use `karpenter.sh/do-not-disrupt` annotation for pods that should never be consolidated away.
 - **Gang scheduling and the deadlock risk:** Naive gang scheduling can deadlock: if cluster resources are partially allocated and two jobs each need 8 GPUs but only 7 are available, both jobs wait forever. Volcano solves this with a queue-based preemption system and a DRF (Dominant Resource Fairness) algorithm. The fundamental insight: gang scheduling requires a global view of pending demand, not a greedy per-pod placement.
 - **Zero-downtime DB migration — the schema versioning constraint:** The application cutover window is only safe if the new schema is backward-compatible with the old app version. If you're running a blue-green app deployment alongside the migration, both app versions must read from the same database at the same time during the traffic switch. This forces an "expand/contract" schema migration pattern: add columns (never remove), deploy app that reads both old and new columns, then remove old columns in a subsequent migration after rollout is complete.
+
+---
+
+## Hard (continued) — Autoscaling, Admission Control, CRDs & Multi-Tenancy
+
+**Q: Compare Karpenter and Cluster Autoscaler. When would you choose each? Cover consolidation, provisioning time, and bin-packing.**
+
+**A:**
+
+Cluster Autoscaler (CA) runs a 10-second reconcile loop on the control plane: it identifies pending pods, simulates schedulability against existing and hypothetical nodes, then calls the cloud provider API to add nodes. Scale-down marks nodes unneeded when CPU+memory falls below a threshold and drains them. CA is cloud-agnostic via a provider abstraction layer.
+
+Karpenter is an event-driven CRD-based operator. When a pod becomes Unschedulable, Karpenter immediately batches pending pods and calls the cloud fleet API (e.g., EC2 Fleet) to provision in one API call — 30–60 s vs CA's 2–5 min.
+
+**Consolidation:**
+
+CA's scale-down is node-centric: identify underutilized nodes, drain, terminate. If any pod has no schedulable alternative (anti-affinity, local storage), the whole node is blocked from scale-down.
+
+Karpenter uses pod-centric consolidation: simulate moving all pods off an underutilized node; if the simulation succeeds, evict and terminate. It also supports `ttlSecondsUntilExpired` (force-recycle nodes on a schedule), which amortizes instance type drift — when a cheaper instance type appears, Karpenter replaces old nodes proactively.
+
+**Bin-packing:**
+
+CA prefers nodes with the most available capacity (spread first, bin-pack second). Karpenter uses a cost-aware consolidation policy: it may choose one larger instance over two medium ones when that's cheaper (fewer hypervisor overheads).
+
+**Decision framework:**
+
+| Scenario | Choose |
+|----------|--------|
+| Batch / data workloads (5 min latency OK) | Cluster Autoscaler |
+| Real-time serving requiring <2 min provision | Karpenter |
+| Spot-heavy workloads needing price-chasing | Karpenter |
+| Managed K8s (GKE Autopilot, EKS pre-configured) | Cluster Autoscaler |
+| Strict compliance (minimal API calls/audit logs) | Cluster Autoscaler |
+
+**Karpenter pitfall:** consolidation + spot interruption can cascade. Set `disruption.consolidationPolicy: WhenEmpty` (not `WhenUnderutilized`) for critical workloads, and annotate stateful pods with `karpenter.sh/do-not-disrupt: "true"`.
+
+---
+
+**Q: Walk through the Kubernetes admission control pipeline. How do ValidatingWebhookConfiguration and MutatingWebhookConfiguration work? What happens if a webhook is unavailable?**
+
+**A:**
+
+Every API Server request passes through a series of admission controllers before the object is persisted to etcd. The order is:
+
+```
+kubectl apply
+  → Authentication (who are you?)
+  → Authorization (RBAC: can you do this?)
+  → Mutating Admission (modify the object)
+  → Schema Validation
+  → Validating Admission (accept or reject)
+  → etcd persist
+```
+
+**Mutating Webhooks (MutatingWebhookConfiguration):**
+
+Mutating webhooks can modify the incoming object (add labels, inject sidecars, set default values). Common examples:
+- Istio's sidecar injector: intercepts Pod create, adds `istio-proxy` container to the spec
+- OPA Gatekeeper's mutation: adds security context defaults
+
+```yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: sidecar-injector
+webhooks:
+- name: inject.istio.io
+  rules:
+  - apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+    operations: ["CREATE"]
+  clientConfig:
+    service:
+      name: istiod
+      namespace: istio-system
+      path: /inject
+    caBundle: <base64-ca-cert>
+  admissionReviewVersions: ["v1"]
+  sideEffects: None
+  failurePolicy: Fail     # Reject if webhook unreachable
+  namespaceSelector:
+    matchLabels:
+      istio-injection: enabled
+```
+
+**Validating Webhooks (ValidatingWebhookConfiguration):**
+
+Validating webhooks can only accept or reject; they cannot modify. Common examples:
+- OPA Gatekeeper: enforce policy (no images without digest, no privileged containers)
+- cert-manager webhook: validate Certificate and Issuer resources
+
+**Webhook unavailability — `failurePolicy`:**
+
+The `failurePolicy` field controls behavior when the webhook server is unreachable or times out:
+- `Fail` (default): The API request is rejected. Mutations/validations are enforced. If the webhook pod crashes, no Pods can be created in the targeted namespaces — **cluster-wide outage risk**.
+- `Ignore`: The API request proceeds as if the webhook approved it. Policies are not enforced during downtime.
+
+**Production best practice:**
+
+```yaml
+# For security-critical webhooks (OPA Gatekeeper):
+failurePolicy: Fail      # Enforce even at cost of availability
+timeoutSeconds: 10       # Fast timeout; keep webhook pods fast
+
+# For non-critical mutating webhooks:
+failurePolicy: Ignore    # Availability over policy during outage
+
+# Always exempt the webhook namespace itself:
+namespaceSelector:
+  matchExpressions:
+  - key: kubernetes.io/metadata.name
+    operator: NotIn
+    values: ["gatekeeper-system", "kube-system"]
+```
+
+Exempting `kube-system` from the webhook prevents a cascading failure: if the webhook pod crashes, Kubernetes cannot restart it without first being able to create pods in `kube-system`.
+
+**Webhook debugging:**
+
+```bash
+# See all webhook configs
+kubectl get mutatingwebhookconfigurations,validatingwebhookconfigurations
+
+# Check if a webhook is the cause of a failed create
+kubectl create deployment test --image=nginx --dry-run=server -v=8 2>&1 | grep webhook
+
+# Check webhook pod logs (e.g., Gatekeeper)
+kubectl logs -n gatekeeper-system -l control-plane=controller-manager --tail=50
+```
+
+---
+
+**Q: Explain the Kubernetes Operator pattern. What is the reconciliation loop? When should you build a custom Operator vs use Helm? Describe a real operator implementation using controller-runtime.**
+
+**A:**
+
+An Operator is a Kubernetes controller that encodes domain-specific operational knowledge as code. It extends the Kubernetes API with Custom Resource Definitions (CRDs) and implements a **reconciliation loop** that continuously drives actual cluster state toward desired state declared in a CR.
+
+**Reconciliation Loop:**
+
+```
+User creates/updates CustomResource (CR)
+  → controller-runtime detects change (via informer/watch)
+  → Reconcile() is called with the CR's namespace/name
+  → Reconcile() reads current state (from cluster)
+  → Reconcile() computes delta (desired - current)
+  → Reconcile() applies changes (create/update/delete resources)
+  → If error: re-queue with exponential backoff
+  → If success: re-queue after resync period (or wait for next event)
+```
+
+The key property: **Reconcile() must be idempotent**. It can be called 100 times for the same object and must produce the same result. This handles retries, restarts, and partial failures safely.
+
+**Controller-runtime example (Go):**
+
+```go
+package controllers
+
+import (
+    "context"
+    appsv1 "k8s.io/api/apps/v1"
+    corev1 "k8s.io/api/core/v1"
+    "k8s.io/apimachinery/pkg/api/errors"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    ctrl "sigs.k8s.io/controller-runtime"
+    "sigs.k8s.io/controller-runtime/pkg/client"
+    
+    myv1alpha1 "github.com/myorg/my-operator/api/v1alpha1"
+)
+
+type WebAppReconciler struct {
+    client.Client
+}
+
+func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+    // 1. Fetch the CR
+    webapp := &myv1alpha1.WebApp{}
+    if err := r.Get(ctx, req.NamespacedName, webapp); err != nil {
+        if errors.IsNotFound(err) {
+            return ctrl.Result{}, nil  // CR deleted; nothing to do
+        }
+        return ctrl.Result{}, err
+    }
+    
+    // 2. Check if Deployment exists
+    dep := &appsv1.Deployment{}
+    err := r.Get(ctx, req.NamespacedName, dep)
+    
+    if errors.IsNotFound(err) {
+        // 3. Create Deployment
+        dep = r.deploymentForWebApp(webapp)
+        if err := r.Create(ctx, dep); err != nil {
+            return ctrl.Result{}, err
+        }
+        return ctrl.Result{Requeue: true}, nil
+    }
+    
+    // 4. Update if replica count drifted
+    if *dep.Spec.Replicas != webapp.Spec.Replicas {
+        dep.Spec.Replicas = &webapp.Spec.Replicas
+        if err := r.Update(ctx, dep); err != nil {
+            return ctrl.Result{}, err
+        }
+    }
+    
+    // 5. Update status
+    webapp.Status.ReadyReplicas = dep.Status.ReadyReplicas
+    r.Status().Update(ctx, webapp)
+    
+    return ctrl.Result{}, nil
+}
+```
+
+**Operator vs Helm decision:**
+
+| Situation | Use Helm | Use Operator |
+|-----------|----------|--------------|
+| Install/upgrade/delete a static set of K8s resources | ✓ | |
+| Operational knowledge that runs continuously (backup at 3am, self-healing) | | ✓ |
+| Multi-step lifecycle (provision → seed → promote) | | ✓ |
+| No ongoing reconciliation needed | ✓ | |
+| Managing a database cluster (failover, replica promotion) | | ✓ |
+| Simple app with fixed manifests | ✓ | |
+
+**Operator maturity levels (OperatorHub model):**
+1. **Basic Install** — deploys the application (same as Helm)
+2. **Seamless Upgrades** — handles version upgrades without downtime
+3. **Full Lifecycle** — backup, restore, failure recovery
+4. **Deep Insights** — exposes metrics, alerts, dashboards via CR
+5. **Auto-Pilot** — self-tunes based on workload (horizontal/vertical autoscaling)
+
+Build a custom Operator only when you reach level 3+. For levels 1–2, Helm is simpler and more maintainable.
+
+---
+
+**Q: Explain PodTopologySpread constraints in detail. How do they differ from pod anti-affinity? Design a topology spread policy for a 3-AZ cluster with 30 replicas of a critical service.**
+
+**A:**
+
+PodTopologySpread constraints (introduced GA in K8s 1.19) give fine-grained control over how pods are distributed across topology domains — zones, nodes, racks — based on a `maxSkew` property.
+
+**Anatomy of a constraint:**
+
+```yaml
+topologySpreadConstraints:
+- maxSkew: 1                      # max allowed difference between domains
+  topologyKey: topology.kubernetes.io/zone  # the grouping dimension
+  whenUnsatisfiable: DoNotSchedule          # or ScheduleAnyway
+  labelSelector:
+    matchLabels:
+      app: my-service
+  minDomains: 3                   # require at least 3 zones to exist (K8s 1.25+)
+  matchLabelKeys:                 # match rolling deployment's ReplicaSet pods only (K8s 1.27+)
+  - pod-template-hash
+```
+
+**maxSkew explained:**
+
+If zone A has 10 pods, zone B has 10 pods, zone C has 9 pods — skew is 1 (10-9=1). With `maxSkew: 1`, a new pod will be scheduled in zone C. With `maxSkew: 2`, it could go anywhere.
+
+**Difference from pod anti-affinity:**
+
+| Feature | Pod Anti-Affinity | TopologySpread |
+|---------|------------------|----------------|
+| Goal | Prevent co-location | Balance distribution |
+| Expression | Boolean (allowed or not) | Numeric (maxSkew tolerance) |
+| Scope | Per-node by default | Any topology key |
+| Performance | O(n²) at scheduling (all pod pairs) | O(n) |
+| Granularity | All or nothing | Allows some imbalance |
+| Rolling update | Does not account for old pods | `matchLabelKeys` scopes to current RS |
+
+Anti-affinity says "don't put two of my pods on the same node." TopologySpread says "keep the count per zone within 1 of each other." They can be combined.
+
+**Design for 30 replicas across 3 AZs:**
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: critical-service
+spec:
+  replicas: 30
+  template:
+    spec:
+      topologySpreadConstraints:
+      # Zone-level spread: max 1 pod difference between AZs
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: critical-service
+        minDomains: 3
+        matchLabelKeys:
+        - pod-template-hash   # only count current ReplicaSet's pods
+      
+      # Node-level spread: no more than 2 pods per node
+      - maxSkew: 2
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway   # soft constraint
+        labelSelector:
+          matchLabels:
+            app: critical-service
+      
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app: critical-service
+```
+
+**What this achieves:**
+- 30 replicas → 10 per zone (±1 allowed) — hard constraint
+- No more than ~2 per node (soft constraint; scheduler tries but won't block if nodes are limited)
+- Pod anti-affinity adds a preference to spread across nodes within each zone
+
+**`whenUnsatisfiable: DoNotSchedule` vs `ScheduleAnyway`:**
+
+Use `DoNotSchedule` for zone-level spread (losing a zone with imbalanced pods is risky). Use `ScheduleAnyway` for node-level spread (some node concentration is acceptable, blocking is not). Mix them as shown above for defense-in-depth.
+
+**`minDomains` (K8s 1.25+):**
+
+Without `minDomains: 3`, if a zone is temporarily unavailable and only 2 zones exist, the scheduler relaxes the zone constraint and allows uneven distribution. With `minDomains: 3`, pods will be Pending until all 3 zones are present. Use this only for strict HA requirements where 2-zone operation is unacceptable.
+
+---
+
+**Q: Describe how cert-manager issues and rotates TLS certificates in Kubernetes. What happens when a certificate nears expiry? How do you handle rotation for a high-traffic service without downtime?**
+
+**A:**
+
+cert-manager is a Kubernetes Operator that automates TLS certificate issuance and renewal. It introduces four CRDs: `Issuer`, `ClusterIssuer`, `Certificate`, and `CertificateRequest`.
+
+**Certificate lifecycle:**
+
+```
+1. Create Certificate CR
+2. cert-manager creates CertificateRequest CR
+3. cert-manager contacts Issuer (Let's Encrypt ACME, Vault PKI, self-signed CA)
+4. ACME: DNS-01 or HTTP-01 challenge to prove domain ownership
+5. CA signs and returns certificate
+6. cert-manager stores cert+key in a Kubernetes Secret
+7. Pod/Ingress references the Secret
+8. cert-manager watches for expiry: renews at renewBefore threshold (default: 30 days before expiry)
+```
+
+**Example Certificate CR:**
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: my-service-tls
+  namespace: production
+spec:
+  secretName: my-service-tls-secret   # cert+key stored here
+  duration: 2160h                      # 90 days (Let's Encrypt max)
+  renewBefore: 720h                    # renew 30 days before expiry
+  dnsNames:
+  - my-service.example.com
+  - my-service-internal.example.com
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+```
+
+**Renewal process:**
+
+cert-manager watches `Certificate` objects. When `notAfter - renewBefore ≤ now`, it:
+1. Creates a new `CertificateRequest`
+2. Gets a fresh certificate from the Issuer
+3. **Atomically updates the Secret** (single write, all fields updated at once)
+4. Kubernetes propagates the updated Secret to mounted volumes within ~60s (kubelet's sync period)
+
+**Zero-downtime rotation for high-traffic services:**
+
+The key concern is the gap between secret update and pod reload.
+
+**Option 1: Volume-mounted secrets (recommended)**
+```yaml
+volumes:
+- name: tls
+  secret:
+    secretName: my-service-tls-secret
+
+containers:
+- name: app
+  volumeMounts:
+  - name: tls
+    mountPath: /etc/tls
+    readOnly: true
+```
+
+When the Secret is updated, the kubelet syncs the mount within `syncFrequency` (default 60s). The application must:
+- Watch the cert file for changes (`inotify` or periodic `stat`)
+- Reload TLS config without dropping connections (using `crypto/tls` `Config.GetCertificate` callback in Go, which is called per-connection — no reload needed)
+
+**Go pattern for zero-downtime TLS rotation:**
+```go
+cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+
+tlsConfig := &tls.Config{
+    GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+        // Re-read from disk on each new TLS handshake
+        // (reads cached in OS page cache — negligible overhead)
+        return tls.LoadX509KeyPair(certFile, keyFile)
+    },
+}
+
+listener := tls.NewListener(ln, tlsConfig)
+```
+
+Every new TLS connection reads the latest cert from disk. No server restart required.
+
+**Option 2: cert-manager's `tls.alpha.cert-manager.io/certificate-name` annotation on Ingress**
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+  - hosts:
+    - my-service.example.com
+    secretName: my-service-tls-secret
+```
+
+cert-manager automatically creates the Certificate and manages rotation. NGINX Ingress Controller reloads its TLS config when the secret changes (one NGINX reload, typically <100ms impact on in-flight connections).
+
+**Debugging certificate issues:**
+```bash
+# Check certificate status
+kubectl describe certificate my-service-tls -n production
+
+# Check events for ACME challenge failures
+kubectl get events -n cert-manager --field-selector reason=Failed
+
+# Manually trigger renewal
+kubectl cert-manager renew my-service-tls -n production
+
+# Check if secret has the right cert
+kubectl get secret my-service-tls-secret -n production -o jsonpath='{.data.tls\.crt}' \
+  | base64 -d | openssl x509 -noout -dates
+```
+
+---
+
+**Q: How does the Kubernetes scheduler work internally? Walk through the scheduling cycle for a single pod, including the Filter and Score phases. How does scheduler extenders and the scheduling framework differ?**
+
+**A:**
+
+The Kubernetes scheduler is a control-plane component that watches for Unschedulable pods and assigns them to nodes. It processes pods one at a time (single-threaded scheduling cycle) but runs multiple pods through the cycle concurrently using separate goroutines for binding.
+
+**Scheduling cycle for a single pod:**
+
+```
+1. Pod enters scheduling queue (activeQ, priority-sorted by PriorityClass)
+2. Scheduler pops highest-priority pod
+3. PreFilter plugins (validate pod can be scheduled at all — e.g., check PVC exists)
+4. Filter phase (eliminate nodes that cannot run the pod)
+5. PostFilter (if no nodes pass Filter: preemption — evict lower-priority pods)
+6. PreScore (setup for scoring)
+7. Score phase (rank remaining nodes 0-100)
+8. NormalizeScore (scale all scores to 0-100 per plugin)
+9. Reserve (lock resources — no two pods claim same resources)
+10. Permit (hold scheduling for gang scheduling — wait for N pods before binding)
+11. Bind (write pod.spec.nodeName to API server)
+12. Node's kubelet picks up the pod and creates containers
+```
+
+**Filter plugins (eliminates nodes):**
+
+| Plugin | Eliminates nodes where... |
+|--------|--------------------------|
+| NodeResourcesFit | Resources (CPU/memory) insufficient |
+| NodeAffinity | Node labels don't match requiredDuringScheduling |
+| PodTopologySpread | maxSkew would be violated |
+| TaintToleration | Node has unmatched Taint |
+| InterPodAffinity | Anti-affinity rules violated |
+| VolumeBinding | No node has the PV's zone/storage class |
+
+**Score plugins (ranks surviving nodes):**
+
+| Plugin | Scores higher when... |
+|--------|----------------------|
+| NodeResourcesBalancedAllocation | CPU/memory usage is balanced (prevents hot nodes) |
+| ImageLocality | The pod's image is already pulled on the node |
+| InterPodAffinity | Other preferred pods are nearby |
+| NodeAffinity | preferredDuringScheduling labels match |
+| TaintToleration | Fewer taints to tolerate |
+
+**Scheduling Framework (K8s 1.19 GA) vs Scheduler Extenders:**
+
+Scheduler Extenders were the original extension mechanism: the scheduler calls an external HTTP webhook at Filter and Score phases. Problems: network round-trip per pod per node, no access to scheduler's internal cache, difficult to share state.
+
+The **Scheduling Framework** allows in-process plugins written in Go, compiled into the scheduler binary. Plugins implement interfaces (`FilterPlugin`, `ScorePlugin`, `ReservePlugin`, etc.) and run in the same process — no network overhead.
+
+```go
+// Custom score plugin: prefer nodes with GPU
+type GPUScorePlugin struct{}
+
+func (g *GPUScorePlugin) Score(ctx context.Context, state *framework.CycleState, 
+    pod *v1.Pod, nodeName string) (int64, *framework.Status) {
+    
+    nodeInfo, _ := state.Read(nodeName)
+    // Score 100 if node has GPU, 0 otherwise
+    if nodeInfo.Allocatable.ScalarResources["nvidia.com/gpu"] > 0 {
+        return 100, nil
+    }
+    return 0, nil
+}
+```
+
+Custom schedulers: deploy a separate scheduler pod and set `pod.spec.schedulerName: my-custom-scheduler`. Used for specialized workloads (ML training with gang scheduling requirements) without modifying the default scheduler.

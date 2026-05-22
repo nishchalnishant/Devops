@@ -1182,3 +1182,281 @@ Additional tricks:
 - Use `.dockerignore` to exclude `node_modules`, test files, docs
 - Use `docker history` to identify which layers are largest
 - Use `dive` to interactively inspect layer contents
+
+---
+
+## Hard (continued) — OCI Internals, Security & Supply Chain
+
+**Q: Walk through how `runc` uses `config.json` to create a container — from `clone()` to `execve()`.**
+
+The OCI Runtime Specification defines a **bundle**: a directory with a `config.json` and a `rootfs/`. Any OCI-compliant runtime (`runc`, `crun`, `gVisor runsc`) accepts a bundle and produces a running container.
+
+**`config.json` key sections:**
+
+```json
+{
+  "process": {
+    "args": ["/app/server"],
+    "user": {"uid": 1000, "gid": 1000},
+    "capabilities": {
+      "bounding": ["CAP_NET_BIND_SERVICE"],
+      "effective": ["CAP_NET_BIND_SERVICE"]
+    }
+  },
+  "root": {"path": "rootfs", "readonly": false},
+  "namespaces": [
+    {"type": "pid"}, {"type": "network"},
+    {"type": "mount"}, {"type": "uts"}, {"type": "ipc"}
+  ],
+  "linux": {
+    "resources": {
+      "memory": {"limit": 536870912},
+      "cpu": {"quota": 150000, "period": 100000}
+    },
+    "seccomp": {
+      "defaultAction": "SCMP_ACT_ALLOW",
+      "syscalls": [{"names": ["mount","ptrace"], "action": "SCMP_ACT_DENY"}]
+    }
+  }
+}
+```
+
+**`runc create` execution sequence:**
+
+1. **Parse & validate** `config.json`.
+2. **`clone()`** with namespace flags:
+   ```c
+   clone(CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWMNT | CLONE_NEWUTS | CLONE_NEWIPC,
+         &child_fn);
+   ```
+   The child process now lives in fresh, empty namespaces.
+3. **Write cgroup limits** (parent process, before exec):
+   ```bash
+   echo 536870912 > /sys/fs/cgroup/<id>/memory.max
+   echo "150000 100000" > /sys/fs/cgroup/<id>/cpu.max
+   ```
+4. **Mount filesystems** inside the new mount namespace: `proc`, `sysfs`, `devpts`, bind-mounts from host.
+5. **`pivot_root("rootfs/", "rootfs/.pivot")`** — safely replaces `/` with the container's rootfs. More secure than `chroot` because the old root is fully unmounted.
+6. **`setuid(1000)` / `setgid(1000)`** — drop to the configured UID.
+7. **`prctl(PR_SET_SECUREBITS)`** + capability drops via `prctl(PR_SET_CAPBSET_DROP)`.
+8. **Attach seccomp BPF filter** via `prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog)`.
+9. **`execve("/app/server", ...)`** — replace the runc bootstrap process with the actual application.
+
+**Why `pivot_root` instead of `chroot`:** `chroot` only changes the process's view of `/`; a process with `CAP_SYS_CHROOT` can escape back to the real root. `pivot_root` moves the entire mount namespace root, making escape through the old root impossible once it is unmounted.
+
+---
+
+**Q: A container has `CAP_SYS_ADMIN`. What is the concrete escape path and how do you prevent it?**
+
+`CAP_SYS_ADMIN` is the most overloaded Linux capability — it permits `mount()`, `unshare()`, `setns()`, cgroup manipulation, and more. A container with this capability has multiple escape paths:
+
+**Escape via `setns()` into host namespaces:**
+```c
+// Container process with CAP_SYS_ADMIN can open host namespace file descriptors
+int fd = open("/proc/1/ns/pid", O_RDONLY);   // PID 1 is always in the host PID ns
+setns(fd, CLONE_NEWPID);                      // join host's PID namespace
+// Now: execve("/bin/bash") runs in host PID namespace — full host access
+```
+
+**Escape via `mount()` to access host filesystem:**
+```bash
+# Inside privileged container
+mkdir /tmp/hostfs
+mount -t ext4 /dev/sda1 /tmp/hostfs    # CAP_SYS_ADMIN permits mounting block devices
+chroot /tmp/hostfs                      # now in host root filesystem
+```
+
+**Escape via writable cgroup filesystem:**
+```bash
+# Attach to host cgroup and release resources
+mount -t cgroup2 cgroup2 /sys/fs/cgroup
+echo 999999999 > /sys/fs/cgroup/memory/memory.limit_in_bytes   # bypass limits
+```
+
+**Prevention — defense in depth:**
+
+1. **Never grant `CAP_SYS_ADMIN`** to application containers. If a framework requires it, that is a design flaw.
+   ```yaml
+   securityContext:
+     capabilities:
+       drop: ["ALL"]
+       add: ["NET_BIND_SERVICE"]   # only if port < 1024 is needed
+   ```
+
+2. **Seccomp policy** blocks the dangerous syscalls even if the capability is present:
+   ```json
+   {"syscalls": [{"names": ["mount","umount2","unshare","setns","ptrace"], "action": "SCMP_ACT_DENY"}]}
+   ```
+
+3. **`runAsNonRoot: true`** in Kubernetes pod spec — `setns()` on host namespace files requires UID 0.
+
+4. **gVisor (`runsc`)** for untrusted workloads — syscalls are intercepted in userspace by the Sentry. Even if `setns()` is called, the Sentry denies it without touching the real kernel.
+
+5. **Read-only root filesystem** + `allowPrivilegeEscalation: false` in Kubernetes `securityContext`.
+
+---
+
+**Q: How does the overlay2 Copy-on-Write mechanism work, and why should databases never write to a container's writable layer?**
+
+**Overlay2 directory structure** for a running container:
+
+```
+/var/lib/docker/overlay2/
+  <layer-id>/
+    diff/        ← image layer contents (read-only)
+    link         ← short symlink name for this layer
+  <container-id>/
+    lower        ← colon-separated list of lower layer link names (bottom to top)
+    upper/       ← container's writable layer (CoW copies land here)
+    work/        ← kernel work directory for atomic operations
+    merged/      ← unified view seen by the container (the actual mount point)
+```
+
+**Mount command the kernel executes:**
+```bash
+mount -t overlay overlay \
+  -o lowerdir=/layer3:/layer2:/layer1,\
+     upperdir=/container/upper,\
+     workdir=/container/work \
+  /container/merged
+```
+
+**Copy-on-Write read/write semantics:**
+- **Read** of a file in a lower layer: served directly from the lower layer — zero copy overhead.
+- **Write** to a file that exists in a lower layer: the kernel copies the **entire file** from the lower layer to `upper/` before applying the write. A 1 GB database file = 1 GB copy on first write, even for a 1-byte change.
+- **Write** to a new file: created directly in `upper/` — no copy needed.
+- **Delete** of a lower-layer file: a *whiteout* file (`.wh.<filename>`) is created in `upper/` to mask the lower layer entry.
+
+**Why databases must not use the writable layer:**
+
+1. **CoW amplification:** Every write to a large file triggers a full-file copy. A database writing 4 KB pages into a 10 GB data file copies 10 GB on the first write. I/O is 10,000× amplified.
+2. **Inode exhaustion:** Overlay2 creates many small files (whiteouts, symlinks in `l/`). Heavy write workloads can exhaust inodes on the underlying filesystem before filling disk blocks. Check with `df -i /var/lib/docker`.
+3. **No persistence:** The writable layer is destroyed when the container is removed. Database data is lost.
+
+**Correct approach:** Mount a named volume or bind mount for database data:
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    volumes:
+      - pgdata:/var/lib/postgresql/data   # named volume bypasses overlay2 entirely
+volumes:
+  pgdata:
+```
+Named volumes are stored directly on the host filesystem (default: `/var/lib/docker/volumes/`), bypassing overlay2 CoW. Writes go directly to the underlying block device at full speed.
+
+---
+
+**Q: How do BuildKit cache mounts differ from layer caching, and how do you wire them up in GitHub Actions?**
+
+**Layer caching** — cached by hash of the Dockerfile instruction text + parent layer hash. A source file change invalidates the layer and every layer below it, forcing `npm install` to re-download all packages.
+
+**Cache mounts** — a BuildKit-specific feature that persists a directory on the builder host, independent of layer state. The directory is injected into the build at runtime and never written into the final image.
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+
+# Copy dependency manifests first (changes rarely)
+COPY package.json package-lock.json ./
+
+# Cache mount: /root/.npm persists across builds on the same builder
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
+
+# Copy source (changes frequently) — cache miss here does NOT re-run npm ci
+COPY . .
+RUN npm run build
+```
+
+**Result:** Even when source files change and the `COPY . .` layer cache misses, `npm ci` still reads packages from `/root/.npm` on the builder host — a 3-minute npm download becomes a 20-second cache lookup.
+
+**GitHub Actions integration** (ephemeral runners have no persistent disk — use GHA Cache backend):
+
+```yaml
+- name: Set up Docker Buildx
+  uses: docker/setup-buildx-action@v3
+
+- name: Build and push
+  uses: docker/build-push-action@v5
+  with:
+    context: .
+    push: true
+    tags: myregistry/myapp:${{ github.sha }}
+    cache-from: type=gha
+    cache-to: type=gha,mode=max
+    # mode=max exports all intermediate layer caches, not just the final image
+    # mode=min exports only the final image layers (smaller cache, fewer hits)
+```
+
+**Cache scope:** GHA cache is scoped per repository + branch. A PR branch inherits the cache from `main` but its own cache entries don't pollute `main`.
+
+**Trade-off summary:**
+
+| | Layer cache | Cache mount |
+|---|---|---|
+| Granularity | Entire layer | Specific directory |
+| Stored in | Image registry | Builder host / GHA cache |
+| Survives source change? | No | Yes |
+| Included in final image? | Yes (as layers) | No |
+| Best for | Stable base layers | Package manager caches |
+
+---
+
+**Q: How does `docker buildx` build a multi-platform image on an amd64 CI runner, and what is the role of QEMU `binfmt_misc`?**
+
+**Problem:** A Dockerfile built with `docker build` on a `linux/amd64` GitHub Actions runner produces an amd64-only image. Deploying this to arm64 hardware (Graviton, Apple Silicon workers) fails with `exec format error` — the binary inside the container is the wrong architecture.
+
+**Solution: `docker buildx` + multi-platform manifest list**
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64,linux/arm/v7 \
+  --tag myregistry/myapp:latest \
+  --push .
+```
+
+This creates three separate images in the registry and a **manifest list** (OCI image index) under the same tag. When a client pulls `myapp:latest`, the registry returns the manifest for the client's platform automatically.
+
+**How amd64 CI builds arm64 images — QEMU `binfmt_misc`:**
+
+Linux `binfmt_misc` is a kernel module that registers handlers for non-native binary formats. When the kernel encounters an ELF binary it cannot execute natively, it delegates to a registered interpreter.
+
+```bash
+# Register QEMU as the interpreter for aarch64 ELF binaries
+# (docker/setup-qemu-action does this automatically in GHA)
+echo ':aarch64:M::\x7fELF\x02\x01\x01\x00...\x02\x00\xb7:\xff...\xff:/usr/bin/qemu-aarch64-static:OCF' \
+  > /proc/sys/fs/binfmt_misc/register
+```
+
+Now every arm64 ELF binary executed on the amd64 host is transparently routed through `qemu-aarch64-static`. The Dockerfile's `RUN` instructions execute arm64 binaries via emulation.
+
+**Performance trade-off:**
+- QEMU emulation: ~5–10× slower than native. A 2-minute arm64 native build becomes 10–20 minutes under emulation.
+- **Better alternative for compiled languages:** cross-compile natively, avoid emulation entirely.
+
+```dockerfile
+FROM --platform=linux/amd64 golang:1.22 AS builder
+# Cross-compile for arm64 on the amd64 host — no emulation needed
+RUN GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o /app ./cmd/server
+
+FROM --platform=linux/arm64 gcr.io/distroless/static
+COPY --from=builder /app /app
+ENTRYPOINT ["/app"]
+```
+
+**GitHub Actions workflow:**
+```yaml
+- name: Set up QEMU
+  uses: docker/setup-qemu-action@v3    # registers binfmt_misc handlers
+
+- name: Set up Buildx
+  uses: docker/setup-buildx-action@v3
+
+- name: Build multi-platform image
+  uses: docker/build-push-action@v5
+  with:
+    platforms: linux/amd64,linux/arm64
+    push: true
+    tags: myregistry/myapp:${{ github.sha }}
+```

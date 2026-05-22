@@ -5,9 +5,11 @@
 * [Learning Path](Learning_Path/README.md)
   * [Phase 1: Foundations](Learning_Path/phase-1-foundations.md)
   * [Phase 2: Platform and Delivery](Learning_Path/phase-2-platform-and-delivery.md)
+  * [Phase 2.5: GitOps Integration](Learning_Path/phase-2.5-gitops-integration.md)
   * [Phase 3: SRE and Operations](Learning_Path/phase-3-sre-and-operations.md)
   * [Phase 4: Senior Role Readiness](Learning_Path/phase-4-senior-role-readiness.md)
   * [Capstone Projects](Learning_Path/capstone-projects.md)
+  * [Certification and Tool Progression](Learning_Path/certification-and-tool-progression.md)
 
 * 1 Linux and Scripting
   * [Overview](01_Linux_and_Scripting/README.md)

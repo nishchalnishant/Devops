@@ -352,3 +352,560 @@ In SRE practice, MTTD and MTTR are the primary operational levers — you can't 
 **Log Aggregation at Scale:** The internal observability platform design covers Loki and Elasticsearch, but the cost model deserves more depth. Loki's per-stream ingestion model means poorly labeled logs (all logs in one stream) cause hot partitions. Design: enforce label cardinality limits on Loki streams (namespace + app + level = 3 labels max); use tenant isolation (`X-Scope-OrgID`) to give teams independent query namespaces; ship logs older than 30 days to S3 with the Loki ruler still alerting on live data.
 
 **Cardinality Budget Enforcement:** At platform scale, individual teams add high-cardinality labels that degrade the shared Prometheus. Enforce cardinality budgets: use the Prometheus `series_count_by_metric_name` recording rule to track per-team cardinality; alert the platform team when a namespace exceeds its budget; block metric ingestion via remote write filtering for teams that consistently violate limits. Thanos Receive or Cortex Distributor can enforce these limits at write time.
+
+---
+
+## Hard (continued) — Prometheus Internals, Tail Sampling, Multi-Region SLOs, Runbook Automation & Multi-Tenant Metrics
+
+---
+
+**Q: Prometheus TSDB is consuming 80 GB RAM and queries take 30 seconds. Diagnose a cardinality explosion and remediate without data loss.**
+
+Cardinality is the count of unique label combinations (time series). Each series consumes ~3 KB of memory in the TSDB head block. At 80 GB, you likely have 20+ million active series.
+
+**Diagnosis:**
+
+```promql
+# Total active series
+prometheus_tsdb_head_series
+
+# Top 20 metrics by cardinality
+topk(20, count by(__name__)({__name__=~".+"}))
+
+# Cardinality per label value for a specific metric — identify the runaway label
+count by(path)(http_request_duration_seconds_bucket)
+# If this returns 500k series, "path" contains unbounded values like /user/123/posts/456
+```
+
+```bash
+# Prometheus admin API — per-label cardinality (Prometheus 2.24+)
+curl http://localhost:9090/api/v1/label/__name__/values | jq '.data | length'
+
+# Top series contributing to head size
+curl http://localhost:9090/api/v1/query?query=topk(10,count+by(__name__)({__name__=~".+"})) \
+  | jq '.data.result[] | {metric: .metric.__name__, count: .value[1]}'
+```
+
+**Common Root Causes:**
+- `path` or `url` label containing raw user IDs or UUIDs: `/user/12345/order/67890`
+- `instance` label containing ephemeral pod IPs instead of stable pod names
+- `trace_id` or `request_id` injected into metric labels (correct solution: use exemplars)
+
+**Remediation — Drop the Label at Scrape Time:**
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: api-service
+    static_configs:
+      - targets: ['api:8080']
+    metric_relabel_configs:
+      # Normalize path parameter: /user/123/orders → /user/{id}/orders
+      - source_labels: [path]
+        regex: "^(/user/)[^/]+(/.*)$"
+        replacement: "${1}{id}${2}"
+        target_label: path
+
+      # Drop the label entirely if normalization isn't feasible
+      - action: labeldrop
+        regex: "path"
+
+      # Hard cap: drop any series exceeding cardinality threshold
+      # (Prometheus 2.40+)
+    series_limit: 50000
+```
+
+**Without Losing Existing Data:** Existing series persist in on-disk TSDB blocks until they age past retention. Reducing retention temporarily flushes old blocks faster:
+
+```bash
+prometheus --storage.tsdb.retention.time=48h  # Reduce from 15d temporarily
+```
+
+After the offending scrape job is fixed, series stop being written. They age out of the head block (2h default) and compact into blocks, then expire from disk per retention.
+
+**Long-Term Prevention:**
+
+```yaml
+# Alert before explosion reaches critical levels
+alert: HighCardinalityMetric
+expr: count by(__name__)({__name__=~".+"}) > 100000
+for: 10m
+labels:
+  severity: warning
+annotations:
+  summary: "Metric {{ $labels.__name__ }} has {{ $value }} series — investigate label cardinality"
+  runbook: "https://wiki/prometheus-cardinality-runbook"
+```
+
+Use **recording rules** to pre-aggregate high-cardinality metrics before they reach dashboards:
+
+```yaml
+groups:
+  - name: api.aggregated
+    interval: 30s
+    rules:
+      # Replace per-path histogram with aggregated (drops path label)
+      - record: api:request_duration:p99:5m
+        expr: histogram_quantile(0.99, sum by(job, status)(rate(http_request_duration_seconds_bucket[5m])))
+```
+
+---
+
+**Q: Design a tail-based sampling strategy for a payment system processing 50k traces/sec. Explain the trade-offs vs head sampling.**
+
+**Head vs Tail Sampling:**
+
+| | Head Sampling | Tail Sampling |
+|---|---|---|
+| Decision point | Request start | After all spans received |
+| Memory cost | Negligible | All in-flight traces buffered |
+| Can capture all errors | No (random miss) | Yes (inspect final status) |
+| Can capture slow traces | No | Yes (inspect final latency) |
+| Collector required | No (SDK only) | Yes (OTel Collector) |
+| Latency to backend | Minimal | decision_wait delay (30–60s) |
+
+**Recommended Hybrid Architecture for 50k traces/sec:**
+
+```
+Services (SDK) → Head sample at 10% → OTel Collector fleet → Tail sample to 1%
+Net result: capture all errors + 0.1% of successes = representative sample
+```
+
+**OTel Collector — Tail Sampling Configuration:**
+
+```yaml
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 4096          # Hard cap; drops oldest spans if exceeded
+    spike_limit_mib: 512
+
+  tail_sampling:
+    decision_wait: 30s         # Wait 30s for all spans of a trace to arrive
+    num_traces: 500000         # Max traces buffered in memory (50k/s × 30s reserve)
+    expected_new_traces_per_sec: 50000
+    policies:
+      # Always keep traces with errors
+      - name: errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR, UNSET]
+
+      # Always keep traces > 1s latency (P99 SLO concern)
+      - name: high_latency
+        type: latency
+        latency:
+          threshold_ms: 1000
+
+      # Always keep traces for critical endpoints regardless of outcome
+      - name: payment_endpoints
+        type: and
+        and:
+          and_sub_policy:
+            - name: payment_span
+              type: span_name
+              span_name:
+                span_names: ["/payment/process", "/order/checkout", "/refund/initiate"]
+
+      # Probabilistic fallback: keep 1% of everything else
+      - name: probabilistic_fallback
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 1
+
+  batch:
+    send_batch_size: 500
+    timeout: 5s
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger-collector:4317
+    tls:
+      insecure: false
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, tail_sampling, batch]
+      exporters: [otlp/jaeger]
+```
+
+**Failure Modes and Mitigations:**
+
+1. **OOM on traffic spike:** `memory_limiter` drops oldest buffered traces. Result: some traces lost, but Collector stays alive. Monitor `otelcol_processor_tail_sampling_sampling_trace_dropped_count`.
+
+2. **Incomplete traces (spans arrive after decision_wait):** Collector decides "keep/drop" based on incomplete data, then receives remaining spans. Those orphaned spans are exported without a matching trace decision — they appear in Jaeger as partial traces. Mitigation: increase `decision_wait` to 60s for async payment flows with long-running spans.
+
+3. **Hot sharding:** All spans for a trace must land on the same Collector instance (consistent hashing by trace ID). Without this, tail sampling breaks — spans for the same trace are on different Collectors with different buffers. Use a **load balancer processor** in front:
+
+```yaml
+# Tier 1 Collector: routes spans by trace ID hash
+processors:
+  routing:
+    from_attribute: traceID
+    table:
+      - value: "0-7"
+        exporters: [otlp/collector-1]
+      - value: "8-f"
+        exporters: [otlp/collector-2]
+```
+
+**Exemplars — Linking Metrics to Traces Without Label Cardinality Cost:**
+
+```python
+# Instead of: http_requests_total{trace_id="abc123"} 1  ← BAD (cardinality explosion)
+# Use exemplars:
+from opentelemetry import trace
+from prometheus_client import Histogram
+
+REQUEST_LATENCY = Histogram('http_request_duration_seconds', 'Latency')
+
+def handle_request():
+    span = trace.get_current_span()
+    with REQUEST_LATENCY.time() as timer:
+        timer.exemplar = {  # Prometheus 2.26+ native exemplars
+            'traceID': format(span.get_span_context().trace_id, '032x')
+        }
+        do_work()
+```
+
+Query:
+```promql
+# Returns metric value + exemplar with trace ID for P99 slowest request
+histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))
+```
+
+---
+
+**Q: Design a multi-region SLO with error budget allocation that survives a regional failover without triggering SLA breach.**
+
+**Two-Level SLO Model:**
+
+Define SLOs at both regional and global scopes:
+- **Regional SLO:** 99.95% per region (21.6 min/month error budget)
+- **Global SLO:** 99.9% globally (43.2 min/month) — more lenient because regional failover is expected
+
+The global SLO is what customers are contractually promised. Regional SLOs are internal engineering targets.
+
+**Error Budget Allocation:**
+
+```
+Global budget: 43.2 min/month
+
+Traffic distribution:
+  US-East: 50% → 21.6 min budget
+  EU-West: 30% → 12.96 min budget
+  AP-SE:   20% → 8.64 min budget
+
+Emergency reserve: 10% of global budget for failover surge = 4.32 min
+Operational budget per region: above minus 10% reserve
+```
+
+**PromQL SLO Burn Rate Alerts (Multi-Window):**
+
+```yaml
+# Global error ratio
+- record: global:error_ratio:rate5m
+  expr: >
+    sum(rate(http_requests_total{status=~"5.."}[5m]))
+    /
+    sum(rate(http_requests_total[5m]))
+
+# Per-region error ratio
+- record: region:error_ratio:rate5m
+  expr: >
+    sum by(region)(rate(http_requests_total{status=~"5.."}[5m]))
+    /
+    sum by(region)(rate(http_requests_total[5m]))
+
+# Multi-window burn rate alert (burns > 14.4x → exhausts monthly budget in 2h)
+- alert: GlobalSLOCritical
+  expr: >
+    (global:error_ratio:rate5m > (14.4 * 0.001))
+    and
+    (global:error_ratio:rate1h > (14.4 * 0.001))
+  labels:
+    severity: critical
+  annotations:
+    summary: "Global SLO burning 14.4x rate — budget exhausted in < 2h"
+
+- alert: GlobalSLOWarning
+  expr: >
+    (global:error_ratio:rate30m > (6 * 0.001))
+    and
+    (global:error_ratio:rate6h > (6 * 0.001))
+  labels:
+    severity: warning
+  annotations:
+    summary: "Global SLO burning 6x rate — budget exhausted in < 5 days"
+```
+
+**Handling Regional Failover:**
+
+When US-East goes down, US-West and AP-SE absorb traffic. Two problems:
+1. The failed region's errors should charge against its regional budget, not the healthy regions'
+2. Failover traffic may overwhelm healthy regions (latency increase → SLO pressure)
+
+**Implementation:**
+
+```yaml
+# Tag requests with region_served (not region_of_origin)
+# When US-East fails, US-West processes US-East traffic:
+# - These requests count toward US-West's SLI
+# - US-West SLO budget burns faster during failover
+
+# Mitigation: Widen SLO window during declared incident
+- alert: RegionalFailoverActive
+  expr: up{job="us-east-api"} == 0
+  for: 2m
+  annotations:
+    action: "Silence US-East regional SLO alert; extend global SLO window"
+
+# Use Alertmanager inhibition to suppress regional alerts during active failover
+inhibit_rules:
+  - source_match:
+      alertname: RegionalFailoverActive
+      region: us-east
+    target_match:
+      region: us-east
+    equal: ['environment']
+```
+
+**Deployment Gating on Budget Exhaustion:**
+
+```python
+# Pre-deployment check (run in CI/CD pipeline)
+import requests
+
+def check_error_budget_before_deploy(service: str, env: str) -> bool:
+    resp = requests.get(
+        'http://prometheus:9090/api/v1/query',
+        params={'query': f'1 - (sum(increase(http_requests_total{{job="{service}",status!~"5.."}}[30d])) / sum(increase(http_requests_total{{job="{service}"}}[30d])))'}
+    )
+    error_budget_remaining = float(resp.json()['data']['result'][0]['value'][1])
+    if error_budget_remaining < 0.05:  # < 5% remaining
+        print(f"ERROR: Less than 5% error budget remaining for {service}. Deployment blocked.")
+        return False
+    return True
+```
+
+---
+
+**Q: Design a runbook automation framework for on-call that balances automated remediation with human judgment gates.**
+
+**Runbook Maturity Model:**
+
+```
+Level 0: Ad-hoc (no runbook)
+Level 1: Manual procedure document (Markdown in wiki)
+Level 2: Semi-automated (runbook executes safe steps, human approves risky steps)
+Level 3: Fully automated (human only notified after resolution or on failure)
+```
+
+Target Level 2 for most production incidents; Level 3 only for well-understood, idempotent remediations.
+
+**Runbook Manifest:**
+
+```yaml
+# runbooks/high-api-latency.yaml
+apiVersion: runbook.example.com/v1
+kind: Runbook
+metadata:
+  name: high-api-latency
+  severity: p2
+spec:
+  trigger:
+    alert: APILatencyP99High
+    threshold: 5m
+  
+  diagnostics:
+    - name: check-failed-pods
+      command: kubectl get pods -n api --field-selector=status.phase=Failed -o json
+      timeout: 30s
+      output_var: failed_pods
+    
+    - name: check-db-connections
+      command: curl -s http://api-metrics:8080/db/connections
+      timeout: 10s
+      output_var: db_connections
+  
+  remediation:
+    - name: scale-up-replicas
+      condition: "len(failed_pods) > 2"
+      command: kubectl scale deployment api --replicas=10 -n api
+      approval_required: false       # Safe, reversible
+      timeout: 60s
+      on_failure: escalate
+    
+    - name: drain-connection-pool
+      condition: "db_connections > 950"
+      command: curl -X POST http://api:8080/admin/drain-connections
+      approval_required: true        # Could drop in-flight requests
+      approval_timeout: 300s         # If no response in 5 min, escalate
+      timeout: 30s
+      on_failure: alert
+    
+    - name: rollback-deployment
+      condition: "recent_deploy_within_30m and error_rate_delta > 0.2"
+      command: kubectl rollout undo deployment/api -n api
+      approval_required: true        # Destructive
+      timeout: 120s
+      on_failure: escalate
+  
+  verification:
+    - metric: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="api"}[5m]))
+      threshold: "< 0.5"
+      duration: 5m                   # Must hold for 5 minutes
+  
+  escalation:
+    on_automation_failure: page_on_call_manager
+    on_verification_failure: page_incident_commander
+    total_timeout: 30m
+```
+
+**Approval Mechanism (Slack Bot):**
+
+```python
+from slack_sdk import WebClient
+
+def request_approval(runbook_id: str, step: str, command: str, channel: str) -> str:
+    client = WebClient(token=SLACK_BOT_TOKEN)
+    resp = client.chat_postMessage(
+        channel=channel,
+        blocks=[
+            {"type": "section", "text": {"type": "mrkdwn",
+                "text": f"*Runbook approval required*\nStep: `{step}`\nCommand: `{command}`"}},
+            {"type": "actions", "elements": [
+                {"type": "button", "text": {"type": "plain_text", "text": "Approve"},
+                 "action_id": "approve", "value": runbook_id, "style": "primary"},
+                {"type": "button", "text": {"type": "plain_text", "text": "Reject"},
+                 "action_id": "reject", "value": runbook_id, "style": "danger"},
+            ]}
+        ]
+    )
+    return resp['ts']  # Message timestamp for tracking
+```
+
+**Human Judgment Framework:**
+
+- **Auto-approve** (no gate): Scale replicas up, restart a single unhealthy pod, flush caches
+- **Require approval**: Drain connection pool, disable a feature flag, change rate limits
+- **Never automate**: Database schema changes, secret rotation, infrastructure deletion, network policy changes
+- **Escalate immediately**: Novel failure mode with no matching runbook, cascading failures across 3+ services
+
+All executions logged to audit trail (Datadog/Splunk) with: `alert_name`, `step_executed`, `approved_by`, `duration`, `outcome`. Weekly review: steps that are always approved → remove gate. Steps that always fail → fix the automation.
+
+---
+
+**Q: Design a multi-tenant Prometheus/Mimir deployment. How do you enforce cardinality quotas per team without impacting other tenants?**
+
+**Architecture: Mimir with Tenant Isolation**
+
+```
+Teams → Remote Write → Mimir Distributor (per-tenant rate limits)
+                            │
+                    ┌───────┴───────┐
+                    │               │
+              Mimir Ingester    Mimir Ruler
+              (in-memory)      (per-tenant rules)
+                    │               │
+              Mimir Store-GW   Alertmanager
+              (long-term S3)   (per-tenant routing)
+```
+
+**Mimir Per-Tenant Configuration:**
+
+```yaml
+# mimir.yaml
+limits:
+  # Global defaults
+  ingestion_rate: 10000           # samples/sec per tenant
+  ingestion_burst_size: 200000
+  max_global_series_per_user: 500000
+  max_global_series_per_metric: 50000
+  max_label_names_per_series: 30
+  max_label_value_length: 2048
+  
+  # Per-tenant overrides (in Mimir runtime config or per-tenant config file)
+  # team-payment gets higher limits (large service, known cardinality)
+  team-payment:
+    ingestion_rate: 50000
+    max_global_series_per_user: 2000000
+  
+  # team-sandbox is untrusted; hard limits
+  team-sandbox:
+    ingestion_rate: 1000
+    max_global_series_per_user: 10000
+```
+
+**Tenant-Aware Remote Write (from each team's Prometheus):**
+
+```yaml
+# team-payment Prometheus remote_write
+remote_write:
+  - url: https://mimir.platform.example.com/api/v1/push
+    headers:
+      X-Scope-OrgID: team-payment        # Mimir tenant header
+    queue_config:
+      capacity: 10000
+      max_shards: 30
+      min_shards: 2
+      max_samples_per_send: 2000
+    tls_config:
+      cert_file: /etc/tls/client.crt
+      key_file: /etc/tls/client.key
+```
+
+**Query Isolation (Grafana per-Org):**
+
+```yaml
+# Grafana provisioning — each team gets their own Org
+# Mimir datasource configured with team's X-Scope-OrgID
+apiVersion: 1
+datasources:
+  - name: Mimir (team-payment)
+    type: prometheus
+    url: https://mimir.platform.example.com/prometheus
+    jsonData:
+      httpHeaderName1: "X-Scope-OrgID"
+    secureJsonData:
+      httpHeaderValue1: "team-payment"
+```
+
+Grafana sends `X-Scope-OrgID: team-payment` on every query, so Mimir only returns that tenant's series. Cross-tenant queries are impossible from Grafana.
+
+**Cardinality Enforcement — Rejection at Ingestion:**
+
+When `team-sandbox` exceeds 10k series, Mimir returns HTTP 429 to their Prometheus remote_write:
+
+```
+level=warn component=remote_write msg="Failed to send batch, will retry"
+err="server returned HTTP status 429 Too Many Requests: user 'team-sandbox' has reached the limit of 10000 in-memory series"
+```
+
+Their Prometheus queues the samples and retries. New unique series are rejected; existing series continue writing. This gives teams immediate feedback (unlike silent data loss) and doesn't impact other tenants.
+
+**Platform Cardinality Dashboard (cross-tenant, platform team only):**
+
+```promql
+# Platform-level recording rule (evaluated with admin tenant)
+# Total series per tenant
+- record: platform:series_per_tenant
+  expr: sum by(user)(cortex_ingester_memory_series_created_total{cluster="mimir-prod"})
+
+# Alert platform team when any tenant approaches their limit
+- alert: TenantNearCardinityLimit
+  expr: >
+    (platform:series_per_tenant / on(user) group_left()
+     mimir_limits_max_global_series_per_user) > 0.8
+  annotations:
+    summary: "Tenant {{ $labels.user }} at {{ $value | humanizePercentage }} of cardinality limit"
+    action: "Contact team to review label usage before limit is hit"
+```

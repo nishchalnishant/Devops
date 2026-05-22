@@ -1294,3 +1294,726 @@ for i, (inputs, labels) in enumerate(dataloader):
 - Evaluation: domain-specific benchmark suite + RAGAS for RAG tasks + human preference evaluation — automated evals are proxies, not ground truth.
 - Serving fine-tuned model: base model on shared GPU; LoRA adapter loaded per tenant — enables multi-tenant fine-tuning without duplicating the base model.
 
+
+## Hard (continued) — Training-Serving Skew, GPU Fragmentation, Feature Store PIT Correctness, LLM Cost Optimization, A/B Testing Rigor & Drift Detection
+
+**Q: How do you detect and prevent training-serving skew in a production ML system at scale?**
+
+A: Training-serving skew is the silent killer: the model was trained on correctly computed features, but at serving time the feature pipeline produces different values — the model sees a distribution it has never trained on. Unlike data drift (detectable via statistics), skew is a logic bug that can persist undetected for months while model quality degrades invisibly.
+
+**Root causes and detection signals:**
+
+| Cause | Detection Method |
+|-------|-----------------|
+| Separate training vs. serving feature code | Shadow comparison: compute features both ways at serve time |
+| Schema evolution (new default values) | Schema validation at serving before inference |
+| Time zone handling inconsistency | Unit tests with fixed timestamps |
+| Feature normalization applied in training but not serving | Validation via Great Expectations on live feature stream |
+| Categorical encoding mismatch (LabelEncoder fitted on old data) | Monitor OOV (out-of-vocabulary) rate in categorical features |
+
+**Shadow feature comparison (primary detection):**
+
+```python
+def predict_with_skew_detection(entity_id: str, request_time: float):
+    # Serving path (what model actually sees)
+    serving_features = feature_store.get_online_features(entity_id)
+
+    # Training path (gold standard, computed independently)
+    training_features = compute_training_pipeline_features(entity_id, request_time)
+
+    # Log both to BigQuery for offline comparison
+    log_feature_pair({
+        "entity_id": entity_id,
+        "request_time": request_time,
+        "serving_features": serving_features,
+        "training_features": training_features,
+        "prediction": model.predict(serving_features),
+    })
+
+    return model.predict(serving_features)
+
+# Daily batch job — compute KS statistic per feature
+def detect_skew():
+    for feature_name in all_features:
+        serving_vals = load_log("serving_features", feature_name)
+        training_vals = load_log("training_features", feature_name)
+        ks_stat, pval = ks_2samp(serving_vals, training_vals)
+        if ks_stat > 0.15:
+            alert(f"Skew detected in {feature_name}: KS={ks_stat:.3f}")
+```
+
+**Schema validation at inference time:**
+
+```python
+from great_expectations.core import ExpectationSuite
+
+suite = ExpectationSuite("serving_features_v2")
+# Expectations from training data profile
+# e.g., user_age in [0, 120], purchase_count >= 0, country in known_set
+
+def validate_before_predict(features: dict) -> dict:
+    result = ge_context.validate(features, expectation_suite=suite)
+    if not result.success:
+        failed = [r["expectation_config"]["expectation_type"]
+                  for r in result.results if not r["success"]]
+        prometheus.counter("feature_validation_failure", labels={"reason": str(failed)})
+        return fallback_model.predict(features)  # Safe fallback
+    return model.predict(features)
+```
+
+**Prevention at architecture level:**
+
+The only reliable prevention is a **single feature computation library** used by both training and serving pipelines. No duplication, no divergence:
+
+```python
+# Shared library: feature_lib/user_features.py
+def compute_user_recency(user_id: str, as_of_time: datetime) -> float:
+    """Single implementation used at training AND serving time."""
+    last_event = event_store.get_latest_before(user_id, as_of_time)
+    if last_event is None:
+        return -1.0  # Consistent sentinel for missing data
+    return (as_of_time - last_event.timestamp).total_seconds() / 86400
+```
+
+Import this in both the offline training pipeline and the online serving handler — never re-implement the logic.
+
+**Monitoring SLA:** Any feature with KS-statistic > 0.15 between serving and training paths triggers P2 alert within 24 hours. Zero tolerance for features where serving value is consistently outside the training distribution.
+
+---
+
+**Q: How do you architect a Kubernetes GPU cluster to keep fragmentation below 10% for multi-tenant ML training jobs?**
+
+A: GPU fragmentation occurs when a job claims GPUs on a node, leaving the remaining GPUs idle because no other job fits. On an 8-GPU node with a 4-GPU job, 4 GPUs are wasted if the remaining capacity doesn't match any pending job's request. At scale (hundreds of nodes), fragmentation of 15–20% translates to millions of dollars in wasted compute per year.
+
+**Fragmentation measurement:**
+
+```python
+def compute_fragmentation_rate(nodes, pending_pods):
+    total_gpu_capacity = sum(n.gpu_capacity for n in nodes)
+    wasted_gpus = 0
+
+    for node in nodes:
+        available = node.gpu_capacity - node.gpu_allocated
+        if available == 0:
+            continue
+        # Wasted if no pending pod can fit in the remaining space
+        can_pack = any(p.gpu_request <= available for p in pending_pods)
+        if not can_pack:
+            wasted_gpus += available
+
+    fragmentation_rate = wasted_gpus / total_gpu_capacity
+    prometheus.gauge("gpu_fragmentation_rate", fragmentation_rate)
+    return fragmentation_rate
+```
+
+**Architecture to minimize fragmentation:**
+
+**1. Workload-specific node pools by GPU multiplicity:**
+
+```bash
+# Training pool: 8-GPU nodes (DDP jobs request 4 or 8 GPUs)
+gcloud container node-pools create training-pool \
+  --cluster=ml-cluster \
+  --machine-type=a2-highgpu-8g \
+  --accelerator=type=nvidia-tesla-a100,count=8 \
+  --num-nodes=10
+
+# Serving pool: 1-GPU nodes (inference pods request 1 GPU)
+gcloud container node-pools create serving-pool \
+  --cluster=ml-cluster \
+  --machine-type=n1-standard-8 \
+  --accelerator=type=nvidia-tesla-t4,count=1 \
+  --num-nodes=20
+```
+
+Separation prevents a 1-GPU inference pod from stranding 7 GPUs on an 8-GPU training node.
+
+**2. Bin-packing scheduler configuration:**
+
+```yaml
+# kube-scheduler config: prefer bin-packing over spreading
+apiVersion: kubescheduler.config.k8s.io/v1
+kind: KubeSchedulerConfiguration
+profiles:
+  - schedulerName: default-scheduler
+    pluginConfig:
+      - name: NodeResourcesFit
+        args:
+          scoringStrategy:
+            type: MostAllocated    # Fill nodes before using new ones
+            resources:
+              - name: nvidia.com/gpu
+                weight: 10         # GPU bin-packing weighted highest
+              - name: cpu
+                weight: 1
+              - name: memory
+                weight: 1
+```
+
+**3. Karpenter for right-sized node provisioning:**
+
+```yaml
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: training-pool
+spec:
+  template:
+    spec:
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]
+        - key: nvidia.com/gpu-memory
+          operator: In
+          values: ["40Gi", "80Gi"]
+      nodeClassRef:
+        name: gpu-nodeclass
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    consolidateAfter: 30s    # Repack within 30 seconds of job completion
+```
+
+`WhenUnderutilized` + `consolidateAfter: 30s` is the key setting: when a training job finishes, Karpenter immediately evicts and reschedules remaining pods to pack the remaining nodes, then terminates the now-empty node.
+
+**4. Descheduling for fragmentation recovery:**
+
+```yaml
+# Descheduler: detect and fix fragmented nodes
+apiVersion: descheduler.alpha.kubernetes.io/v1alpha2
+kind: DeschedulerPolicy
+profiles:
+  - name: gpu-consolidation
+    pluginConfig:
+      - name: LowNodeUtilization
+        args:
+          thresholds:
+            nvidia.com/gpu: 25    # Node < 25% GPU utilized → evict pods
+          targetThresholds:
+            nvidia.com/gpu: 75    # Target: 75% GPU utilization
+    plugins:
+      balance:
+        enabled: [LowNodeUtilization]
+```
+
+**5. Enforcement: reject GPU requests that don't align to pool sizes:**
+
+```python
+# Admission webhook: reject jobs requesting non-standard GPU counts
+VALID_GPU_COUNTS = {1, 2, 4, 8}  # Align to node GPU counts
+
+def validate_gpu_request(pod_spec):
+    requested = sum(
+        int(c.resources.requests.get("nvidia.com/gpu", 0))
+        for c in pod_spec.containers
+    )
+    if requested not in VALID_GPU_COUNTS and requested != 0:
+        return {"allowed": False,
+                "reason": f"GPU request {requested} not in {VALID_GPU_COUNTS}. "
+                          f"Use 1, 2, 4, or 8 GPUs to minimize fragmentation."}
+    return {"allowed": True}
+```
+
+**Target SLA:** < 10% fragmentation rate (measured hourly). Alert at > 15%. At 30 nodes × 8 GPUs = 240 GPUs, 10% fragmentation = 24 wasted GPUs = ~$2,400/day at A100 spot pricing.
+
+---
+
+**Q: Explain point-in-time (PIT) correctness in a feature store. How do you guarantee it for 100M+ entities without full table scans?**
+
+A: Point-in-time correctness means: when building a training dataset, each training example uses only feature values that were available at the label's event time. Violating this leaks future information into training, producing a model that appears to perform well offline but fails in production (label leakage).
+
+**The naive implementation (wrong and slow):**
+
+```sql
+-- For each (entity, label_timestamp), find the latest feature value <= label_timestamp
+-- This is O(entities × history_rows) — kills BigQuery at 100M entities
+SELECT e.entity_id, e.label_timestamp, f.feature_value
+FROM events e
+LEFT JOIN feature_history f
+  ON e.entity_id = f.entity_id
+  AND f.feature_timestamp = (
+    SELECT MAX(feature_timestamp)
+    FROM feature_history
+    WHERE entity_id = e.entity_id
+      AND feature_timestamp <= e.label_timestamp
+  )
+```
+
+At 100M entities × 30 days of history, this is 3B row join — hours of compute and thousands of dollars per training run.
+
+**Optimized approach: partitioned point-in-time snapshots:**
+
+Store features as hourly or daily snapshots partitioned by date. At PIT join time, only read the partition closest to each label timestamp:
+
+```python
+def get_pit_features_optimized(
+    entity_df: pd.DataFrame,  # Columns: entity_id, label_timestamp
+    feature_view: str,
+    offline_store_path: str,
+) -> pd.DataFrame:
+    """
+    For each entity+timestamp, read only the snapshot from that day.
+    Avoids full table scans.
+    """
+    entity_df["snapshot_date"] = pd.to_datetime(
+        entity_df["label_timestamp"]
+    ).dt.date
+
+    results = []
+    for date, group in entity_df.groupby("snapshot_date"):
+        # Read only that day's snapshot partition
+        snapshot = pd.read_parquet(
+            f"{offline_store_path}/{feature_view}/date={date}/",
+            filters=[("entity_id", "in", group["entity_id"].tolist())]
+        )
+        # PIT join: each entity gets the snapshot from their label date
+        merged = group.merge(snapshot, on="entity_id", how="left")
+        results.append(merged)
+
+    return pd.concat(results, ignore_index=True)
+```
+
+**Feast PIT join (production usage):**
+
+```python
+from feast import FeatureStore
+
+fs = FeatureStore(repo_path=".")
+
+# Entity dataframe with timestamps — Feast handles PIT correctness internally
+entity_df = pd.DataFrame({
+    "user_id":  ["u001", "u002", "u003"],
+    "event_timestamp": [
+        datetime(2024, 1, 15, 13, 0),   # PIT: features as of this timestamp
+        datetime(2024, 1, 10, 9, 30),
+        datetime(2024, 1, 20, 22, 0),
+    ],
+    "label": [1, 0, 1],
+})
+
+training_df = fs.get_historical_features(
+    entity_df=entity_df,
+    features=[
+        "user_profile:account_age_days",
+        "user_activity:txn_count_7d",
+        "user_risk:fraud_score_30d",
+    ],
+).to_df()
+# Feast uses Spark or BigQuery ASOF joins — no future data leakage guaranteed
+```
+
+**Handling out-of-order streaming features:**
+
+For streaming features (e.g., `txn_count_5min` computed in Flink), events arrive out-of-order. Use watermarks to prevent future-value writes:
+
+```python
+class FeatureStoreWriter:
+    def write_feature(self, entity_id: str, feature_value: float,
+                      event_time: datetime):
+        # Reject writes for events older than watermark
+        current_watermark = self.get_watermark(entity_id)
+        if event_time < current_watermark - timedelta(minutes=10):
+            metrics.counter("late_arrival_rejected")
+            return  # Don't overwrite newer value with old one
+
+        self.store.put(entity_id, feature_value, event_time)
+        self.advance_watermark(entity_id, event_time)
+```
+
+**PIT correctness monitoring:**
+
+```python
+def verify_pit_correctness(training_df: pd.DataFrame) -> dict:
+    """After building training dataset, verify no future leakage."""
+    violations = (
+        training_df["feature_timestamp"] > training_df["label_timestamp"]
+    ).sum()
+    pct_violations = violations / len(training_df)
+
+    if pct_violations > 1e-5:  # Tolerance: 1 in 100K
+        alert(f"PIT violations: {pct_violations:.2%} of training examples")
+        raise ValueError("Training dataset has PIT violations — aborting training")
+
+    return {"violations": violations, "total": len(training_df), "clean": True}
+```
+
+**SLA:** Zero PIT violations (strict). Every training run is gated by `verify_pit_correctness()`. A single PIT violation aborts training and pages the ML platform team.
+
+---
+
+**Q: How do you reduce LLM API costs by 70%+ without degrading user experience? Walk through a concrete architecture.**
+
+A: At 10M LLM calls/day, cost optimization is the highest-leverage MLOps problem. The key insight is that most requests fall into repeatable patterns — same question, same context — and can be served from cache or routed to cheaper models.
+
+**Four-layer cost optimization stack:**
+
+**Layer 1 — Semantic caching (25–35% cost reduction):**
+
+```python
+from sentence_transformers import SentenceTransformer
+import psycopg2, numpy as np
+
+encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
+def semantic_cache_lookup(query: str, similarity_threshold: float = 0.97):
+    embedding = encoder.encode(query)
+
+    # pgvector ANN search — sub-millisecond for 10M cached queries
+    cursor.execute("""
+        SELECT response_text, 1 - (embedding <=> %s::vector) AS similarity
+        FROM llm_cache
+        WHERE created_at > NOW() - INTERVAL '7 days'
+        ORDER BY embedding <=> %s::vector
+        LIMIT 1
+    """, (embedding.tolist(), embedding.tolist()))
+
+    row = cursor.fetchone()
+    if row and row["similarity"] >= similarity_threshold:
+        prometheus.counter("cache_hit")
+        return row["response_text"]  # Skip LLM call entirely
+
+    return None  # Cache miss
+
+def get_response(query: str) -> str:
+    cached = semantic_cache_lookup(query)
+    if cached:
+        return cached
+
+    response = call_llm(query)
+    store_in_cache(query, response, encoder.encode(query))
+    return response
+```
+
+Expected hit rate: 20–30% on support/Q&A workloads. 30% hit rate × $0.50/1K tokens × 10M calls = $150K/month saved.
+
+**Layer 2 — Model routing by complexity (40% cost reduction):**
+
+```python
+# Lightweight classifier trained on golden examples
+from sklearn.linear_model import LogisticRegression
+
+def route_to_model(query: str) -> str:
+    """
+    Simple queries → 8B model ($0.07/1M tokens)
+    Complex queries → 70B model ($0.50/1M tokens)
+    """
+    complexity_score = complexity_classifier.predict_proba([query])[0][1]
+
+    if complexity_score < 0.3:
+        return "llama-3-8b"    # 7x cheaper
+    elif complexity_score < 0.7:
+        return "llama-3-70b"
+    else:
+        return "gpt-4o"        # Only for most complex
+
+model = route_to_model(user_query)
+response = llm_client.generate(query=user_query, model=model)
+```
+
+Routing 70% of traffic to 8B model: 0.7 × (1 - 0.07/0.50) = 0.7 × 86% = 60% cost reduction on routed traffic.
+
+**Layer 3 — Prompt caching for repeated system contexts (40% reduction on amortized tokens):**
+
+```python
+# Anthropic API: cache large system prompts
+response = anthropic.messages.create(
+    model="claude-3-5-sonnet-20241022",
+    max_tokens=500,
+    system=[
+        {
+            "type": "text",
+            "text": LARGE_SYSTEM_PROMPT,      # 50K tokens of FAQ + policy
+            "cache_control": {"type": "ephemeral"}  # Cache for 5 minutes
+        }
+    ],
+    messages=[{"role": "user", "content": user_query}]
+)
+
+# First call: charged full 50K tokens
+# Calls 2-N within 5 min: 50K tokens at 10% of normal cost (cache read)
+# 90% token cost reduction on system prompt across all calls in 5-min window
+```
+
+**Layer 4 — Speculative decoding for throughput (20% latency reduction, indirect cost saving):**
+
+```python
+# vLLM speculative decoding: draft model generates tokens, main model verifies
+engine = AsyncLLMEngine.from_engine_args(EngineArgs(
+    model="meta-llama/Llama-3-70B-Instruct",
+    speculative_model="meta-llama/Llama-3-8B-Instruct",  # Draft model
+    num_speculative_tokens=5,   # Generate 5 tokens speculatively, verify in parallel
+    use_v2_block_manager=True,
+))
+# Result: 1.5-2x throughput increase → same compute serves more requests
+```
+
+**Combined impact (10M calls/day, avg 500 tokens/call, $0.50/1M tokens):**
+
+| Optimization | Reduction | Daily Savings |
+|-------------|-----------|--------------|
+| Semantic cache (30% hit) | 30% of calls skipped | $750/day |
+| Model routing (70% to 8B) | 60% cheaper on routed | $1,260/day |
+| Prompt caching (50K sys prompt) | 40% on system tokens | $300/day |
+| **Total** | **~72% cost reduction** | **~$2,310/day = $843K/year** |
+
+**Token budget enforcement per tenant:**
+
+```python
+def enforce_budget(tenant_id: str, estimated_tokens: int) -> str:
+    used = redis.incrby(f"tokens:{tenant_id}:{current_month()}", estimated_tokens)
+    budget = get_monthly_budget(tenant_id)  # e.g., 10M tokens
+
+    if used > budget * 1.1:    # Hard stop at 110% of budget
+        raise BudgetExceeded(f"Tenant {tenant_id} exceeded monthly token budget")
+    elif used > budget * 0.9:   # Soft limit: downgrade model at 90%
+        return "llama-3-8b"     # Force cheaper model
+
+    return get_preferred_model(tenant_id)
+```
+
+---
+
+**Q: Your A/B test for a new recommendation model shows early positive results after 2 days. How do you decide whether to ship it?**
+
+A: "Early positive results" is the most common cause of A/B test failures. The temptation to peek and ship early inflates false positive rates dramatically — checking daily at α=0.05 yields a 40% false positive rate by day 5, not 5%.
+
+**Pre-test requirements (must complete before starting):**
+
+```python
+from statsmodels.stats.power import NormalIndPower
+import numpy as np
+
+def calculate_required_sample_size(
+    baseline_metric=0.12,        # Current CTR/conversion rate
+    minimum_detectable_effect=0.005,  # Want to detect 0.5% absolute lift
+    alpha=0.05,                  # False positive rate
+    power=0.80,                  # 80% chance to detect real effect
+) -> int:
+    analysis = NormalIndPower()
+    # Effect size in standard deviation units
+    effect_size = minimum_detectable_effect / np.sqrt(
+        baseline_metric * (1 - baseline_metric)
+    )
+    n = analysis.solve_power(effect_size=effect_size, alpha=alpha, power=power)
+    return int(np.ceil(n))
+
+# e.g., 3,800 users per variant — must reach this before evaluating
+n_required = calculate_required_sample_size()
+print(f"Required: {n_required:,} per variant. Run until both variants hit this.")
+```
+
+**Answering "can we ship after 2 days?":**
+
+```python
+def should_ship(variant_a, variant_b, days_running: int, n_required: int) -> dict:
+    current_n = min(variant_a["users"], variant_b["users"])
+
+    # 1. Sample size check (hard gate)
+    if current_n < n_required:
+        return {
+            "decision": "WAIT",
+            "reason": f"Need {n_required:,} users per variant, have {current_n:,}",
+            "eta_days": (n_required - current_n) / (current_n / days_running),
+        }
+
+    # 2. Statistical significance with Bonferroni correction
+    # (correct for multiple interim checks — each peek costs alpha budget)
+    n_peeks = 3  # Pre-committed interim check points
+    alpha_adjusted = 0.05 / n_peeks  # = 0.0167
+
+    from scipy.stats import chi2_contingency
+    table = np.array([
+        [variant_b["conversions"], variant_b["users"] - variant_b["conversions"]],
+        [variant_a["conversions"], variant_a["users"] - variant_a["conversions"]],
+    ])
+    chi2, pval, _, _ = chi2_contingency(table)
+
+    rate_a = variant_a["conversions"] / variant_a["users"]
+    rate_b = variant_b["conversions"] / variant_b["users"]
+    relative_lift = (rate_b - rate_a) / rate_a
+
+    if pval >= alpha_adjusted:
+        return {"decision": "WAIT", "reason": f"Not significant (p={pval:.4f} > {alpha_adjusted})"}
+
+    # 3. Business significance check (avoid shipping noise)
+    if relative_lift < 0.02:  # < 2% relative lift is noise, not signal
+        return {"decision": "WAIT", "reason": f"Lift {relative_lift:.1%} below business threshold"}
+
+    # 4. Run for at least one full business cycle
+    if days_running < 7:
+        return {
+            "decision": "WAIT",
+            "reason": f"Only {days_running} days — need 7 for weekly cycle (weekend vs. weekday users differ)"
+        }
+
+    return {
+        "decision": "SHIP",
+        "pval": pval,
+        "lift": f"{relative_lift:.1%}",
+        "confidence": f"{(1-pval)*100:.1f}%",
+    }
+```
+
+**If business pressure requires early decision — use Bayesian sequential testing:**
+
+```python
+from scipy.stats import beta as beta_dist
+
+def bayesian_decision(variant_a, variant_b, rope_width=0.001) -> dict:
+    """
+    Bayesian approach: can peek anytime without alpha inflation.
+    Decision: ship when P(B > A) > 0.95 (strong evidence).
+    """
+    # Beta posteriors with uniform prior
+    alpha_a = 1 + variant_a["conversions"]
+    beta_a = 1 + variant_a["users"] - variant_a["conversions"]
+    alpha_b = 1 + variant_b["conversions"]
+    beta_b = 1 + variant_b["users"] - variant_b["conversions"]
+
+    # Monte Carlo comparison
+    samples_a = beta_dist.rvs(alpha_a, beta_a, size=100_000)
+    samples_b = beta_dist.rvs(alpha_b, beta_b, size=100_000)
+
+    prob_b_better = (samples_b > samples_a).mean()
+    expected_lift = (samples_b - samples_a).mean()
+
+    if prob_b_better > 0.95:
+        return {"decision": "SHIP", "prob_b_better": prob_b_better, "expected_lift": expected_lift}
+    elif prob_b_better < 0.05:
+        return {"decision": "KEEP_CONTROL", "prob_b_better": prob_b_better}
+    else:
+        return {"decision": "CONTINUE", "prob_b_better": prob_b_better}
+```
+
+**The answer for the 2-day scenario:**
+
+Almost certainly WAIT — unless you pre-committed to a Bayesian sequential test with `P(B>A) > 0.95` as the stopping rule AND have reached that threshold. Frequentist tests require minimum sample size + 7-day run. The 2-day result is likely due to novelty effect (users engage with new recommendations because they're unfamiliar, not because they're better).
+
+---
+
+**Q: How do you implement automated retraining triggered by drift detection in production — including preventing false retraining loops?**
+
+A: Automated retraining is easy to implement incorrectly: a naive system retriggers training on every drift alert, wastes compute, and can create feedback loops (model trained on drifted data generates predictions that cause more drift). Good drift-triggered retraining requires multi-layer detection, cool-down periods, and quality gates.
+
+**Multi-layer drift detection (fast to slow):**
+
+```python
+class DriftDetectionPipeline:
+
+    def detect_input_drift(self, reference_data, current_window) -> dict:
+        """Layer 1: Statistical drift on input features (fast, label-free)."""
+        drifted_features = []
+        for feature in numerical_features:
+            psi = self.compute_psi(reference_data[feature], current_window[feature])
+            if psi > 0.2:
+                drifted_features.append({"feature": feature, "psi": psi})
+        return {"drifted_features": drifted_features,
+                "drift_score": len(drifted_features) / len(numerical_features)}
+
+    def detect_prediction_drift(self, reference_preds, current_preds) -> dict:
+        """Layer 2: Output distribution shift (fast, always available)."""
+        psi = self.compute_psi(reference_preds, current_preds)
+        ks_stat, _ = ks_2samp(reference_preds, current_preds)
+        return {"psi": psi, "ks": ks_stat, "drifted": psi > 0.2}
+
+    def detect_concept_drift(self, cohort_date: str) -> dict:
+        """Layer 3: AUC degradation when labels arrive (slow, 1-7 day delay)."""
+        preds = load_predictions(cohort_date)
+        labels = load_labels(cohort_date)   # May not be available yet
+        if labels is None:
+            return {"available": False}
+
+        cohort_auc = roc_auc_score(labels, preds["probability"])
+        baseline_auc = 0.91  # From last training run
+        degradation = baseline_auc - cohort_auc
+        return {"auc": cohort_auc, "degradation": degradation,
+                "drifted": degradation > 0.02}
+
+    def compute_psi(self, reference, current, bins=10) -> float:
+        ref_pct, _ = np.histogram(reference, bins=bins, density=True)
+        cur_pct, _ = np.histogram(current, bins=bins, density=True)
+        ref_pct = (ref_pct + 1e-10) / (ref_pct + 1e-10).sum()
+        cur_pct = (cur_pct + 1e-10) / (cur_pct + 1e-10).sum()
+        return np.sum((cur_pct - ref_pct) * np.log(cur_pct / ref_pct))
+```
+
+**Retraining decision logic with cool-down:**
+
+```python
+import redis
+
+r = redis.Redis()
+COOLDOWN_SECONDS = 7 * 24 * 3600  # 7-day cool-down between retrains
+
+def should_retrain(model_name: str, drift_signals: dict) -> tuple[bool, str]:
+    # Cool-down guard: prevent retraining more than once per week
+    last_retrain_key = f"last_retrain:{model_name}"
+    last_retrain = r.get(last_retrain_key)
+    if last_retrain:
+        elapsed = time.time() - float(last_retrain)
+        if elapsed < COOLDOWN_SECONDS:
+            return False, f"Cool-down active ({elapsed/86400:.1f}d since last retrain)"
+
+    # Threshold logic: require multiple signals, not just one
+    triggers = []
+    if drift_signals["input_drift"]["drift_score"] > 0.3:       # > 30% features drifted
+        triggers.append("input_drift")
+    if drift_signals["prediction_drift"]["psi"] > 0.25:
+        triggers.append("prediction_drift")
+    if drift_signals["concept_drift"].get("degradation", 0) > 0.02:
+        triggers.append("concept_drift")
+    if drift_signals.get("new_data_volume", 0) > 500_000:       # 500K new labeled examples
+        triggers.append("data_volume")
+
+    # Require at least 2 independent signals to avoid false triggers
+    if len(triggers) >= 2:
+        r.set(last_retrain_key, time.time(), ex=COOLDOWN_SECONDS + 86400)
+        return True, f"Triggered by: {', '.join(triggers)}"
+
+    return False, f"Only {len(triggers)} signal(s): {triggers} (need ≥ 2)"
+
+# Airflow DAG: daily check
+should_train, reason = should_retrain("purchase_propensity", drift_signals)
+if should_train:
+    trigger_training_pipeline(reason=reason)
+    log_to_mlflow({"trigger_reason": reason, "drift_signals": drift_signals})
+else:
+    log_to_mlflow({"skipped_reason": reason})
+```
+
+**Quality gate (prevent feedback loops):**
+
+```python
+def promotion_gate(challenger_run_id: str, champion_run_id: str) -> bool:
+    """
+    New model must beat champion by a meaningful margin.
+    Prevents drift-trained model from becoming the new champion
+    if it just learned the drifted distribution.
+    """
+    challenger_auc = mlflow.get_metric(challenger_run_id, "auc_test")
+    champion_auc   = mlflow.get_metric(champion_run_id,   "auc_test")
+
+    # Also evaluate on a held-out "golden" dataset with known distribution
+    challenger_golden = mlflow.get_metric(challenger_run_id, "auc_golden_set")
+    champion_golden   = mlflow.get_metric(champion_run_id,   "auc_golden_set")
+
+    # Must improve on test set AND not degrade on golden set
+    if challenger_auc > champion_auc - 0.005 and challenger_golden >= champion_golden - 0.01:
+        promote(challenger_run_id)
+        return True
+    else:
+        alert(f"Challenger failed gate: test AUC={challenger_auc:.4f} "
+              f"(champion={champion_auc:.4f}), golden AUC={challenger_golden:.4f}")
+        return False
+```
+
+The "golden set" — a frozen, balanced, labeled dataset maintained separately from the live data stream — is the critical safeguard. Even if the live distribution has drifted, the model must still perform on the golden distribution, preventing it from overfitting to transient drift.
+
+**Monitoring retraining health:**
+
+| Metric | Alert Threshold | Meaning |
+|--------|----------------|---------|
+| `days_since_last_retrain` | > 60 days | Model may be stale |
+| `retraining_frequency_7d` | > 3 per week | Possible false trigger loop |
+| `promotion_gate_pass_rate` | < 50% over 30 days | Training pipeline quality issue |
+| `golden_set_auc_trend` | Decreasing > 0.01/month | Genuine concept drift requiring data strategy review |

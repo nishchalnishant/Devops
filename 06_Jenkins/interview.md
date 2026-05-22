@@ -1091,3 +1091,349 @@ Use the STAR format, but keep it technical:
 - [Azure Scenario Drills](azure-scenario-based-drills.md)
 - [Kubernetes Runbook](../05_Kubernetes/troubleshooting.md)
 - [Senior DevOps Learning Path](../Learning_Path/README.md)
+
+---
+
+## Hard (continued) — Internals, Security & Platform Engineering
+
+**Q: Explain the Jenkins executor model. What is the difference between controller executors and agent executors? What are flyweight executors and when are they used?**
+
+**A:**
+
+Jenkins uses a distributed executor model. Each executor is one thread slot capable of running a single build step concurrently.
+
+**Controller executors:** Set to `0` in production. Every executor on the controller runs with controller JVM permissions — access to secrets, plugins, `JENKINS_HOME`. Exposing controller executors to build code is a security anti-pattern.
+
+**Agent executors:** Each agent declares N executors (typically 2 per CPU core). Capacity planning:
+```
+10 agents × 2 executors = 20 concurrent builds
+```
+
+**Build queue scheduling:**
+1. Label matching: only agents with required labels are candidates
+2. Least-busy routing: agent with most free executors wins
+3. FIFO by default (Fair Job Scheduling plugin adds priority)
+
+**Flyweight executors:**
+
+Pipeline stages that hold locks without executing code (e.g., `input()` waiting for human approval) use lightweight pseudo-executors that don't consume a real executor slot. Without flyweight behavior:
+
+```
+100 pipelines waiting for input × 1 executor each = 100 executors consumed
+```
+
+With flyweight: the `input()` step releases the executor while waiting. Only the resume transition consumes a real slot.
+
+```groovy
+// Anti-pattern: consumes executor the entire time the human deliberates
+stage('Approval') {
+  steps {
+    input message: 'Approve?'
+    sh './deploy.sh'
+  }
+}
+
+// Pattern: separate stages so approval uses flyweight, deploy gets its own slot
+stage('Wait for Approval') {
+  steps { input message: 'Approve?' }  // flyweight
+}
+stage('Deploy') {
+  steps { sh './deploy.sh' }           // real executor
+}
+```
+
+**Observability:** Monitor `jenkins_queue_size_value` and `jenkins_executors_available` via the Prometheus plugin. If queue > 10 and available executors > 0 simultaneously, the cause is label mismatch (jobs restricted to unavailable labels), not capacity.
+
+---
+
+**Q: What is the difference between implicit and explicit shared library loading? How do you prevent a breaking change in a shared library from breaking 300 dependent pipelines?**
+
+**A:**
+
+**Explicit loading (safe):**
+```groovy
+@Library('company-lib@v2.1.0') _
+pipeline {
+  stages {
+    stage('Build') { steps { myCustomStep() } }
+  }
+}
+```
+Each Jenkinsfile declares a pinned version. Breaking changes require each team to opt-in.
+
+**Implicit loading (risky):**
+```yaml
+# JCasC
+unclassified:
+  globalLibraries:
+    libraries:
+    - name: "company-lib"
+      implicit: true
+      defaultVersion: "main"  # Any commit to main → all 300 pipelines
+```
+
+A change to `main` immediately affects every pipeline that uses the implicit library. A signature change like:
+```groovy
+// OLD
+def call(String environment, String image) { ... }
+
+// NEW (breaking)
+def call(String cluster, String environment, String image) { ... }
+```
+breaks all 300 pipelines with no migration path.
+
+**Prevention strategy:**
+
+1. **Pin versions, never use branch names:**
+   ```groovy
+   @Library('company-lib@v2.3.0') _  // not @main
+   ```
+   If implicit is required, pin defaultVersion to a semver tag, not a branch.
+
+2. **Backward-compatible signatures (named parameters):**
+   ```groovy
+   def call(Map config = [:]) {
+     def cluster = config.cluster ?: 'default'
+     def env    = config.environment ?: error('environment required')
+     def image  = config.image      ?: error('image required')
+   }
+   // Callers: deployApp(environment: 'prod', image: 'img:tag')
+   ```
+
+3. **Canary validation before merge:**
+   Maintain a test pipeline in the library repo that runs against a real application using the feature branch. Only merge to `main` after the test pipeline passes.
+
+4. **Semantic versioning + CHANGELOG:**
+   Increment MAJOR for breaking changes. Require teams to migrate within a sprint with support from the platform team.
+
+5. **vars/ vs src/ distinction:**
+   Steps in `vars/` are globally importable and must be serializable. Complex logic belongs in `src/` classes (not subject to Groovy sandbox). Keeping business logic in `src/` makes unit testing possible without a running Jenkins instance.
+
+---
+
+**Q: K8s pod agents take 15–30 s to start. For a 2-minute pipeline, that is 15% overhead. How do you reduce pod startup time? What are the trade-offs?**
+
+**A:**
+
+**Startup breakdown:**
+1. K8s API call: ~200 ms
+2. Image pull: 5–20 s (dominates)
+3. Container init + JNLP agent connect: 3–5 s
+
+**Optimization strategies:**
+
+**1. Pre-pull images on every node (most effective):**
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: image-puller
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: puller
+        image: docker:24-dind
+        command: [sh, -c, "docker pull jenkins/inbound-agent:3261"]
+```
+First run: 30 s. Subsequent runs: ~2 s (image cached on node).
+
+**2. Internal registry mirror:**
+Deploy a Docker registry proxy inside the cluster. Pod agents reference `internal-registry:5000/jenkins/inbound-agent:latest` instead of Docker Hub. Eliminates Internet latency and Hub rate limits.
+
+**3. Smaller base images:**
+```
+ubuntu:22.04 → 1.2 GB pull
+alpine:3.18  → 150 MB pull
+```
+Build slim CI images with only required tools pre-installed.
+
+**4. Warm pod pool:**
+Configure the Kubernetes plugin to maintain N idle agent pods:
+```
+idleMinutes: 10          # keep warm for 10 min after use
+desiredCapacity: 3       # maintain 3 warm pods at all times
+```
+
+**Trade-off table:**
+
+| Strategy | Startup Time | Isolation | Cost | Maintenance |
+|----------|-------------|-----------|------|-------------|
+| Pre-pulled images | 2–3 s | High (fresh pod) | Medium | Medium |
+| Warm pool | <1 s | High | High (idle pods) | Low |
+| Small images | 5–10 s | High | Low | High |
+| Static agents | 0 s | Low (state accumulates) | High | High |
+
+**Recommendation:** Pre-pull images as baseline; warm pool for release pipelines (>10/hour). Avoid static agents for build workloads — they accumulate state that causes "works on my agent" failures.
+
+---
+
+**Q: What does `beforeAgent: true` do in a `when` block? Why does it matter for K8s agents? Show a concrete resource waste example.**
+
+**A:**
+
+Without `beforeAgent: true`, Jenkins allocates an agent before evaluating the `when` condition:
+
+```
+Pipeline run → Agent allocated (K8s pod: 25 s startup) → when evaluated → condition false → stage skipped → pod destroyed
+```
+
+25 seconds of pod startup wasted for a stage that was never going to run.
+
+**With `beforeAgent: true`:**
+```
+Pipeline run → when evaluated → condition false → no agent allocated → stage skipped immediately
+```
+
+**Example:**
+```groovy
+// WASTES a K8s pod for non-PR builds
+stage('Integration Test') {
+  when { changeRequest() }
+  agent { kubernetes { yaml '...' } }
+  steps { sh './run-integration-tests.sh' }
+}
+
+// CORRECT — evaluate condition before pod allocation
+stage('Integration Test') {
+  when {
+    changeRequest()
+    beforeAgent true
+  }
+  agent { kubernetes { yaml '...' } }
+  steps { sh './run-integration-tests.sh' }
+}
+```
+
+**At scale:** 100 builds/hour where 70% are not PRs.
+- Without `beforeAgent: true`: 70 wasted pods × 25 s each = ~29 wasted minutes of compute per hour
+- With `beforeAgent: true`: 0 wasted pod startups
+
+Always pair `when` + `beforeAgent: true` when using K8s agents.
+
+---
+
+**Q: Explain the Groovy sandbox security model in Jenkins. What methods does it block and why? Show a legitimate use case that the sandbox rejects, and the safe resolution.**
+
+**A:**
+
+The Groovy sandbox whitelists safe method calls. Any method not in the whitelist throws `RejectedAccessException`. This prevents Jenkinsfile code (often written by untrusted developers) from executing dangerous operations.
+
+**Dangerous methods always blocked:**
+
+| Method | Risk |
+|--------|------|
+| `Runtime.getRuntime().exec()` | Arbitrary OS commands |
+| `new GroovyShell().evaluate()` | Arbitrary code eval (sandbox escape) |
+| `Field.setAccessible(true)` | Reflection to bypass access control |
+| `new File('/var/lib/jenkins/secrets/')` | Read controller secrets |
+| `System.exit(1)` | Crash the JVM |
+
+**Legitimate use case blocked:**
+
+```groovy
+// Jenkinsfile — decode a base64 manifest from an artifact
+stage('Parse') {
+  steps {
+    script {
+      def manifest = readFile('manifest.b64')
+      def decoded = manifest.decodeBase64()  // Blocked: not whitelisted
+    }
+  }
+}
+```
+
+Error: `Scripts not permitted to use method java.lang.String decodeBase64`
+
+**Wrong fix:** Approve `decodeBase64()` in "In-process Script Approval" UI. Once approved, any pipeline can use it — you've relaxed the sandbox globally for a method that was not previously reviewed.
+
+**Correct fix:** Move logic to a Shared Library class in `src/` (not subject to sandbox, reviewed in Git):
+
+```groovy
+// src/com/company/utils/ManifestParser.groovy
+package com.company.utils
+class ManifestParser implements Serializable {
+    def decode(String base64) {
+        return base64.decodeBase64()  // No sandbox restriction here
+    }
+}
+
+// Jenkinsfile — sandbox applies, but only calls into reviewed class
+@Library('company-lib') _
+import com.company.utils.ManifestParser
+
+pipeline {
+  stages {
+    stage('Parse') {
+      steps {
+        script {
+          def parser = new ManifestParser()
+          def decoded = parser.decode(readFile('manifest.b64'))
+        }
+      }
+    }
+  }
+}
+```
+
+**Policy:** Never approve methods that enable arbitrary execution (`GroovyShell`, `Runtime.exec`, `ProcessBuilder`). For legitimate needs, use Jenkins-provided DSL (`readFile`, `writeFile`, `env.VAR`) or Shared Library classes reviewed through normal Git code review.
+
+---
+
+**Q: How do you measure Jenkins pipeline health using DORA metrics? What metrics should you track, and how do you extract deployment frequency and MTTR from Prometheus?**
+
+**A:**
+
+Install the Prometheus plugin to expose Jenkins metrics on `/prometheus`. Key metrics for DORA:
+
+**Deployment Frequency:**
+```promql
+# Successful production deploys per day
+increase(jenkins_builds_success_build_count_total{job_name=~".*production-deploy.*"}[1d])
+```
+
+**Lead Time for Changes (commit → deploy):**
+
+Jenkins does not natively track commit time. Capture it in the pipeline:
+```groovy
+post {
+  success {
+    script {
+      def commitTime = sh(script: 'git log -1 --format=%ct', returnStdout: true).trim() as Long
+      def leadTime   = (System.currentTimeMillis() / 1000) - commitTime
+      // Push to Prometheus Pushgateway
+      sh """
+        curl -X POST http://pushgateway:9091/metrics/job/jenkins/instance/${env.JOB_NAME} \
+          --data-binary 'lead_time_seconds ${leadTime}'
+      """
+    }
+  }
+}
+```
+
+**Change Failure Rate:**
+```promql
+# % of production deploys that resulted in a failed build
+100 * (
+  increase(jenkins_builds_failed_build_count_total{job_name=~".*production-deploy.*"}[7d]) /
+  increase(jenkins_builds_build_count_total{job_name=~".*production-deploy.*"}[7d])
+)
+```
+
+**MTTR (recovery time):**
+Track PagerDuty incident open → close time correlated with a passing deploy pipeline. Alternatively, measure time between a `FAILURE` build and the next `SUCCESS` build on the production job:
+```promql
+# Time since last failed prod deploy (proxy for MTTR if next success = recovery)
+time() - jenkins_builds_last_unsuccessful_build_timestamp_ms{job_name="production-deploy"} / 1000
+```
+
+**DORA benchmark table:**
+
+| Metric | Elite | High | Medium | Low |
+|--------|-------|------|--------|-----|
+| Deployment Frequency | >1/day | 1/week–1/month | 1–6 months | <6 months |
+| Lead Time | <1 hour | 1–7 days | 1–6 months | >6 months |
+| MTTR | <1 hour | <1 day | 1–7 days | >1 week |
+| Change Failure Rate | 0–15% | 16–30% | — | >30% |
+
+**Actionable pattern:** Track 13-week rolling averages. A stable deployment frequency with rising lead time signals pipeline bottlenecks (slow tests, manual approvals). Rising failure rate signals quality regression. Falling MTTR signals improving incident response.

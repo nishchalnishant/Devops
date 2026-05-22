@@ -1763,3 +1763,464 @@ AWS AppSync is a managed GraphQL service:
 **Managed Identity vs Service Principals (AWS context):** IAM Roles are the equivalent of Managed Identities — they provide temporary credentials without stored secrets. Long-term access keys (equivalent to Service Principals with secrets) should only exist for external systems that cannot assume roles. IRSA and ECS task roles are the pod/task-level equivalent of Azure Workload Identity.
 
 **AWS Organizations SCPs vs Azure Policy:** SCPs define the maximum permissions ceiling per OU/account — they cannot grant permissions, act before IAM evaluation, and even the root user cannot exceed them. Azure Policy enforces at the ARM API layer with richer effects (Deny, Audit, DeployIfNotExists, Modify). Both use hierarchical policy inheritance but differ in execution layer: SCPs block at the IAM authorization step; Azure Policy intercepts at the resource provider level and supports auto-remediation.
+
+---
+
+## Hard (continued) — EKS CNI, IAM Layers, Control Tower, SnapStart, Config & Cost Blending
+
+---
+
+**Q: EKS VPC CNI is exhausting subnet IPs despite low pod count. Diagnose and fix.**
+
+In a `/24` subnet (251 usable IPs) with 150 pods across 10 nodes, scheduling fails with `InsufficientAddress`. The VPC CNI pre-allocates a warm IP pool per ENI beyond current pod count — IPs are consumed even though pods are not running on them.
+
+**Diagnosis:**
+
+```bash
+# Count ENIs and IPs allocated per node
+aws ec2 describe-network-interfaces \
+  --filters Name=attachment.instance-id,Values=<instance-id> \
+  --query 'NetworkInterfaces[].{ENI:NetworkInterfaceId,IPs:length(PrivateIpAddresses)}' \
+  --output table
+
+# Check CNI warm pool config
+kubectl describe daemonset -n kube-system aws-node | grep -E "WARM_IP|MINIMUM_IP"
+
+# Total IPs consumed in subnet
+aws ec2 describe-subnets --subnet-ids <subnet-id> \
+  --query 'Subnets[].AvailableIpAddressCount'
+```
+
+**Root Cause:** Default `WARM_IP_TARGET=10` means each node reserves 10 spare IPs beyond running pods. With 10 nodes, 100 IPs are locked in warm pool. Add secondary ENI overhead and you exhaust the subnet.
+
+**Fix — Enable Prefix Delegation:**
+
+```bash
+# Requires Nitro-based instances (t3, m5, c5, etc.)
+kubectl set env daemonset -n kube-system aws-node \
+  ENABLE_PREFIX_DELEGATION=true \
+  WARM_PREFIX_TARGET=1 \
+  WARM_IP_TARGET=5 \
+  MINIMUM_IP_TARGET=10
+```
+
+With prefix delegation each ENI gets a `/28` block (16 IPs) instead of individual IPs. A `t3.medium` (max 3 ENIs × 1 prefix each) can now host ~48 pods vs ~15 previously. The subnet sees fewer individual IP assignments, reducing exhaustion.
+
+**Trade-offs:** Prefix delegation requires Nitro instances; t2/m4 families don't support it. Reducing `WARM_PREFIX_TARGET` to 0 saves IPs but slows pod scheduling (no pre-warm).
+
+---
+
+**Q: Explain IAM permission boundaries, SCPs, and resource-based policies — which layer wins and when?**
+
+Policy evaluation happens left-to-right through these gates:
+
+```
+Request
+  │
+  ▼
+1. Explicit Deny (identity, SCP, resource policy) → DENIED immediately
+  │
+  ▼
+2. SCP Allow ceiling (OU/account level)
+  │
+  ▼
+3. Resource-based policy Allow (cross-account grants)
+  │
+  ▼
+4. Identity-based policy Allow
+  │
+  ▼
+5. Permissions Boundary Allow (ceiling on identity policy)
+  │
+  ▼
+6. Session policy Allow (AssumeRole inline)
+  │
+  ▼
+ALLOWED only if all applicable layers grant
+```
+
+**Key Rule:** A permissions boundary does NOT grant; it only limits. If the identity policy allows `s3:*` but the boundary allows only `s3:GetObject`, the effective permission is `s3:GetObject`.
+
+**Cross-account subtlety:** When `developer-role` in account A assumes a role in account B, the developer's permissions boundary **stops applying**. You're now operating under the assumed role's policies + account B's SCPs.
+
+```bash
+# Simulate effective permissions (safe, read-only)
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::123456789:role/developer-role \
+  --action-names s3:DeleteObject \
+  --resource-arns arn:aws:s3:::prod-bucket/*
+
+# Check what SCPs apply to an account
+aws organizations list-policies-for-target \
+  --target-id <account-id> \
+  --filter SERVICE_CONTROL_POLICY \
+  --query 'Policies[].{Name:Name,Id:Id}'
+```
+
+**Permission Boundary Practical Use:** Delegate IAM management to developers without allowing privilege escalation:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["iam:CreateRole", "iam:AttachRolePolicy"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PermissionsBoundary": "arn:aws:iam::123456789:policy/developer-boundary"
+        }
+      }
+    }
+  ]
+}
+```
+
+Any role the developer creates must itself have the boundary attached — preventing escalation to Admin.
+
+---
+
+**Q: Design an AWS Control Tower landing zone for 500 teams. Explain account vending, guardrails, and drift detection.**
+
+**Landing Zone Structure:**
+
+```
+Root
+├── Security OU
+│   ├── Audit Account      (SecurityAudit role, read-only to all)
+│   └── Log Archive Account (central CloudTrail + CloudWatch S3)
+├── Sandbox OU             (experimental — relaxed SCPs)
+├── Workloads OU
+│   ├── Production OU      (strict SCPs, no direct console access)
+│   └── Development OU
+└── Suspended OU           (deprovisioned accounts)
+```
+
+Control Tower bootstraps: organization-level CloudTrail, Config, GuardDuty, centralized logging to S3.
+
+**Preventive Guardrails (SCPs):** Block before execution.
+- Disallow deletion of CloudTrail trails
+- Require MFA for IAM user console access
+- Deny creation of internet-facing resources in Production OU
+
+**Detective Guardrails (Config Rules):** Audit and report.
+- Detect unencrypted S3 buckets
+- Detect EC2 instances missing required tags
+- Detect public RDS snapshots
+
+**Account Vending — Developer Portal Integration:**
+
+```python
+import boto3
+
+def provision_account(team_name: str, env: str, cost_center: str) -> dict:
+    sc = boto3.client('servicecatalog')
+
+    resp = sc.provision_product(
+        ProductId='prod-xxxxxxxxxxxx',          # Account Factory product
+        ProvisioningArtifactId='pa-xxxxxxxxxxxx',
+        ProvisionedProductName=f'{team_name}-{env}',
+        ProvisioningParameters=[
+            {'Key': 'AccountName',  'Value': f'{team_name}-{env}'},
+            {'Key': 'AccountEmail', 'Value': f'{team_name}+{env}@company.com'},
+            {'Key': 'ManagedOrganizationalUnit', 'Value': 'Workloads/Development'},
+        ]
+    )
+    record_id = resp['RecordDetail']['RecordId']
+
+    # Tag account for cost allocation after creation completes
+    orgs = boto3.client('organizations')
+    account_id = poll_for_account_id(record_id)
+    orgs.tag_resource(
+        ResourceId=account_id,
+        Tags=[
+            {'Key': 'Team',        'Value': team_name},
+            {'Key': 'Environment', 'Value': env},
+            {'Key': 'CostCenter',  'Value': cost_center},
+        ]
+    )
+    return {'AccountId': account_id, 'Status': 'Provisioned'}
+```
+
+Account creation takes 4–5 minutes. Use SNS + Lambda for async notification back to the portal.
+
+**Drift Detection:**
+
+```bash
+# Check guardrail compliance across all enrolled accounts
+aws controltower list-enabled-controls \
+  --target-identifier arn:aws:organizations::123456789:ou/o-xxx/ou-xxx
+
+# Config aggregator query across all accounts
+aws configservice get-aggregate-compliance-details-by-config-rule \
+  --configuration-aggregator-name org-aggregator \
+  --config-rule-name cloudtrail-enabled \
+  --compliance-type NON_COMPLIANT
+```
+
+Auto-remediate drift with Config Remediation Actions (Lambda-backed) for common guardrail violations.
+
+---
+
+**Q: Explain Lambda SnapStart. How does it eliminate Java cold starts, and what are the initialization constraints?**
+
+**Without SnapStart:** Every cold start boots the JVM (1.5–2s) + runs static initializers + loads Spring/Guice context (0.5–1.5s) = 3–4s init duration.
+
+**With SnapStart:** At publish time, Lambda:
+1. Boots the microVM and JVM
+2. Runs all static initializers and the full init phase
+3. **Snapshots the entire memory state** of the initialized VM
+4. On subsequent invocations, **clones the snapshot** instead of booting
+
+Result: init duration drops to ~90ms (snapshot restore) instead of 3s+.
+
+**CloudFormation — Enable SnapStart:**
+
+```yaml
+MyFunction:
+  Type: AWS::Lambda::Function
+  Properties:
+    Runtime: java17
+    Handler: com.example.Handler
+    MemorySize: 512
+    Code:
+      S3Bucket: my-builds
+      S3Key: handler-1.0.jar
+
+MyFunctionVersion:
+  Type: AWS::Lambda::Version
+  Properties:
+    FunctionName: !Ref MyFunction
+    SnapStart:
+      ApplyOn: PublishedVersions   # Must publish a version to activate
+
+MyAlias:
+  Type: AWS::Lambda::Alias
+  Properties:
+    Name: live
+    FunctionName: !Ref MyFunction
+    FunctionVersion: !GetAtt MyFunctionVersion.Version
+```
+
+**Initialization Constraints:**
+
+```java
+// BAD — non-deterministic init captured in snapshot
+static {
+    long now = System.currentTimeMillis();  // Frozen in snapshot; always returns init time
+    Random random = new Random();           // Seed captured; every invocation gets same sequence
+}
+
+// GOOD — lazy init, executed per-invocation after restore
+private static volatile DynamoDbClient client;
+
+private static DynamoDbClient getClient() {
+    if (client == null) {
+        synchronized (Handler.class) {
+            if (client == null) client = DynamoDbClient.create();
+        }
+    }
+    return client;
+}
+```
+
+Also implement `CRaC` (Coordinated Restore at Checkpoint) hooks to close/reopen file descriptors and network sockets on restore:
+
+```java
+import org.crac.*;
+
+public class Handler implements Resource {
+    @Override
+    public void beforeCheckpoint(Context<? extends Resource> ctx) {
+        // Close DB connections before snapshot
+    }
+
+    @Override
+    public void afterRestore(Context<? extends Resource> ctx) {
+        // Reopen connections after clone
+    }
+}
+```
+
+SnapStart is incompatible with Provisioned Concurrency — use one or the other.
+
+---
+
+**Q: Build a custom AWS Config rule for S3 compliance (versioning + SSE-KMS + block public access) with auto-remediation.**
+
+**Evaluator Lambda:**
+
+```python
+import boto3, json
+
+def lambda_handler(event, context):
+    s3 = boto3.client('s3')
+    item = json.loads(event['invokingEvent'])['configurationItem']
+    bucket = item['resourceName']
+    failures = []
+
+    try:
+        v = s3.get_bucket_versioning(Bucket=bucket)
+        if v.get('Status') != 'Enabled':
+            failures.append('versioning-disabled')
+
+        enc = s3.get_bucket_encryption(Bucket=bucket)
+        rules = enc['ServerSideEncryptionConfiguration']['Rules']
+        kms_ok = any(r['ApplyServerSideEncryptionByDefault']['SSEAlgorithm'] == 'aws:kms'
+                     for r in rules)
+        if not kms_ok:
+            failures.append('sse-kms-missing')
+
+        pub = s3.get_public_access_block(Bucket=bucket)['PublicAccessBlockConfiguration']
+        if not all([pub['BlockPublicAcls'], pub['BlockPublicPolicy'],
+                    pub['IgnorePublicAcls'], pub['RestrictPublicBuckets']]):
+            failures.append('public-access-not-blocked')
+
+    except Exception as e:
+        failures.append(f'error:{e}')
+
+    status = 'COMPLIANT' if not failures else 'NON_COMPLIANT'
+    boto3.client('config').put_evaluations(
+        Evaluations=[{
+            'ComplianceResourceType': item['resourceType'],
+            'ComplianceResourceId': bucket,
+            'ComplianceType': status,
+            'Annotation': ', '.join(failures) or 'All checks passed',
+            'OrderingTimestamp': item['configurationItemCaptureTime'],
+        }],
+        ResultToken=event['resultToken']
+    )
+```
+
+**Remediation Lambda:**
+
+```python
+def remediate(bucket: str):
+    s3 = boto3.client('s3')
+    kms_key = 'arn:aws:kms:us-east-1:123456789:alias/s3-default'
+
+    s3.put_bucket_versioning(Bucket=bucket,
+        VersioningConfiguration={'Status': 'Enabled'})
+
+    s3.put_bucket_encryption(Bucket=bucket,
+        ServerSideEncryptionConfiguration={'Rules': [{
+            'ApplyServerSideEncryptionByDefault': {
+                'SSEAlgorithm': 'aws:kms',
+                'KMSMasterKeyID': kms_key,
+            },
+            'BucketKeyEnabled': True,
+        }]})
+
+    s3.put_public_access_block(Bucket=bucket,
+        PublicAccessBlockConfiguration={
+            'BlockPublicAcls': True, 'BlockPublicPolicy': True,
+            'IgnorePublicAcls': True, 'RestrictPublicBuckets': True,
+        })
+```
+
+**Auto-remediation via Config:**
+
+```yaml
+S3Remediation:
+  Type: AWS::Config::RemediationConfiguration
+  Properties:
+    ConfigRuleName: s3-compliance-custom
+    TargetType: SSM_DOCUMENT
+    TargetId: AWS-InvokeLambdaFunction
+    Parameters:
+      FunctionName:
+        StaticValue:
+          Values: [!Ref RemediationLambda]
+      Payload:
+        ResourceValue:
+          Value: RESOURCE_ID
+    Automatic: true
+    MaximumAutomaticAttempts: 3
+    RetryAttemptSeconds: 60
+    ExecutionControls:
+      SsmControls:
+        ConcurrentExecutionRatePercentage: 25
+        ErrorPercentage: 20
+```
+
+Cross-account compliance: deploy a Config Aggregator in the Security account to see compliance across the entire Organization:
+
+```bash
+aws configservice put-configuration-aggregator \
+  --configuration-aggregator-name org-aggregator \
+  --organization-aggregation-sources AllAwsRegions=true,RoleArn=arn:aws:iam::SECURITY:role/ConfigAggregator
+```
+
+---
+
+**Q: Design a cost blending strategy for a $2M AWS spend using Savings Plans, Reserved Instances, and Spot.**
+
+The optimization pyramid for mixed workloads:
+
+```
+Layer 1 — Stable baseline (never scales): 3-Year Reserved Instances
+  → 60% discount vs on-demand
+  → Buy All Upfront for max savings
+  → Risk: capacity locked to specific instance family/region (use Convertible RIs if instance family flexibility needed)
+
+Layer 2 — Predictable variable (average load with some flexibility): Compute Savings Plans (1-Year)
+  → 42–58% discount
+  → Covers EC2 across any instance type, size, OS, region
+  → Also covers Lambda and Fargate
+  → Risk: committed $/hr, billed even if underused
+
+Layer 3 — Burst / batch / fault-tolerant: Spot Instances
+  → 70–90% discount
+  → 2-minute interruption warning; use Spot Fleet or Karpenter with multi-AZ, multi-family
+  → Risk: interruption; never use for stateful single-replica workloads
+
+Layer 4 — Peaks and unknowns: On-Demand (target < 5%)
+```
+
+**Karpenter Spot configuration:**
+
+```yaml
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: spot-burst
+spec:
+  template:
+    spec:
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot"]
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values: ["m5.large", "m5a.large", "m5n.large", "m4.large"]
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    consolidateAfter: 30s
+```
+
+**Monitoring & anomaly detection:**
+
+```bash
+# Set up Cost Anomaly Detection
+aws ce create-anomaly-monitor \
+  --anomaly-monitor '{"MonitorName":"spot-monitor","MonitorType":"DIMENSIONAL","MonitorDimension":"SERVICE"}'
+
+aws ce create-anomaly-subscription \
+  --anomaly-subscription '{
+    "SubscriptionName": "high-cost-alert",
+    "MonitorArnList": ["arn:aws:ce::123456789:anomalymonitor/xxx"],
+    "Subscribers": [{"Address":"oncall@company.com","Type":"EMAIL"}],
+    "Threshold": 500,
+    "Frequency": "DAILY"
+  }'
+```
+
+**Typical savings for $2M annual spend:**
+- Baseline 40% on 3-Yr RIs → save $480K
+- Variable 35% on 1-Yr Compute SPs → save $294K
+- Burst 70% on Spot → save $280K
+- **Combined: ~$1.05M saved (52% overall discount)**
+
+Key governance: tag every resource with `Team`, `Environment`, `CostCenter`; activate tags in Billing Console; use Cost Explorer grouped by tag for monthly chargeback reports.
