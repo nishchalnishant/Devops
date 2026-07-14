@@ -2888,3 +2888,80 @@ az cosmosdb update --name myapp-cosmos --resource-group my-rg \
 | Azure Storage | GRS/GZRS | Microsoft-managed | ~15 min |
 
 **Key point:** The data layer — not compute — determines real RTO/RPO. Cosmos DB multi-master gives RPO=0 but requires conflict resolution. Azure SQL geo-replication is simpler but accepts ~5s data loss. Choose the consistency model based on business tolerance for data loss, not just recovery time.
+
+## 25 Scenario-Based Azure DevOps Questions
+
+**Scenario 1:** Your development team is using Azure Pipelines for CI/CD. Recently, developers have been complaining that the CI pipeline takes 45 minutes to run, primarily because it's downloading 2GB of npm packages every time. How do you optimize this?  
+**Answer:** Implement Pipeline Caching using the `Cache@2` task to cache the `node_modules` or `.npm` folder. Use the `package-lock.json` hash as the cache key. Also, evaluate if self-hosted agents with pre-installed dependencies or persistent storage could help.
+
+**Scenario 2:** You need to deploy an application to three environments: Dev, QA, and Prod. Prod deployments require manual approval from the QA Lead and the Product Owner. How do you implement this in Azure DevOps?  
+**Answer:** Use Environments in Azure Pipelines. Define an environment for "Prod" and configure "Approvals and Checks" on that environment, specifying the QA Lead and Product Owner as required approvers. In the YAML pipeline, use a `deployment` job targeting the "Prod" environment.
+
+**Scenario 3:** A pipeline runs successfully, but the deployed application is failing because it's using the wrong database connection string. The connection string should vary by environment, but the code currently has it hardcoded. How do you fix this securely?  
+**Answer:** Store the connection strings in Azure Key Vault. Link the Key Vault to Azure DevOps using Variable Groups. In the pipeline, use the `AzureKeyVault@2` task or link the variable group to fetch the secrets, and then use a file transform task (like `FileTransform@1` for JSON/XML) or replace tokens to inject the correct connection string during deployment.
+
+**Scenario 4:** Your organization mandates that all infrastructure must be deployed via Terraform using Azure DevOps. How do you manage the Terraform state securely so multiple team members or pipeline runs do not corrupt it?  
+**Answer:** Store the Terraform state in an Azure Storage Account container. Use Azure Blob Storage as the remote backend. Secure the storage account using a Private Endpoint, limit access via Entra ID RBAC (Storage Blob Data Contributor), and enable state locking using the same backend configuration.
+
+**Scenario 5:** A developer accidentally merged a secret (e.g., an Azure Storage account key) into the main branch of an Azure Repos repository. What steps do you take to remediate this?  
+**Answer:** 1. Immediately revoke and regenerate the compromised key in Azure. 2. Remove the secret from the repository's history (e.g., using BFG Repo-Cleaner or `git filter-repo`). 3. Implement secret scanning (like GitHub Advanced Security for Azure DevOps or a pre-commit hook) to prevent future commits of secrets. 4. Review access logs to check if the secret was abused.
+
+**Scenario 6:** You are managing an AKS (Azure Kubernetes Service) cluster. The workloads are experiencing intermittent DNS resolution failures (e.g., `Timeout while resolving name`). How do you troubleshoot and resolve this?  
+**Answer:** Check the CoreDNS pods for restarts or high resource usage using `kubectl logs` and `kubectl top pods`. The issue is often CoreDNS being overwhelmed. Mitigation involves scaling CoreDNS replicas (using `cluster-proportional-autoscaler`), tuning `ndots` in pod DNS policies, and implementing NodeLocal DNSCache to cache DNS queries on each node.
+
+**Scenario 7:** Your company wants to ensure that no public IP addresses can be created in your Azure subscription, and all resources must be tagged with a 'CostCenter' tag. How do you enforce this?  
+**Answer:** Use Azure Policy. Create two policy assignments at the Subscription or Management Group level: one using the built-in policy "Not allowed resource types" (specifying `Microsoft.Network/publicIPAddresses`), and another using the built-in policy "Require a tag on resources" specifying 'CostCenter'.
+
+**Scenario 8:** An application running on Azure App Service needs to securely access a backend Azure SQL Database without storing any passwords or connection strings in configuration files. How is this achieved?  
+**Answer:** Enable a System-Assigned Managed Identity on the App Service. In Azure SQL, create a contained database user mapped to the Managed Identity and grant it the necessary SQL roles (e.g., `db_datareader`, `db_datawriter`). Update the application code to use Azure Identity client libraries (like `DefaultAzureCredential`) to fetch an access token dynamically.
+
+**Scenario 9:** You are tasked with migrating an on-premises VM-based application to Azure. The application has strict compliance requirements that it must not traverse the public internet, even when accessing Azure PaaS services like Azure Storage. What architecture do you propose?  
+**Answer:** Use Azure ExpressRoute or Site-to-Site VPN for connecting on-premises to an Azure VNet. Deploy the application to VMs or AKS within the VNet. To access Azure Storage, use Azure Private Link (Private Endpoints) so the storage account gets a private IP from the VNet, ensuring traffic stays on the Microsoft backbone.
+
+**Scenario 10:** Your AKS cluster is running out of IP addresses. It was provisioned using Azure CNI, and the VNet subnet is small. What are your options to resolve this without recreating the cluster?  
+**Answer:** If using standard Azure CNI, you might need to add a new subnet and node pool, then drain the old one, but you cannot change the VNet size easily. However, you can migrate to Azure CNI Overlay (if supported) or use Azure CNI with dynamic IP allocation, which allocates IP addresses to pods from a separate subnet than the nodes, significantly reducing IP exhaustion.
+
+**Scenario 11:** During a Black Friday sale, your Web App experiences a massive traffic spike, causing high CPU usage and slow responses. Auto-scaling was not configured. How do you set up an optimal auto-scaling strategy for future events?  
+**Answer:** Configure Azure Monitor Autoscale on the App Service Plan. Create a scale-out rule based on CPU percentage (e.g., scale out by 1 instance if CPU > 70% for 5 minutes) and a scale-in rule (e.g., scale in by 1 if CPU < 30% for 10 minutes). Ensure the application is stateless.
+
+**Scenario 12:** You want to implement zero-downtime deployments for an API running in Azure App Service. How do you configure this in Azure DevOps?  
+**Answer:** Use Deployment Slots. Deploy the new code to a "Staging" slot. Run automated integration and smoke tests against the Staging slot. Once verified, perform a slot swap via the Azure CLI task or App Service Manage task. The swap swaps the VIPs, seamlessly routing traffic to the new version.
+
+**Scenario 13:** A microservice in AKS needs to read secrets from Azure Key Vault, but you want to avoid injecting secrets as environment variables due to security policies. What is the best native Azure approach?  
+**Answer:** Use the Azure Key Vault Provider for Secrets Store CSI Driver. This allows the AKS pods to mount Key Vault secrets, keys, and certs as a volume. Combine this with Microsoft Entra Workload ID to authenticate the pod to the Key Vault securely.
+
+**Scenario 14:** Your manager asks you to provide a comprehensive view of all costs associated with a specific project "ProjectX", which spans multiple resource groups and services. How do you do this?  
+**Answer:** Ensure all resources for the project are tagged with `Project: ProjectX`. Go to Azure Cost Management + Billing, use the Cost Analysis tool, and filter/group by the Tag `Project`. You can save this view, export the data, or set up budgets and alerts based on this tag.
+
+**Scenario 15:** A critical VM in Azure becomes unresponsive. Boot diagnostics show a blue screen. How do you troubleshoot and recover the VM?  
+**Answer:** Use the Azure Serial Console to attempt interaction or boot into Safe Mode. If that fails, take a snapshot of the OS disk, create a new managed disk from the snapshot, and attach it as a data disk to a recovery VM. Fix the OS issue (e.g., replace corrupted drivers, fix BCD, or edit registry) from the recovery VM, then swap the repaired disk back to the original VM.
+
+**Scenario 16:** You're deploying an application via Bicep. The deployment fails halfway through because a resource name already exists in another tenant. What happens to the resources that were already created before the failure?  
+**Answer:** ARM/Bicep deployments are generally idempotent but not transactional across multiple resources unless specifically designed. Resources created before the failure will remain. Running the deployment again after fixing the name will update existing resources (depending on the mode, usually Incremental) and create the missing ones.
+
+**Scenario 17:** A developer needs Temporary "Contributor" access to a production resource group to debug a critical incident. You don't want to leave the access permanently open. What is the most robust Azure-native way to handle this?  
+**Answer:** Use Microsoft Entra Privileged Identity Management (PIM). Assign the developer as an "Eligible" Contributor to the resource group. During the incident, the developer must activate the role, provide a justification, and the role will automatically expire after a set duration (e.g., 2 hours).
+
+**Scenario 18:** You have a multi-region architecture using Azure Front Door. You want to ensure that if the primary region goes down, traffic is automatically routed to the secondary region. How is this configured?  
+**Answer:** Configure both regions as origins in the Azure Front Door backend pool. Set the priority of the primary region to 1 and the secondary region to 2. Configure Health Probes. Front Door will route traffic to priority 1 as long as the health probes succeed; if they fail, it falls back to priority 2.
+
+**Scenario 19:** You noticed a significant increase in outbound traffic costs from your AKS cluster. How can you analyze where the traffic is going?  
+**Answer:** Enable VNet Flow Logs and send them to Azure Storage or a Log Analytics workspace via Traffic Analytics. You can then write Kusto queries (KQL) in Log Analytics to aggregate the outbound traffic by destination IP/port and map it to specific pods if Network Watcher AKS integration is enabled.
+
+**Scenario 20:** You are building a secure CI/CD pipeline using GitHub Actions to deploy to Azure. You want to avoid storing Azure Client Secrets in GitHub Secrets. What should you use instead?  
+**Answer:** Use OpenID Connect (OIDC). Configure a Federated Identity Credential in Microsoft Entra ID linked to the GitHub repository. In the GitHub Action, use the `azure/login` action with `client-id`, `tenant-id`, and `subscription-id`, which requests a short-lived token from Entra ID dynamically.
+
+**Scenario 21:** A team deployed a custom Linux VM image to Azure. However, they are unable to SSH into it. Network Security Groups (NSGs) allow Port 22. What else should you check?  
+**Answer:** 1. Check if the VM is in a subnet with a Route Table directing traffic to a firewall that might be blocking it. 2. Verify if Azure Bastion is required by policy instead of direct SSH. 3. Use the Azure Network Watcher "IP Flow Verify" tool. 4. Ensure the SSH daemon is running in the OS using Boot Diagnostics/Serial Console.
+
+**Scenario 22:** You want to run a batch job in Azure every night at 2 AM that processes files in a storage account. The job takes about 15 minutes to run and requires a custom Docker image. What is the most cost-effective and low-maintenance compute option?  
+**Answer:** Azure Container Instances (ACI) triggered by a Logic App or Azure Functions, OR Azure Container Apps using a Cron-based scaler (KEDA). Both options allow you to pay only for the exact seconds the container is running without provisioning dedicated VMs.
+
+**Scenario 23:** An Azure Function is experiencing cold starts taking up to 10 seconds, which is unacceptable for your API latency requirements. How do you mitigate this?  
+**Answer:** If running on the Consumption plan, migrate to the Premium plan (Elastic Premium) or a Dedicated App Service plan. The Premium plan supports "always ready" instances and pre-warmed instances to eliminate cold starts while still providing dynamic scaling.
+
+**Scenario 24:** You need to securely store SSL/TLS certificates and automatically bind them to Azure Application Gateway. How do you automate this?  
+**Answer:** Store the certificates in Azure Key Vault. Configure Application Gateway with a User-Assigned Managed Identity that has `Key Vault Secrets User` access. Reference the Key Vault secret URI in the App Gateway HTTPS listener configuration. App Gateway will automatically pull new certificate versions.
+
+**Scenario 25:** During an audit, you need to prove who deleted a critical SQL Database yesterday. Where do you find this information?  
+**Answer:** Query the Azure Activity Log. You can filter the log by resource type (SQL Database), operation name (Delete SQL Database), and the time range. The log will show the Entra ID user or service principal (Caller) that initiated the operation.

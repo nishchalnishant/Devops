@@ -65,13 +65,14 @@ By the end of this phase, you should be able to take an application from source 
 
 ## Study Order
 
-1. `../12_Azure/README.md`
-2. `../06_Jenkins/README.md`
-3. `../06_Jenkins/scenarios.md`
-4. `../05_Kubernetes/notes/containers-orchestration-README.md`
-5. `../10_Terraform/README.md`
-6. `../07_Interview_Preparation/interview-questions-easy.md`
-7. `../07_Interview_Preparation/interview-questions-medium.md`
+1. `ci-cd-lifecycle.md` — end-to-end CI/CD lifecycle (read first)
+2. `../12_Azure/README.md`
+3. `../06_Jenkins/README.md`
+4. `../06_Jenkins/scenarios.md`
+5. `../05_Kubernetes/notes/containers-orchestration-README.md`
+6. `../10_Terraform/README.md`
+7. `../07_Interview_Preparation/interview-questions-easy.md`
+8. `../07_Interview_Preparation/interview-questions-medium.md`
 
 ## What To Master
 

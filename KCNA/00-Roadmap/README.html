@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>00 &mdash; Roadmap&colon; How To Use This KCNA Repository</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+/* From extension dendron.dendron */
+@font-face {
+  font-family: "fontello";
+  src: url("../font/fontello.eot?7840610");
+  src: url("../font/fontello.eot?7840610#iefix") format("embedded-opentype"),
+    url("../font/fontello.woff2?7840610") format("woff2"),
+    url("../font/fontello.woff?7840610") format("woff"),
+    url("../font/fontello.ttf?7840610") format("truetype"),
+    url("../font/fontello.svg?7840610#fontello") format("svg");
+  font-weight: normal;
+  font-style: normal;
+}
+/* Chrome hack: SVG is rendered more smooth in Windozze. 100% magic, uncomment if you need it. */
+/* Note, that will break hinting! In other OS-es font will be not as sharp as it could be */
+/*
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+  @font-face {
+    font-family: 'fontello';
+    src: url('../font/fontello.svg?7840610#fontello') format('svg');
+  }
+}
+*/
+
+[class^="icon-"]:before,
+[class*=" icon-"]:before {
+  font-family: "fontello";
+  font-style: normal;
+  font-weight: normal;
+  speak: never;
+
+  display: inline-block;
+  text-decoration: inherit;
+  width: 1em;
+  margin-right: 0.2em;
+  text-align: center;
+  /* opacity: .8; */
+
+  /* For safety - reset parent styles, that can break glyph codes*/
+  font-variant: normal;
+  text-transform: none;
+
+  /* fix buttons height, for twitter bootstrap */
+  line-height: 1em;
+
+  /* Animation center compensation - margins should be symmetric */
+  /* remove if not needed */
+  margin-left: 0.2em;
+
+  /* you can be more comfortable with increased icons size */
+  /* font-size: 120%; */
+
+  /* Font smoothing. That was taken from TWBS */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Uncomment for 3D effect */
+  /* text-shadow: 1px 1px 1px rgba(127, 127, 127, 0.3); */
+}
+
+.icon-link:before {
+  content: "\e800";
+} /* '' */
+
+.memo-markdown-embed {
+  /* border: 1px solid #ddd; */
+  /* border-radius: 6px; */
+  /* padding: 5px 20px 15px 20px;
+  margin: 0 20px; */
+  border-bottom: dashed thin;
+  position: relative;
+}
+
+.memo-markdown-embed-title {
+  height: 36px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 26px;
+  line-height: 42px;
+  top: 5px;
+  left: 0;
+  right: 0;
+  width: 100%;
+  text-align: center;
+  font-weight: 900;
+}
+
+.memo-markdown-embed-link {
+  border-bottom: dashed thin;
+  /* position: absolute;
+  top: 6px;
+  right: 12px; */
+  /* /cursor: pointer; */
+  /* //float: right; */
+}
+
+.memo-markdown-embed-link i {
+  font-size: 18px;
+  color: #535353;
+}
+
+.memo-markdown-embed-link:hover i {
+  color: #000000;
+}
+
+.vscode-dark .memo-markdown-embed-link:hover i {
+  color: #ffffff;
+}
+
+.memo-markdown-embed-content {
+  /* max-height: 500px; */
+  /* overflow-y: auto;
+  padding-right: 10px; */
+}
+
+.memo-invalid-link {
+  color: #cc0013 !important;
+  cursor: not-allowed;
+}
+
+.memo-cyclic-link-warning {
+  text-align: center;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <h1 id="00--roadmap-how-to-use-this-kcna-repository">00 — Roadmap: How To Use This KCNA Repository</h1>
+<p>Welcome. This is a complete, from-scratch study system for the <strong>Kubernetes and Cloud Native Associate (KCNA)</strong> certification, offered by the CNCF (Cloud Native Computing Foundation) and the Linux Foundation.</p>
+<p>This chapter is your map. Read it fully before touching Chapter 01. It will save you weeks of confusion.</p>
+<hr>
+<h2 id="1-what-is-kcna-really">1. What Is KCNA, Really?</h2>
+<p>Let's start with the honest picture, not the marketing one.</p>
+<p>KCNA is an <strong>entry-level, multiple-choice exam</strong>. It does not test you in a live terminal (unlike CKA/CKAD/CKS, which are hands-on). It tests <strong>understanding of concepts</strong> — architecture, terminology, and &quot;what does this thing do.&quot;</p>
+<p>Think of it like a <strong>driving theory test</strong> before you're allowed to take the practical driving test (which would be CKA later). You don't drive the car yet. But you must know:</p>
+<ul>
+<li>What a clutch does</li>
+<li>What a traffic light means</li>
+<li>What &quot;give way&quot; means</li>
+<li>Why speed limits exist</li>
+</ul>
+<p>KCNA is that, but for Kubernetes and the cloud native ecosystem.</p>
+<p><strong>Exam facts (verify against the official CNCF page before booking, as these can change):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Format</td>
+<td>Multiple choice, proctored, online</td>
+</tr>
+<tr>
+<td>Duration</td>
+<td>90 minutes</td>
+</tr>
+<tr>
+<td>Number of questions</td>
+<td>~60</td>
+</tr>
+<tr>
+<td>Passing score</td>
+<td>Approximately 75% (CNCF uses scaled scoring, so this is a guide, not a guarantee)</td>
+</tr>
+<tr>
+<td>Validity</td>
+<td>2 years</td>
+</tr>
+<tr>
+<td>Prerequisites</td>
+<td>None — genuinely beginner-friendly</td>
+</tr>
+<tr>
+<td>Cost</td>
+<td>Check CNCF training portal (often bundled with a free retake)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="2-why-does-this-certification-exist-motivation-first">2. Why Does This Certification Exist? (Motivation First)</h2>
+<p>Before Kubernetes existed, &quot;cloud knowledge&quot; was scattered. Someone could be excellent at Docker but know nothing about orchestration. Someone could know AWS deeply but never have touched a container.</p>
+<p>The CNCF needed a <strong>common baseline</strong> — a way to say &quot;this person understands the vocabulary and mental model of cloud native systems,&quot; the same way a &quot;Network+ &quot; certification proves basic networking literacy before you specialize in Cisco or firewalls.</p>
+<p>KCNA exists to:</p>
+<ol>
+<li>Give beginners a structured on-ramp into Kubernetes (which has a notoriously steep learning curve).</li>
+<li>Give employers a signal that a candidate understands cloud native fundamentals, even if they haven't run production clusters yet.</li>
+<li>Act as the <strong>foundation</strong> for harder certifications: CKAD (Application Developer), CKA (Administrator), CKS (Security Specialist), and now also KCSA (Security Associate) and PCA (Prometheus Certified Associate).</li>
+</ol>
+<hr>
+<h2 id="3-the-official-kcna-domains-what-youre-actually-tested-on">3. The Official KCNA Domains (What You're Actually Tested On)</h2>
+<p>CNCF publishes an exam curriculum with weighted domains. Approximate weights (always confirm current weights on the CNCF site, they are occasionally revised):</p>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Weight</th>
+<th>What it covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kubernetes Fundamentals</td>
+<td>46%</td>
+<td>Architecture, objects, API, control plane, worker nodes, scheduling</td>
+</tr>
+<tr>
+<td>Container Orchestration</td>
+<td>22%</td>
+<td>Container fundamentals, runtimes, orchestration concepts, network/storage/scaling concepts</td>
+</tr>
+<tr>
+<td>Cloud Native Architecture</td>
+<td>16%</td>
+<td>Autoscaling, serverless, service mesh, community/governance</td>
+</tr>
+<tr>
+<td>Cloud Native Observability</td>
+<td>8%</td>
+<td>Telemetry, Prometheus, cost visibility</td>
+</tr>
+<tr>
+<td>Cloud Native Application Delivery</td>
+<td>8%</td>
+<td>CI/CD, GitOps, IaC</td>
+</tr>
+</tbody>
+</table>
+<p>Notice <strong>Kubernetes Fundamentals is nearly half the exam</strong>. This is why our repo dedicates chapters 06–20 almost entirely to Kubernetes internals — that's where your study time has the highest return.</p>
+<hr>
+<h2 id="4-how-this-repository-is-organized">4. How This Repository Is Organized</h2>
+<pre><code>KCNA/
+├── 00-Roadmap                          ← you are here
+├── 01-Introduction-to-Cloud-Native
+├── 02-Linux-Basics-for-Kubernetes
+├── 03-Networking-Basics
+├── 04-Containers
+├── 05-Container-Runtimes
+├── 06-Kubernetes-Architecture
+├── 07-Control-Plane
+├── 08-Worker-Nodes
+├── 09-Kubernetes-Objects
+├── 10-Pods
+├── 11-ReplicaSets
+├── 12-Deployments
+├── 13-DaemonSets
+├── 14-StatefulSets
+├── 15-Jobs-and-CronJobs
+├── 16-Services
+├── 17-Ingress-and-Gateway-API
+├── 18-Networking
+├── 19-Storage
+├── 20-Scheduling
+├── 21-Security
+├── 22-Observability
+├── 23-Service-Mesh
+├── 24-GitOps
+├── 25-Serverless
+├── 26-CNCF-Landscape
+├── 27-Production-Best-Practices
+├── 28-Exam-Preparation
+├── 29-Cheat-Sheets
+├── 30-Flashcards
+├── 31-Practice-Questions
+├── 32-Mock-Exams
+└── 33-Interview-Questions
+</code></pre>
+<p>Each numbered chapter folder contains a <code>README.md</code> with the full 21-section deep-dive treatment: motivation, internals, architecture, YAML, commands, labs, comparisons, mistakes, interview Qs, and 20 KCNA-style MCQs.</p>
+<p><strong>Read chapters in order the first time through.</strong> Concepts stack — Chapter 12 (Deployments) assumes you understand Chapter 11 (ReplicaSets), which assumes Chapter 10 (Pods).</p>
+<hr>
+<h2 id="5-suggested-study-timeline">5. Suggested Study Timeline</h2>
+<p>You have two realistic paths depending on your background.</p>
+<h3 id="path-a--true-beginner-6-weeks-1-hourday">Path A — True Beginner (6 weeks, ~1 hour/day)</h3>
+<table>
+<thead>
+<tr>
+<th>Week</th>
+<th>Chapters</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>00–05</td>
+<td>Cloud native concepts, Linux, networking, containers</td>
+</tr>
+<tr>
+<td>2</td>
+<td>06–09</td>
+<td>Kubernetes architecture, control plane, worker nodes, objects</td>
+</tr>
+<tr>
+<td>3</td>
+<td>10–15</td>
+<td>Workload objects: Pods → CronJobs</td>
+</tr>
+<tr>
+<td>4</td>
+<td>16–20</td>
+<td>Services, Ingress, networking, storage, scheduling</td>
+</tr>
+<tr>
+<td>5</td>
+<td>21–26</td>
+<td>Security, observability, service mesh, GitOps, serverless, CNCF landscape</td>
+</tr>
+<tr>
+<td>6</td>
+<td>27–33</td>
+<td>Best practices, exam prep, cheat sheets, flashcards, mock exams</td>
+</tr>
+</tbody>
+</table>
+<h3 id="path-b--already-know-dockerbasic-linux-3-weeks">Path B — Already Know Docker/Basic Linux (3 weeks)</h3>
+<table>
+<thead>
+<tr>
+<th>Week</th>
+<th>Chapters</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>06–15</td>
+<td>Kubernetes architecture + all workload objects</td>
+</tr>
+<tr>
+<td>2</td>
+<td>16–26</td>
+<td>Networking, storage, security, observability, ecosystem</td>
+</tr>
+<tr>
+<td>3</td>
+<td>27–33</td>
+<td>Review, practice questions, 5 mock exams (one every other day)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="6-how-to-actually-study-each-chapter-method">6. How To Actually Study Each Chapter (Method)</h2>
+<p>This is the single most important section in this roadmap. Follow this method or the repo's depth will overwhelm you.</p>
+<p><strong>Step 1 — Read the motivation section first, always.</strong>
+Do not jump to YAML or commands before understanding <em>why</em> the object exists. If you memorize <code>kind: Deployment</code> without knowing why Deployments exist, you'll forget it in a week.</p>
+<p><strong>Step 2 — Re-explain the concept out loud, in your own words, using an analogy.</strong>
+If you can't explain a Pod using the &quot;apartment&quot; analogy (coming in Chapter 10) without looking at your notes, you don't understand it yet — you've only read it.</p>
+<p><strong>Step 3 — Do the hands-on lab.</strong>
+Even though KCNA itself is multiple-choice, running the actual <code>kubectl</code> commands cements the mental model permanently. Reading about a ReplicaSet healing itself is not the same as watching <code>kubectl delete pod</code> and seeing a new one appear in real time.</p>
+<p><strong>Step 4 — Answer the chapter's 20 MCQs <em>before</em> checking answers.</strong>
+Write down your answer and your confidence (High/Medium/Guess) for each question. This tells you which topics need a second pass.</p>
+<p><strong>Step 5 — Add wrong answers to your personal weak-spot list.</strong>
+Keep a running note (in <code>28-Exam-Preparation</code>) of every concept you got wrong. Review this list the night before the exam instead of re-reading everything.</p>
+<p><strong>Step 6 — Revisit flashcards (Chapter 30) every 2–3 days.</strong>
+Use spaced repetition. Concepts fade fast if not revisited.</p>
+<hr>
+<h2 id="7-tools-you-should-install-optional-but-recommended">7. Tools You Should Install (Optional But Recommended)</h2>
+<p>You do not need a Kubernetes cluster to pass KCNA, but hands-on practice massively improves retention.</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+<th>Install</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kubectl</code></td>
+<td>CLI to talk to a cluster</td>
+<td><code>brew install kubectl</code> / package manager</td>
+</tr>
+<tr>
+<td><code>minikube</code> or <code>kind</code></td>
+<td>Local single-node/multi-node cluster</td>
+<td><code>brew install minikube</code> or <code>brew install kind</code></td>
+</tr>
+<tr>
+<td>Docker Desktop / Podman</td>
+<td>Container runtime for local dev</td>
+<td>Official installers</td>
+</tr>
+<tr>
+<td><code>k9s</code></td>
+<td>Terminal UI for exploring clusters (optional, very helpful visually)</td>
+<td><code>brew install k9s</code></td>
+</tr>
+<tr>
+<td><a href="http://killercoda.com">killercoda.com</a> / <a href="http://labs.play-with-k8s.com">labs.play-with-k8s.com</a></td>
+<td>Free browser-based Kubernetes sandboxes, no install needed</td>
+<td>Just a browser</td>
+</tr>
+</tbody>
+</table>
+<p>If you don't want to install anything, <a href="http://killercoda.com">killercoda.com</a> gives you a free, disposable, browser-based cluster — perfect for the hands-on labs in each chapter.</p>
+<hr>
+<h2 id="8-how-to-read-the-analogies-in-this-repo">8. How To Read the Analogies In This Repo</h2>
+<p>Every hard concept in this repo is explained twice:</p>
+<ol>
+<li><strong>Analogy version</strong> — using something you already understand (restaurant, airport, apartment building, post office, hospital, school, library, traffic system, warehouse, factory).</li>
+<li><strong>Technical version</strong> — the real Kubernetes terminology, mapped 1:1 onto the analogy.</li>
+</ol>
+<p>Example of the pattern you'll see repeatedly:</p>
+<blockquote>
+<p><strong>Analogy:</strong> A Pod is like a hotel room. The room can have multiple guests (containers) sharing the same address (IP), same bathroom (network namespace), and same shared table (storage volume). You don't book &quot;a guest,&quot; you book &quot;a room.&quot;</p>
+<p><strong>Technical:</strong> A Pod is the smallest deployable unit in Kubernetes. It wraps one or more containers that share the same network namespace and can share storage volumes.</p>
+</blockquote>
+<p>Once the analogy clicks, the technical definition becomes obvious rather than something to memorize.</p>
+<hr>
+<h2 id="9-common-beginner-mistakes-meta-level">9. Common Beginner Mistakes (Meta-Level)</h2>
+<p>These are mistakes people make while <strong>studying</strong> for KCNA, not while using Kubernetes:</p>
+<ol>
+<li><strong>Jumping straight to YAML memorization.</strong> KCNA rewards conceptual understanding, not YAML syntax recall (that's more of a CKAD thing). Understand <em>why</em> a field exists before memorizing it.</li>
+<li><strong>Skipping the &quot;why&quot; and going straight to &quot;what.&quot;</strong> This repo is structured to prevent this — don't skip sections even if they feel slow.</li>
+<li><strong>Ignoring the non-Kubernetes domains.</strong> Container Orchestration, Cloud Native Architecture, Observability, and App Delivery together are more than half the exam. Don't over-invest 100% of your time in pure Kubernetes objects.</li>
+<li><strong>Not doing hands-on labs &quot;because it's multiple choice anyway.&quot;</strong> Muscle memory from typing commands creates stronger recall than passive reading, even for a theory exam.</li>
+<li><strong>Cramming the week before.</strong> Cloud native concepts interlock. Spaced study across weeks beats a 3-day cram every time.</li>
+</ol>
+<hr>
+<h2 id="10-chapter-completion-checklist-template">10. Chapter Completion Checklist Template</h2>
+<p>Copy this into your notes for every chapter:</p>
+<pre><code>Chapter: ___
+[ ] Read motivation + historical background
+[ ] Explained core concept out loud using an analogy
+[ ] Reviewed architecture diagram until I could redraw it from memory
+[ ] Completed hands-on lab
+[ ] Answered all 20 KCNA-style MCQs (recorded confidence level)
+[ ] Reviewed wrong answers and logged weak spots
+[ ] Reviewed flashcards for this chapter
+</code></pre>
+<hr>
+<h2 id="11-whats-next">11. What's Next</h2>
+<p>Proceed to <strong><a href="../01-Introduction-to-Cloud-Native/README.html">01-Introduction-to-Cloud-Native</a></strong>. That chapter answers the very first and most important question: <em>what does &quot;cloud native&quot; even mean, and why did the entire industry shift toward it?</em></p>
+<hr>
+<h2 id="chapter-summary-one-page-revision-sheet">Chapter Summary (One-Page Revision Sheet)</h2>
+<ul>
+<li>KCNA = entry-level, multiple-choice, 90 minutes, ~60 questions, no hands-on terminal component.</li>
+<li>5 domains: Kubernetes Fundamentals (46%), Container Orchestration (22%), Cloud Native Architecture (16%), Observability (8%), App Delivery (8%).</li>
+<li>This repo has 34 chapters (00–33) covering theory, YAML, commands, labs, comparisons, mistakes, interview Qs, and MCQs for each topic.</li>
+<li>Study method: motivation → analogy → hands-on lab → MCQs → weak-spot list → spaced flashcard review.</li>
+<li>Optional tools: <code>kubectl</code>, <code>minikube</code>/<code>kind</code>, Docker/Podman, <code>k9s</code>, or just use <a href="http://killercoda.com">killercoda.com</a> for a zero-install sandbox.</li>
+<li>Biggest beginner mistake: over-focusing on Kubernetes YAML syntax while neglecting Observability, App Delivery, and Cloud Native Architecture domains.</li>
+</ul>
+
+            
+            
+        </body>
+        </html>

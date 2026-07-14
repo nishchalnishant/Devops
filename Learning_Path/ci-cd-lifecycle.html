@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Complete CI/CD Lifecycle</title>
+  <style>
+    @page { margin: 2cm; size: A4; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #24292f; max-width: 100%; padding: 0 1rem; }
+    h1 { font-size: 22pt; border-bottom: 2px solid #d0d7de; padding-bottom: 0.3em; page-break-after: avoid; }
+    h2 { font-size: 16pt; margin-top: 1.5em; border-bottom: 1px solid #d0d7de; padding-bottom: 0.2em; page-break-after: avoid; }
+    h3 { font-size: 13pt; page-break-after: avoid; }
+    pre, code { font-family: "SF Mono", Menlo, Monaco, Consolas, monospace; font-size: 9pt; }
+    pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px; white-space: pre-wrap; word-wrap: break-word; page-break-inside: avoid; }
+    table { border-collapse: collapse; width: 100%; font-size: 10pt; page-break-inside: avoid; }
+    th, td { border: 1px solid #d0d7de; padding: 6px 10px; text-align: left; }
+    th { background: #f6f8fa; }
+    hr { border: none; border-top: 1px solid #d0d7de; margin: 2em 0; }
+    a { color: #0969da; text-decoration: none; }
+    blockquote { border-left: 4px solid #d0d7de; margin-left: 0; padding-left: 1em; color: #57606a; }
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+  <link href="data:text/css; charset=utf-8;charset=utf-8,%40media%20%28prefers%2Dcolor%2Dscheme%3Adark%29%7B%2Emarkdown%2Dbody%2C%5Bdata%2Dtheme%3Ddark%5D%7Bcolor%2Dscheme%3Adark%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dcomment%3A%238b949e%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dconstant%3A%2379c0ff%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dentity%3A%23d2a8ff%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dstorage%2Dmodifier%2Dimport%3A%23c9d1d9%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dentity%2Dtag%3A%237ee787%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dkeyword%3A%23ff7b72%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dstring%3A%23a5d6ff%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dvariable%3A%23ffa657%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dbrackethighlighter%2Dunmatched%3A%23f85149%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dinvalid%2Dillegal%2Dtext%3A%23f0f6fc%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dinvalid%2Dillegal%2Dbg%3A%238e1519%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dcarriage%2Dreturn%2Dtext%3A%23f0f6fc%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dcarriage%2Dreturn%2Dbg%3A%23b62324%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dstring%2Dregexp%3A%237ee787%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dlist%3A%23f2cc60%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dheading%3A%231f6feb%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Ditalic%3A%23c9d1d9%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dbold%3A%23c9d1d9%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Ddeleted%2Dtext%3A%23ffdcd7%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Ddeleted%2Dbg%3A%2367060c%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dinserted%2Dtext%3A%23aff5b4%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dinserted%2Dbg%3A%23033a16%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dchanged%2Dtext%3A%23ffdfb6%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dchanged%2Dbg%3A%235a1e02%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dignored%2Dtext%3A%23c9d1d9%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dignored%2Dbg%3A%231158c7%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmeta%2Ddiff%2Drange%3A%23d2a8ff%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dbrackethighlighter%2Dangle%3A%238b949e%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dsublimelinter%2Dgutter%2Dmark%3A%23484f58%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dconstant%2Dother%2Dreference%2Dlink%3A%23a5d6ff%3B%2D%2Dcolor%2Dfg%2Ddefault%3A%23e6edf3%3B%2D%2Dcolor%2Dfg%2Dmuted%3A%23848d97%3B%2D%2Dcolor%2Dfg%2Dsubtle%3A%236e7681%3B%2D%2Dcolor%2Dcanvas%2Ddefault%3A%230d1117%3B%2D%2Dcolor%2Dcanvas%2Dsubtle%3A%23161b22%3B%2D%2Dcolor%2Dborder%2Ddefault%3A%2330363d%3B%2D%2Dcolor%2Dborder%2Dmuted%3A%2321262d%3B%2D%2Dcolor%2Dneutral%2Dmuted%3Argba%28110%2C118%2C129%2C0%2E4%29%3B%2D%2Dcolor%2Daccent%2Dfg%3A%232f81f7%3B%2D%2Dcolor%2Daccent%2Demphasis%3A%231f6feb%3B%2D%2Dcolor%2Dsuccess%2Dfg%3A%233fb950%3B%2D%2Dcolor%2Dsuccess%2Demphasis%3A%23238636%3B%2D%2Dcolor%2Dattention%2Dfg%3A%23d29922%3B%2D%2Dcolor%2Dattention%2Demphasis%3A%239e6a03%3B%2D%2Dcolor%2Dattention%2Dsubtle%3Argba%28187%2C128%2C9%2C0%2E15%29%3B%2D%2Dcolor%2Ddanger%2Dfg%3A%23f85149%3B%2D%2Dcolor%2Ddanger%2Demphasis%3A%23da3633%3B%2D%2Dcolor%2Ddone%2Dfg%3A%23a371f7%3B%2D%2Dcolor%2Ddone%2Demphasis%3A%238957e5%7D%7D%40media%20%28prefers%2Dcolor%2Dscheme%3Alight%29%7B%2Emarkdown%2Dbody%2C%5Bdata%2Dtheme%3Dlight%5D%7Bcolor%2Dscheme%3Alight%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dcomment%3A%2357606a%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dconstant%3A%230550ae%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dentity%3A%236639ba%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dstorage%2Dmodifier%2Dimport%3A%2324292f%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dentity%2Dtag%3A%23116329%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dkeyword%3A%23cf222e%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dstring%3A%230a3069%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dvariable%3A%23953800%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dbrackethighlighter%2Dunmatched%3A%2382071e%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dinvalid%2Dillegal%2Dtext%3A%23f6f8fa%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dinvalid%2Dillegal%2Dbg%3A%2382071e%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dcarriage%2Dreturn%2Dtext%3A%23f6f8fa%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dcarriage%2Dreturn%2Dbg%3A%23cf222e%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dstring%2Dregexp%3A%23116329%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dlist%3A%233b2300%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dheading%3A%230550ae%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Ditalic%3A%2324292f%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dbold%3A%2324292f%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Ddeleted%2Dtext%3A%2382071e%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Ddeleted%2Dbg%3A%23ffebe9%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dinserted%2Dtext%3A%23116329%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dinserted%2Dbg%3A%23dafbe1%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dchanged%2Dtext%3A%23953800%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dchanged%2Dbg%3A%23ffd8b5%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dignored%2Dtext%3A%23eaeef2%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dignored%2Dbg%3A%230550ae%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmeta%2Ddiff%2Drange%3A%238250df%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dbrackethighlighter%2Dangle%3A%2357606a%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dsublimelinter%2Dgutter%2Dmark%3A%238c959f%3B%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dconstant%2Dother%2Dreference%2Dlink%3A%230a3069%3B%2D%2Dcolor%2Dfg%2Ddefault%3A%231F2328%3B%2D%2Dcolor%2Dfg%2Dmuted%3A%23656d76%3B%2D%2Dcolor%2Dfg%2Dsubtle%3A%236e7781%3B%2D%2Dcolor%2Dcanvas%2Ddefault%3A%23ffffff%3B%2D%2Dcolor%2Dcanvas%2Dsubtle%3A%23f6f8fa%3B%2D%2Dcolor%2Dborder%2Ddefault%3A%23d0d7de%3B%2D%2Dcolor%2Dborder%2Dmuted%3Ahsla%28210%2C18%25%2C87%25%2C1%29%3B%2D%2Dcolor%2Dneutral%2Dmuted%3Argba%28175%2C184%2C193%2C0%2E2%29%3B%2D%2Dcolor%2Daccent%2Dfg%3A%230969da%3B%2D%2Dcolor%2Daccent%2Demphasis%3A%230969da%3B%2D%2Dcolor%2Dsuccess%2Dfg%3A%231a7f37%3B%2D%2Dcolor%2Dsuccess%2Demphasis%3A%231f883d%3B%2D%2Dcolor%2Dattention%2Dfg%3A%239a6700%3B%2D%2Dcolor%2Dattention%2Demphasis%3A%239a6700%3B%2D%2Dcolor%2Dattention%2Dsubtle%3A%23fff8c5%3B%2D%2Dcolor%2Ddanger%2Dfg%3A%23d1242f%3B%2D%2Dcolor%2Ddanger%2Demphasis%3A%23cf222e%3B%2D%2Dcolor%2Ddone%2Dfg%3A%238250df%3B%2D%2Dcolor%2Ddone%2Demphasis%3A%238250df%7D%7D%2Emarkdown%2Dbody%7B%2Dms%2Dtext%2Dsize%2Dadjust%3A100%25%3B%2Dwebkit%2Dtext%2Dsize%2Dadjust%3A100%25%3Bmargin%3A0%3Bcolor%3Avar%28%2D%2Dcolor%2Dfg%2Ddefault%29%3Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dcanvas%2Ddefault%29%3Bfont%2Dfamily%3A%2Dapple%2Dsystem%2CBlinkMacSystemFont%2C%22Segoe%20UI%22%2C%22Noto%20Sans%22%2CHelvetica%2CArial%2Csans%2Dserif%2C%22Apple%20Color%20Emoji%22%2C%22Segoe%20UI%20Emoji%22%3Bfont%2Dsize%3A16px%3Bline%2Dheight%3A1%2E5%3Bword%2Dwrap%3Abreak%2Dword%7D%2Emarkdown%2Dbody%20%2Eocticon%7Bdisplay%3Ainline%2Dblock%3Bfill%3AcurrentColor%3Bvertical%2Dalign%3Atext%2Dbottom%7D%2Emarkdown%2Dbody%20h1%3Ahover%20%2Eanchor%20%2Eocticon%2Dlink%3Abefore%2C%2Emarkdown%2Dbody%20h2%3Ahover%20%2Eanchor%20%2Eocticon%2Dlink%3Abefore%2C%2Emarkdown%2Dbody%20h3%3Ahover%20%2Eanchor%20%2Eocticon%2Dlink%3Abefore%2C%2Emarkdown%2Dbody%20h4%3Ahover%20%2Eanchor%20%2Eocticon%2Dlink%3Abefore%2C%2Emarkdown%2Dbody%20h5%3Ahover%20%2Eanchor%20%2Eocticon%2Dlink%3Abefore%2C%2Emarkdown%2Dbody%20h6%3Ahover%20%2Eanchor%20%2Eocticon%2Dlink%3Abefore%7Bwidth%3A16px%3Bheight%3A16px%3Bcontent%3A%27%20%27%3Bdisplay%3Ainline%2Dblock%3Bbackground%2Dcolor%3AcurrentColor%3B%2Dwebkit%2Dmask%2Dimage%3Aurl%28%22data%3Aimage%2Fsvg%2Bxml%2C%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww%2Ew3%2Eorg%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%20version%3D%271%2E1%27%20aria%2Dhidden%3D%27true%27%3E%3Cpath%20fill%2Drule%3D%27evenodd%27%20d%3D%27M7%2E775%203%2E275a%2E75%2E75%200%20001%2E06%201%2E06l1%2E25%2D1%2E25a2%202%200%20112%2E83%202%2E83l%2D2%2E5%202%2E5a2%202%200%2001%2D2%2E83%200%20%2E75%2E75%200%2000%2D1%2E06%201%2E06%203%2E5%203%2E5%200%20004%2E95%200l2%2E5%2D2%2E5a3%2E5%203%2E5%200%2000%2D4%2E95%2D4%2E95l%2D1%2E25%201%2E25zm%2D4%2E69%209%2E64a2%202%200%20010%2D2%2E83l2%2E5%2D2%2E5a2%202%200%20012%2E83%200%20%2E75%2E75%200%20001%2E06%2D1%2E06%203%2E5%203%2E5%200%2000%2D4%2E95%200l%2D2%2E5%202%2E5a3%2E5%203%2E5%200%20004%2E95%204%2E95l1%2E25%2D1%2E25a%2E75%2E75%200%2000%2D1%2E06%2D1%2E06l%2D1%2E25%201%2E25a2%202%200%2001%2D2%2E83%200z%27%3E%3C%2Fpath%3E%3C%2Fsvg%3E%22%29%3Bmask%2Dimage%3Aurl%28%22data%3Aimage%2Fsvg%2Bxml%2C%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww%2Ew3%2Eorg%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%20version%3D%271%2E1%27%20aria%2Dhidden%3D%27true%27%3E%3Cpath%20fill%2Drule%3D%27evenodd%27%20d%3D%27M7%2E775%203%2E275a%2E75%2E75%200%20001%2E06%201%2E06l1%2E25%2D1%2E25a2%202%200%20112%2E83%202%2E83l%2D2%2E5%202%2E5a2%202%200%2001%2D2%2E83%200%20%2E75%2E75%200%2000%2D1%2E06%201%2E06%203%2E5%203%2E5%200%20004%2E95%200l2%2E5%2D2%2E5a3%2E5%203%2E5%200%2000%2D4%2E95%2D4%2E95l%2D1%2E25%201%2E25zm%2D4%2E69%209%2E64a2%202%200%20010%2D2%2E83l2%2E5%2D2%2E5a2%202%200%20012%2E83%200%20%2E75%2E75%200%20001%2E06%2D1%2E06%203%2E5%203%2E5%200%2000%2D4%2E95%200l%2D2%2E5%202%2E5a3%2E5%203%2E5%200%20004%2E95%204%2E95l1%2E25%2D1%2E25a%2E75%2E75%200%2000%2D1%2E06%2D1%2E06l%2D1%2E25%201%2E25a2%202%200%2001%2D2%2E83%200z%27%3E%3C%2Fpath%3E%3C%2Fsvg%3E%22%29%7D%2Emarkdown%2Dbody%20details%2C%2Emarkdown%2Dbody%20figcaption%2C%2Emarkdown%2Dbody%20figure%7Bdisplay%3Ablock%7D%2Emarkdown%2Dbody%20summary%7Bdisplay%3Alist%2Ditem%7D%2Emarkdown%2Dbody%20%5Bhidden%5D%7Bdisplay%3Anone%21important%7D%2Emarkdown%2Dbody%20a%7Bbackground%2Dcolor%3Atransparent%3Bcolor%3Avar%28%2D%2Dcolor%2Daccent%2Dfg%29%3Btext%2Ddecoration%3Anone%7D%2Emarkdown%2Dbody%20abbr%5Btitle%5D%7Bborder%2Dbottom%3Anone%3B%2Dwebkit%2Dtext%2Ddecoration%3Aunderline%20dotted%3Btext%2Ddecoration%3Aunderline%20dotted%7D%2Emarkdown%2Dbody%20b%2C%2Emarkdown%2Dbody%20strong%7Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dsemibold%2C600%29%7D%2Emarkdown%2Dbody%20dfn%7Bfont%2Dstyle%3Aitalic%7D%2Emarkdown%2Dbody%20h1%7Bmargin%3A%2E67em%200%3Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dsemibold%2C600%29%3Bpadding%2Dbottom%3A%2E3em%3Bfont%2Dsize%3A2em%3Bborder%2Dbottom%3A1px%20solid%20var%28%2D%2Dcolor%2Dborder%2Dmuted%29%7D%2Emarkdown%2Dbody%20mark%7Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dattention%2Dsubtle%29%3Bcolor%3Avar%28%2D%2Dcolor%2Dfg%2Ddefault%29%7D%2Emarkdown%2Dbody%20small%7Bfont%2Dsize%3A90%25%7D%2Emarkdown%2Dbody%20sub%2C%2Emarkdown%2Dbody%20sup%7Bfont%2Dsize%3A75%25%3Bline%2Dheight%3A0%3Bposition%3Arelative%3Bvertical%2Dalign%3Abaseline%7D%2Emarkdown%2Dbody%20sub%7Bbottom%3A%2D%2E25em%7D%2Emarkdown%2Dbody%20sup%7Btop%3A%2D%2E5em%7D%2Emarkdown%2Dbody%20img%7Bborder%2Dstyle%3Anone%3Bmax%2Dwidth%3A100%25%3Bbox%2Dsizing%3Acontent%2Dbox%3Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dcanvas%2Ddefault%29%7D%2Emarkdown%2Dbody%20code%2C%2Emarkdown%2Dbody%20kbd%2C%2Emarkdown%2Dbody%20pre%2C%2Emarkdown%2Dbody%20samp%7Bfont%2Dfamily%3Amonospace%3Bfont%2Dsize%3A1em%7D%2Emarkdown%2Dbody%20figure%7Bmargin%3A1em%2040px%7D%2Emarkdown%2Dbody%20hr%7Bbox%2Dsizing%3Acontent%2Dbox%3Boverflow%3Ahidden%3Bbackground%3A0%200%3Bborder%2Dbottom%3A1px%20solid%20var%28%2D%2Dcolor%2Dborder%2Dmuted%29%3Bheight%3A%2E25em%3Bpadding%3A0%3Bmargin%3A24px%200%3Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dborder%2Ddefault%29%3Bborder%3A0%7D%2Emarkdown%2Dbody%20input%7Bfont%3Ainherit%3Bmargin%3A0%3Boverflow%3Avisible%3Bfont%2Dfamily%3Ainherit%3Bfont%2Dsize%3Ainherit%3Bline%2Dheight%3Ainherit%7D%2Emarkdown%2Dbody%20%5Btype%3Dbutton%5D%2C%2Emarkdown%2Dbody%20%5Btype%3Dreset%5D%2C%2Emarkdown%2Dbody%20%5Btype%3Dsubmit%5D%7B%2Dwebkit%2Dappearance%3Abutton%3Bappearance%3Abutton%7D%2Emarkdown%2Dbody%20%5Btype%3Dcheckbox%5D%2C%2Emarkdown%2Dbody%20%5Btype%3Dradio%5D%7Bbox%2Dsizing%3Aborder%2Dbox%3Bpadding%3A0%7D%2Emarkdown%2Dbody%20%5Btype%3Dnumber%5D%3A%3A%2Dwebkit%2Dinner%2Dspin%2Dbutton%2C%2Emarkdown%2Dbody%20%5Btype%3Dnumber%5D%3A%3A%2Dwebkit%2Douter%2Dspin%2Dbutton%7Bheight%3Aauto%7D%2Emarkdown%2Dbody%20%5Btype%3Dsearch%5D%3A%3A%2Dwebkit%2Dsearch%2Dcancel%2Dbutton%2C%2Emarkdown%2Dbody%20%5Btype%3Dsearch%5D%3A%3A%2Dwebkit%2Dsearch%2Ddecoration%7B%2Dwebkit%2Dappearance%3Anone%3Bappearance%3Anone%7D%2Emarkdown%2Dbody%20%3A%3A%2Dwebkit%2Dinput%2Dplaceholder%7Bcolor%3Ainherit%3Bopacity%3A%2E54%7D%2Emarkdown%2Dbody%20%3A%3A%2Dwebkit%2Dfile%2Dupload%2Dbutton%7B%2Dwebkit%2Dappearance%3Abutton%3Bappearance%3Abutton%3Bfont%3Ainherit%7D%2Emarkdown%2Dbody%20a%3Ahover%7Btext%2Ddecoration%3Aunderline%7D%2Emarkdown%2Dbody%20%3A%3Aplaceholder%7Bcolor%3Avar%28%2D%2Dcolor%2Dfg%2Dsubtle%29%3Bopacity%3A1%7D%2Emarkdown%2Dbody%20hr%3A%3Abefore%7Bdisplay%3Atable%3Bcontent%3A%22%22%7D%2Emarkdown%2Dbody%20hr%3A%3Aafter%7Bdisplay%3Atable%3Bclear%3Aboth%3Bcontent%3A%22%22%7D%2Emarkdown%2Dbody%20table%7Bborder%2Dspacing%3A0%3Bborder%2Dcollapse%3Acollapse%3Bdisplay%3Ablock%3Bwidth%3Amax%2Dcontent%3Bmax%2Dwidth%3A100%25%3Boverflow%3Aauto%7D%2Emarkdown%2Dbody%20td%2C%2Emarkdown%2Dbody%20th%7Bpadding%3A0%7D%2Emarkdown%2Dbody%20details%20summary%7Bcursor%3Apointer%7D%2Emarkdown%2Dbody%20details%3Anot%28%5Bopen%5D%29%3E%3Anot%28summary%29%7Bdisplay%3Anone%21important%7D%2Emarkdown%2Dbody%20%5Brole%3Dbutton%5D%3Afocus%2C%2Emarkdown%2Dbody%20a%3Afocus%2C%2Emarkdown%2Dbody%20input%5Btype%3Dcheckbox%5D%3Afocus%2C%2Emarkdown%2Dbody%20input%5Btype%3Dradio%5D%3Afocus%7Boutline%3A2px%20solid%20var%28%2D%2Dcolor%2Daccent%2Dfg%29%3Boutline%2Doffset%3A%2D2px%3Bbox%2Dshadow%3Anone%7D%2Emarkdown%2Dbody%20%5Brole%3Dbutton%5D%3Afocus%3Anot%28%3Afocus%2Dvisible%29%2C%2Emarkdown%2Dbody%20a%3Afocus%3Anot%28%3Afocus%2Dvisible%29%2C%2Emarkdown%2Dbody%20input%5Btype%3Dcheckbox%5D%3Afocus%3Anot%28%3Afocus%2Dvisible%29%2C%2Emarkdown%2Dbody%20input%5Btype%3Dradio%5D%3Afocus%3Anot%28%3Afocus%2Dvisible%29%7Boutline%3Asolid%201px%20transparent%7D%2Emarkdown%2Dbody%20%5Brole%3Dbutton%5D%3Afocus%2Dvisible%2C%2Emarkdown%2Dbody%20a%3Afocus%2Dvisible%2C%2Emarkdown%2Dbody%20input%5Btype%3Dcheckbox%5D%3Afocus%2Dvisible%2C%2Emarkdown%2Dbody%20input%5Btype%3Dradio%5D%3Afocus%2Dvisible%7Boutline%3A2px%20solid%20var%28%2D%2Dcolor%2Daccent%2Dfg%29%3Boutline%2Doffset%3A%2D2px%3Bbox%2Dshadow%3Anone%7D%2Emarkdown%2Dbody%20a%3Anot%28%5Bclass%5D%29%3Afocus%2C%2Emarkdown%2Dbody%20a%3Anot%28%5Bclass%5D%29%3Afocus%2Dvisible%2C%2Emarkdown%2Dbody%20input%5Btype%3Dcheckbox%5D%3Afocus%2C%2Emarkdown%2Dbody%20input%5Btype%3Dcheckbox%5D%3Afocus%2Dvisible%2C%2Emarkdown%2Dbody%20input%5Btype%3Dradio%5D%3Afocus%2C%2Emarkdown%2Dbody%20input%5Btype%3Dradio%5D%3Afocus%2Dvisible%7Boutline%2Doffset%3A0%7D%2Emarkdown%2Dbody%20kbd%7Bdisplay%3Ainline%2Dblock%3Bpadding%3A3px%205px%3Bfont%3A11px%20ui%2Dmonospace%2CSFMono%2DRegular%2CSF%20Mono%2CMenlo%2CConsolas%2CLiberation%20Mono%2Cmonospace%3Bline%2Dheight%3A10px%3Bcolor%3Avar%28%2D%2Dcolor%2Dfg%2Ddefault%29%3Bvertical%2Dalign%3Amiddle%3Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dcanvas%2Dsubtle%29%3Bborder%3Asolid%201px%20var%28%2D%2Dcolor%2Dneutral%2Dmuted%29%3Bborder%2Dbottom%2Dcolor%3Avar%28%2D%2Dcolor%2Dneutral%2Dmuted%29%3Bborder%2Dradius%3A6px%3Bbox%2Dshadow%3Ainset%200%20%2D1px%200%20var%28%2D%2Dcolor%2Dneutral%2Dmuted%29%7D%2Emarkdown%2Dbody%20h1%2C%2Emarkdown%2Dbody%20h2%2C%2Emarkdown%2Dbody%20h3%2C%2Emarkdown%2Dbody%20h4%2C%2Emarkdown%2Dbody%20h5%2C%2Emarkdown%2Dbody%20h6%7Bmargin%2Dtop%3A24px%3Bmargin%2Dbottom%3A16px%3Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dsemibold%2C600%29%3Bline%2Dheight%3A1%2E25%7D%2Emarkdown%2Dbody%20h2%7Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dsemibold%2C600%29%3Bpadding%2Dbottom%3A%2E3em%3Bfont%2Dsize%3A1%2E5em%3Bborder%2Dbottom%3A1px%20solid%20var%28%2D%2Dcolor%2Dborder%2Dmuted%29%7D%2Emarkdown%2Dbody%20h3%7Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dsemibold%2C600%29%3Bfont%2Dsize%3A1%2E25em%7D%2Emarkdown%2Dbody%20h4%7Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dsemibold%2C600%29%3Bfont%2Dsize%3A1em%7D%2Emarkdown%2Dbody%20h5%7Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dsemibold%2C600%29%3Bfont%2Dsize%3A%2E875em%7D%2Emarkdown%2Dbody%20h6%7Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dsemibold%2C600%29%3Bfont%2Dsize%3A%2E85em%3Bcolor%3Avar%28%2D%2Dcolor%2Dfg%2Dmuted%29%7D%2Emarkdown%2Dbody%20p%7Bmargin%2Dtop%3A0%3Bmargin%2Dbottom%3A10px%7D%2Emarkdown%2Dbody%20blockquote%7Bmargin%3A0%3Bpadding%3A0%201em%3Bcolor%3Avar%28%2D%2Dcolor%2Dfg%2Dmuted%29%3Bborder%2Dleft%3A%2E25em%20solid%20var%28%2D%2Dcolor%2Dborder%2Ddefault%29%7D%2Emarkdown%2Dbody%20ol%2C%2Emarkdown%2Dbody%20ul%7Bmargin%2Dtop%3A0%3Bmargin%2Dbottom%3A0%3Bpadding%2Dleft%3A2em%7D%2Emarkdown%2Dbody%20ol%20ol%2C%2Emarkdown%2Dbody%20ul%20ol%7Blist%2Dstyle%2Dtype%3Alower%2Droman%7D%2Emarkdown%2Dbody%20ol%20ol%20ol%2C%2Emarkdown%2Dbody%20ol%20ul%20ol%2C%2Emarkdown%2Dbody%20ul%20ol%20ol%2C%2Emarkdown%2Dbody%20ul%20ul%20ol%7Blist%2Dstyle%2Dtype%3Alower%2Dalpha%7D%2Emarkdown%2Dbody%20dd%7Bmargin%2Dleft%3A0%7D%2Emarkdown%2Dbody%20code%2C%2Emarkdown%2Dbody%20samp%2C%2Emarkdown%2Dbody%20tt%7Bfont%2Dfamily%3Aui%2Dmonospace%2CSFMono%2DRegular%2CSF%20Mono%2CMenlo%2CConsolas%2CLiberation%20Mono%2Cmonospace%3Bfont%2Dsize%3A12px%7D%2Emarkdown%2Dbody%20pre%7Bmargin%2Dtop%3A0%3Bmargin%2Dbottom%3A0%3Bfont%2Dfamily%3Aui%2Dmonospace%2CSFMono%2DRegular%2CSF%20Mono%2CMenlo%2CConsolas%2CLiberation%20Mono%2Cmonospace%3Bfont%2Dsize%3A12px%3Bword%2Dwrap%3Anormal%7D%2Emarkdown%2Dbody%20%2Eocticon%7Bdisplay%3Ainline%2Dblock%3Boverflow%3Avisible%21important%3Bvertical%2Dalign%3Atext%2Dbottom%3Bfill%3AcurrentColor%7D%2Emarkdown%2Dbody%20input%3A%3A%2Dwebkit%2Dinner%2Dspin%2Dbutton%2C%2Emarkdown%2Dbody%20input%3A%3A%2Dwebkit%2Douter%2Dspin%2Dbutton%7Bmargin%3A0%3B%2Dwebkit%2Dappearance%3Anone%3Bappearance%3Anone%7D%2Emarkdown%2Dbody%20%2Emr%2D2%7Bmargin%2Dright%3Avar%28%2D%2Dbase%2Dsize%2D8%2C8px%29%21important%7D%2Emarkdown%2Dbody%3A%3Abefore%7Bdisplay%3Atable%3Bcontent%3A%22%22%7D%2Emarkdown%2Dbody%3A%3Aafter%7Bdisplay%3Atable%3Bclear%3Aboth%3Bcontent%3A%22%22%7D%2Emarkdown%2Dbody%3E%3Afirst%2Dchild%7Bmargin%2Dtop%3A0%21important%7D%2Emarkdown%2Dbody%3E%3Alast%2Dchild%7Bmargin%2Dbottom%3A0%21important%7D%2Emarkdown%2Dbody%20a%3Anot%28%5Bhref%5D%29%7Bcolor%3Ainherit%3Btext%2Ddecoration%3Anone%7D%2Emarkdown%2Dbody%20%2Eabsent%7Bcolor%3Avar%28%2D%2Dcolor%2Ddanger%2Dfg%29%7D%2Emarkdown%2Dbody%20%2Eanchor%7Bfloat%3Aleft%3Bpadding%2Dright%3A4px%3Bmargin%2Dleft%3A%2D20px%3Bline%2Dheight%3A1%7D%2Emarkdown%2Dbody%20%2Eanchor%3Afocus%7Boutline%3A0%7D%2Emarkdown%2Dbody%20blockquote%2C%2Emarkdown%2Dbody%20details%2C%2Emarkdown%2Dbody%20dl%2C%2Emarkdown%2Dbody%20ol%2C%2Emarkdown%2Dbody%20p%2C%2Emarkdown%2Dbody%20pre%2C%2Emarkdown%2Dbody%20table%2C%2Emarkdown%2Dbody%20ul%7Bmargin%2Dtop%3A0%3Bmargin%2Dbottom%3A16px%7D%2Emarkdown%2Dbody%20blockquote%3E%3Afirst%2Dchild%7Bmargin%2Dtop%3A0%7D%2Emarkdown%2Dbody%20blockquote%3E%3Alast%2Dchild%7Bmargin%2Dbottom%3A0%7D%2Emarkdown%2Dbody%20h1%20%2Eocticon%2Dlink%2C%2Emarkdown%2Dbody%20h2%20%2Eocticon%2Dlink%2C%2Emarkdown%2Dbody%20h3%20%2Eocticon%2Dlink%2C%2Emarkdown%2Dbody%20h4%20%2Eocticon%2Dlink%2C%2Emarkdown%2Dbody%20h5%20%2Eocticon%2Dlink%2C%2Emarkdown%2Dbody%20h6%20%2Eocticon%2Dlink%7Bcolor%3Avar%28%2D%2Dcolor%2Dfg%2Ddefault%29%3Bvertical%2Dalign%3Amiddle%3Bvisibility%3Ahidden%7D%2Emarkdown%2Dbody%20h1%3Ahover%20%2Eanchor%2C%2Emarkdown%2Dbody%20h2%3Ahover%20%2Eanchor%2C%2Emarkdown%2Dbody%20h3%3Ahover%20%2Eanchor%2C%2Emarkdown%2Dbody%20h4%3Ahover%20%2Eanchor%2C%2Emarkdown%2Dbody%20h5%3Ahover%20%2Eanchor%2C%2Emarkdown%2Dbody%20h6%3Ahover%20%2Eanchor%7Btext%2Ddecoration%3Anone%7D%2Emarkdown%2Dbody%20h1%3Ahover%20%2Eanchor%20%2Eocticon%2Dlink%2C%2Emarkdown%2Dbody%20h2%3Ahover%20%2Eanchor%20%2Eocticon%2Dlink%2C%2Emarkdown%2Dbody%20h3%3Ahover%20%2Eanchor%20%2Eocticon%2Dlink%2C%2Emarkdown%2Dbody%20h4%3Ahover%20%2Eanchor%20%2Eocticon%2Dlink%2C%2Emarkdown%2Dbody%20h5%3Ahover%20%2Eanchor%20%2Eocticon%2Dlink%2C%2Emarkdown%2Dbody%20h6%3Ahover%20%2Eanchor%20%2Eocticon%2Dlink%7Bvisibility%3Avisible%7D%2Emarkdown%2Dbody%20h1%20code%2C%2Emarkdown%2Dbody%20h1%20tt%2C%2Emarkdown%2Dbody%20h2%20code%2C%2Emarkdown%2Dbody%20h2%20tt%2C%2Emarkdown%2Dbody%20h3%20code%2C%2Emarkdown%2Dbody%20h3%20tt%2C%2Emarkdown%2Dbody%20h4%20code%2C%2Emarkdown%2Dbody%20h4%20tt%2C%2Emarkdown%2Dbody%20h5%20code%2C%2Emarkdown%2Dbody%20h5%20tt%2C%2Emarkdown%2Dbody%20h6%20code%2C%2Emarkdown%2Dbody%20h6%20tt%7Bpadding%3A0%20%2E2em%3Bfont%2Dsize%3Ainherit%7D%2Emarkdown%2Dbody%20summary%20h1%2C%2Emarkdown%2Dbody%20summary%20h2%2C%2Emarkdown%2Dbody%20summary%20h3%2C%2Emarkdown%2Dbody%20summary%20h4%2C%2Emarkdown%2Dbody%20summary%20h5%2C%2Emarkdown%2Dbody%20summary%20h6%7Bdisplay%3Ainline%2Dblock%7D%2Emarkdown%2Dbody%20summary%20h1%20%2Eanchor%2C%2Emarkdown%2Dbody%20summary%20h2%20%2Eanchor%2C%2Emarkdown%2Dbody%20summary%20h3%20%2Eanchor%2C%2Emarkdown%2Dbody%20summary%20h4%20%2Eanchor%2C%2Emarkdown%2Dbody%20summary%20h5%20%2Eanchor%2C%2Emarkdown%2Dbody%20summary%20h6%20%2Eanchor%7Bmargin%2Dleft%3A%2D40px%7D%2Emarkdown%2Dbody%20summary%20h1%2C%2Emarkdown%2Dbody%20summary%20h2%7Bpadding%2Dbottom%3A0%3Bborder%2Dbottom%3A0%7D%2Emarkdown%2Dbody%20ol%2Eno%2Dlist%2C%2Emarkdown%2Dbody%20ul%2Eno%2Dlist%7Bpadding%3A0%3Blist%2Dstyle%2Dtype%3Anone%7D%2Emarkdown%2Dbody%20ol%5Btype%3D%22a%20s%22%5D%7Blist%2Dstyle%2Dtype%3Alower%2Dalpha%7D%2Emarkdown%2Dbody%20ol%5Btype%3D%22A%20s%22%5D%7Blist%2Dstyle%2Dtype%3Aupper%2Dalpha%7D%2Emarkdown%2Dbody%20ol%5Btype%3D%22i%20s%22%5D%7Blist%2Dstyle%2Dtype%3Alower%2Droman%7D%2Emarkdown%2Dbody%20ol%5Btype%3D%22I%20s%22%5D%7Blist%2Dstyle%2Dtype%3Aupper%2Droman%7D%2Emarkdown%2Dbody%20ol%5Btype%3D%221%22%5D%7Blist%2Dstyle%2Dtype%3Adecimal%7D%2Emarkdown%2Dbody%20div%3Eol%3Anot%28%5Btype%5D%29%7Blist%2Dstyle%2Dtype%3Adecimal%7D%2Emarkdown%2Dbody%20ol%20ol%2C%2Emarkdown%2Dbody%20ol%20ul%2C%2Emarkdown%2Dbody%20ul%20ol%2C%2Emarkdown%2Dbody%20ul%20ul%7Bmargin%2Dtop%3A0%3Bmargin%2Dbottom%3A0%7D%2Emarkdown%2Dbody%20li%3Ep%7Bmargin%2Dtop%3A16px%7D%2Emarkdown%2Dbody%20li%2Bli%7Bmargin%2Dtop%3A%2E25em%7D%2Emarkdown%2Dbody%20dl%7Bpadding%3A0%7D%2Emarkdown%2Dbody%20dl%20dt%7Bpadding%3A0%3Bmargin%2Dtop%3A16px%3Bfont%2Dsize%3A1em%3Bfont%2Dstyle%3Aitalic%3Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dsemibold%2C600%29%7D%2Emarkdown%2Dbody%20dl%20dd%7Bpadding%3A0%2016px%3Bmargin%2Dbottom%3A16px%7D%2Emarkdown%2Dbody%20table%20th%7Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dsemibold%2C600%29%7D%2Emarkdown%2Dbody%20table%20td%2C%2Emarkdown%2Dbody%20table%20th%7Bpadding%3A6px%2013px%3Bborder%3A1px%20solid%20var%28%2D%2Dcolor%2Dborder%2Ddefault%29%7D%2Emarkdown%2Dbody%20table%20td%3E%3Alast%2Dchild%7Bmargin%2Dbottom%3A0%7D%2Emarkdown%2Dbody%20table%20tr%7Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dcanvas%2Ddefault%29%3Bborder%2Dtop%3A1px%20solid%20var%28%2D%2Dcolor%2Dborder%2Dmuted%29%7D%2Emarkdown%2Dbody%20table%20tr%3Anth%2Dchild%282n%29%7Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dcanvas%2Dsubtle%29%7D%2Emarkdown%2Dbody%20table%20img%7Bbackground%2Dcolor%3Atransparent%7D%2Emarkdown%2Dbody%20img%5Balign%3Dright%5D%7Bpadding%2Dleft%3A20px%7D%2Emarkdown%2Dbody%20img%5Balign%3Dleft%5D%7Bpadding%2Dright%3A20px%7D%2Emarkdown%2Dbody%20%2Eemoji%7Bmax%2Dwidth%3Anone%3Bvertical%2Dalign%3Atext%2Dtop%3Bbackground%2Dcolor%3Atransparent%7D%2Emarkdown%2Dbody%20span%2Eframe%7Bdisplay%3Ablock%3Boverflow%3Ahidden%7D%2Emarkdown%2Dbody%20span%2Eframe%3Espan%7Bdisplay%3Ablock%3Bfloat%3Aleft%3Bwidth%3Aauto%3Bpadding%3A7px%3Bmargin%3A13px%200%200%3Boverflow%3Ahidden%3Bborder%3A1px%20solid%20var%28%2D%2Dcolor%2Dborder%2Ddefault%29%7D%2Emarkdown%2Dbody%20span%2Eframe%20span%20img%7Bdisplay%3Ablock%3Bfloat%3Aleft%7D%2Emarkdown%2Dbody%20span%2Eframe%20span%20span%7Bdisplay%3Ablock%3Bpadding%3A5px%200%200%3Bclear%3Aboth%3Bcolor%3Avar%28%2D%2Dcolor%2Dfg%2Ddefault%29%7D%2Emarkdown%2Dbody%20span%2Ealign%2Dcenter%7Bdisplay%3Ablock%3Boverflow%3Ahidden%3Bclear%3Aboth%7D%2Emarkdown%2Dbody%20span%2Ealign%2Dcenter%3Espan%7Bdisplay%3Ablock%3Bmargin%3A13px%20auto%200%3Boverflow%3Ahidden%3Btext%2Dalign%3Acenter%7D%2Emarkdown%2Dbody%20span%2Ealign%2Dcenter%20span%20img%7Bmargin%3A0%20auto%3Btext%2Dalign%3Acenter%7D%2Emarkdown%2Dbody%20span%2Ealign%2Dright%7Bdisplay%3Ablock%3Boverflow%3Ahidden%3Bclear%3Aboth%7D%2Emarkdown%2Dbody%20span%2Ealign%2Dright%3Espan%7Bdisplay%3Ablock%3Bmargin%3A13px%200%200%3Boverflow%3Ahidden%3Btext%2Dalign%3Aright%7D%2Emarkdown%2Dbody%20span%2Ealign%2Dright%20span%20img%7Bmargin%3A0%3Btext%2Dalign%3Aright%7D%2Emarkdown%2Dbody%20span%2Efloat%2Dleft%7Bdisplay%3Ablock%3Bfloat%3Aleft%3Bmargin%2Dright%3A13px%3Boverflow%3Ahidden%7D%2Emarkdown%2Dbody%20span%2Efloat%2Dleft%20span%7Bmargin%3A13px%200%200%7D%2Emarkdown%2Dbody%20span%2Efloat%2Dright%7Bdisplay%3Ablock%3Bfloat%3Aright%3Bmargin%2Dleft%3A13px%3Boverflow%3Ahidden%7D%2Emarkdown%2Dbody%20span%2Efloat%2Dright%3Espan%7Bdisplay%3Ablock%3Bmargin%3A13px%20auto%200%3Boverflow%3Ahidden%3Btext%2Dalign%3Aright%7D%2Emarkdown%2Dbody%20code%2C%2Emarkdown%2Dbody%20tt%7Bpadding%3A%2E2em%20%2E4em%3Bmargin%3A0%3Bfont%2Dsize%3A85%25%3Bwhite%2Dspace%3Abreak%2Dspaces%3Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dneutral%2Dmuted%29%3Bborder%2Dradius%3A6px%7D%2Emarkdown%2Dbody%20code%20br%2C%2Emarkdown%2Dbody%20tt%20br%7Bdisplay%3Anone%7D%2Emarkdown%2Dbody%20del%20code%7Btext%2Ddecoration%3Ainherit%7D%2Emarkdown%2Dbody%20samp%7Bfont%2Dsize%3A85%25%7D%2Emarkdown%2Dbody%20pre%20code%7Bfont%2Dsize%3A100%25%7D%2Emarkdown%2Dbody%20pre%3Ecode%7Bpadding%3A0%3Bmargin%3A0%3Bword%2Dbreak%3Anormal%3Bwhite%2Dspace%3Apre%3Bbackground%3A0%200%3Bborder%3A0%7D%2Emarkdown%2Dbody%20%2Ehighlight%7Bmargin%2Dbottom%3A16px%7D%2Emarkdown%2Dbody%20%2Ehighlight%20pre%7Bmargin%2Dbottom%3A0%3Bword%2Dbreak%3Anormal%7D%2Emarkdown%2Dbody%20%2Ehighlight%20pre%2C%2Emarkdown%2Dbody%20pre%7Bpadding%3A16px%3Boverflow%3Aauto%3Bfont%2Dsize%3A85%25%3Bline%2Dheight%3A1%2E45%3Bcolor%3Avar%28%2D%2Dcolor%2Dfg%2Ddefault%29%3Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dcanvas%2Dsubtle%29%3Bborder%2Dradius%3A6px%7D%2Emarkdown%2Dbody%20pre%20code%2C%2Emarkdown%2Dbody%20pre%20tt%7Bdisplay%3Ainline%3Bmax%2Dwidth%3Aauto%3Bpadding%3A0%3Bmargin%3A0%3Boverflow%3Avisible%3Bline%2Dheight%3Ainherit%3Bword%2Dwrap%3Anormal%3Bbackground%2Dcolor%3Atransparent%3Bborder%3A0%7D%2Emarkdown%2Dbody%20%2Ecsv%2Ddata%20td%2C%2Emarkdown%2Dbody%20%2Ecsv%2Ddata%20th%7Bpadding%3A5px%3Boverflow%3Ahidden%3Bfont%2Dsize%3A12px%3Bline%2Dheight%3A1%3Btext%2Dalign%3Aleft%3Bwhite%2Dspace%3Anowrap%7D%2Emarkdown%2Dbody%20%2Ecsv%2Ddata%20%2Eblob%2Dnum%7Bpadding%3A10px%208px%209px%3Btext%2Dalign%3Aright%3Bbackground%3Avar%28%2D%2Dcolor%2Dcanvas%2Ddefault%29%3Bborder%3A0%7D%2Emarkdown%2Dbody%20%2Ecsv%2Ddata%20tr%7Bborder%2Dtop%3A0%7D%2Emarkdown%2Dbody%20%2Ecsv%2Ddata%20th%7Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dsemibold%2C600%29%3Bbackground%3Avar%28%2D%2Dcolor%2Dcanvas%2Dsubtle%29%3Bborder%2Dtop%3A0%7D%2Emarkdown%2Dbody%20%5Bdata%2Dfootnote%2Dref%5D%3A%3Abefore%7Bcontent%3A%22%5B%22%7D%2Emarkdown%2Dbody%20%5Bdata%2Dfootnote%2Dref%5D%3A%3Aafter%7Bcontent%3A%22%5D%22%7D%2Emarkdown%2Dbody%20%2Efootnotes%7Bfont%2Dsize%3A12px%3Bcolor%3Avar%28%2D%2Dcolor%2Dfg%2Dmuted%29%3Bborder%2Dtop%3A1px%20solid%20var%28%2D%2Dcolor%2Dborder%2Ddefault%29%7D%2Emarkdown%2Dbody%20%2Efootnotes%20ol%7Bpadding%2Dleft%3A16px%7D%2Emarkdown%2Dbody%20%2Efootnotes%20ol%20ul%7Bdisplay%3Ainline%2Dblock%3Bpadding%2Dleft%3A16px%3Bmargin%2Dtop%3A16px%7D%2Emarkdown%2Dbody%20%2Efootnotes%20li%7Bposition%3Arelative%7D%2Emarkdown%2Dbody%20%2Efootnotes%20li%3Atarget%3A%3Abefore%7Bposition%3Aabsolute%3Btop%3A%2D8px%3Bright%3A%2D8px%3Bbottom%3A%2D8px%3Bleft%3A%2D24px%3Bpointer%2Devents%3Anone%3Bcontent%3A%22%22%3Bborder%3A2px%20solid%20var%28%2D%2Dcolor%2Daccent%2Demphasis%29%3Bborder%2Dradius%3A6px%7D%2Emarkdown%2Dbody%20%2Efootnotes%20li%3Atarget%7Bcolor%3Avar%28%2D%2Dcolor%2Dfg%2Ddefault%29%7D%2Emarkdown%2Dbody%20%2Efootnotes%20%2Edata%2Dfootnote%2Dbackref%20g%2Demoji%7Bfont%2Dfamily%3Amonospace%7D%2Emarkdown%2Dbody%20%2Epl%2Dc%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dcomment%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dc1%2C%2Emarkdown%2Dbody%20%2Epl%2Ds%20%2Epl%2Dv%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dconstant%29%7D%2Emarkdown%2Dbody%20%2Epl%2De%2C%2Emarkdown%2Dbody%20%2Epl%2Den%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dentity%29%7D%2Emarkdown%2Dbody%20%2Epl%2Ds%20%2Epl%2Ds1%2C%2Emarkdown%2Dbody%20%2Epl%2Dsmi%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dstorage%2Dmodifier%2Dimport%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dent%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dentity%2Dtag%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dk%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dkeyword%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dpds%2C%2Emarkdown%2Dbody%20%2Epl%2Ds%2C%2Emarkdown%2Dbody%20%2Epl%2Ds%20%2Epl%2Dpse%20%2Epl%2Ds1%2C%2Emarkdown%2Dbody%20%2Epl%2Dsr%2C%2Emarkdown%2Dbody%20%2Epl%2Dsr%20%2Epl%2Dcce%2C%2Emarkdown%2Dbody%20%2Epl%2Dsr%20%2Epl%2Dsra%2C%2Emarkdown%2Dbody%20%2Epl%2Dsr%20%2Epl%2Dsre%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dstring%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dsmw%2C%2Emarkdown%2Dbody%20%2Epl%2Dv%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dvariable%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dbu%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dbrackethighlighter%2Dunmatched%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dii%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dinvalid%2Dillegal%2Dtext%29%3Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dinvalid%2Dillegal%2Dbg%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dc2%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dcarriage%2Dreturn%2Dtext%29%3Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dcarriage%2Dreturn%2Dbg%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dsr%20%2Epl%2Dcce%7Bfont%2Dweight%3A700%3Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dstring%2Dregexp%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dml%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dlist%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dmh%2C%2Emarkdown%2Dbody%20%2Epl%2Dmh%20%2Epl%2Den%2C%2Emarkdown%2Dbody%20%2Epl%2Dms%7Bfont%2Dweight%3A700%3Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dheading%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dmi%7Bfont%2Dstyle%3Aitalic%3Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Ditalic%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dmb%7Bfont%2Dweight%3A700%3Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dbold%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dmd%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Ddeleted%2Dtext%29%3Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Ddeleted%2Dbg%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dmi1%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dinserted%2Dtext%29%3Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dinserted%2Dbg%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dmc%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dchanged%2Dtext%29%3Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dchanged%2Dbg%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dmi2%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dignored%2Dtext%29%3Bbackground%2Dcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmarkup%2Dignored%2Dbg%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dmdr%7Bfont%2Dweight%3A700%3Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dmeta%2Ddiff%2Drange%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dba%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dbrackethighlighter%2Dangle%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dsg%7Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dsublimelinter%2Dgutter%2Dmark%29%7D%2Emarkdown%2Dbody%20%2Epl%2Dcorl%7Btext%2Ddecoration%3Aunderline%3Bcolor%3Avar%28%2D%2Dcolor%2Dprettylights%2Dsyntax%2Dconstant%2Dother%2Dreference%2Dlink%29%7D%2Emarkdown%2Dbody%20g%2Demoji%7Bdisplay%3Ainline%2Dblock%3Bmin%2Dwidth%3A1ch%3Bfont%2Dfamily%3A%22Apple%20Color%20Emoji%22%2C%22Segoe%20UI%20Emoji%22%2C%22Segoe%20UI%20Symbol%22%3Bfont%2Dsize%3A1em%3Bfont%2Dstyle%3Anormal%21important%3Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dnormal%2C400%29%3Bline%2Dheight%3A1%3Bvertical%2Dalign%3A%2D%2E075em%7D%2Emarkdown%2Dbody%20g%2Demoji%20img%7Bwidth%3A1em%3Bheight%3A1em%7D%2Emarkdown%2Dbody%20%2Etask%2Dlist%2Ditem%7Blist%2Dstyle%2Dtype%3Anone%7D%2Emarkdown%2Dbody%20%2Etask%2Dlist%2Ditem%20label%7Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dnormal%2C400%29%7D%2Emarkdown%2Dbody%20%2Etask%2Dlist%2Ditem%2Eenabled%20label%7Bcursor%3Apointer%7D%2Emarkdown%2Dbody%20%2Etask%2Dlist%2Ditem%2B%2Etask%2Dlist%2Ditem%7Bmargin%2Dtop%3A4px%7D%2Emarkdown%2Dbody%20%2Etask%2Dlist%2Ditem%20%2Ehandle%7Bdisplay%3Anone%7D%2Emarkdown%2Dbody%20%2Etask%2Dlist%2Ditem%2Dcheckbox%7Bmargin%3A0%20%2E2em%20%2E25em%20%2D1%2E4em%3Bvertical%2Dalign%3Amiddle%7D%2Emarkdown%2Dbody%20%2Econtains%2Dtask%2Dlist%3Adir%28rtl%29%20%2Etask%2Dlist%2Ditem%2Dcheckbox%7Bmargin%3A0%20%2D1%2E6em%20%2E25em%20%2E2em%7D%2Emarkdown%2Dbody%20%2Econtains%2Dtask%2Dlist%7Bposition%3Arelative%7D%2Emarkdown%2Dbody%20%2Econtains%2Dtask%2Dlist%3Afocus%2Dwithin%20%2Etask%2Dlist%2Ditem%2Dconvert%2Dcontainer%2C%2Emarkdown%2Dbody%20%2Econtains%2Dtask%2Dlist%3Ahover%20%2Etask%2Dlist%2Ditem%2Dconvert%2Dcontainer%7Bdisplay%3Ablock%3Bwidth%3Aauto%3Bheight%3A24px%3Boverflow%3Avisible%3Bclip%3Aauto%7D%2Emarkdown%2Dbody%20%3A%3A%2Dwebkit%2Dcalendar%2Dpicker%2Dindicator%7Bfilter%3Ainvert%2850%25%29%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%7Bpadding%3Avar%28%2D%2Dbase%2Dsize%2D8%29%20var%28%2D%2Dbase%2Dsize%2D16%29%3Bmargin%2Dbottom%3A16px%3Bcolor%3Ainherit%3Bborder%2Dleft%3A%2E25em%20solid%20var%28%2D%2Dcolor%2Dborder%2Ddefault%29%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%3E%3Afirst%2Dchild%7Bmargin%2Dtop%3A0%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%3E%3Alast%2Dchild%7Bmargin%2Dbottom%3A0%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%20%2Emarkdown%2Dalert%2Dtitle%7Bdisplay%3Aflex%3Bfont%2Dweight%3Avar%28%2D%2Dbase%2Dtext%2Dweight%2Dmedium%2C500%29%3Balign%2Ditems%3Acenter%3Bline%2Dheight%3A1%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%2Emarkdown%2Dalert%2Dnote%7Bborder%2Dleft%2Dcolor%3Avar%28%2D%2Dcolor%2Daccent%2Demphasis%29%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%2Emarkdown%2Dalert%2Dnote%20%2Emarkdown%2Dalert%2Dtitle%7Bcolor%3Avar%28%2D%2Dcolor%2Daccent%2Dfg%29%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%2Emarkdown%2Dalert%2Dimportant%7Bborder%2Dleft%2Dcolor%3Avar%28%2D%2Dcolor%2Ddone%2Demphasis%29%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%2Emarkdown%2Dalert%2Dimportant%20%2Emarkdown%2Dalert%2Dtitle%7Bcolor%3Avar%28%2D%2Dcolor%2Ddone%2Dfg%29%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%2Emarkdown%2Dalert%2Dwarning%7Bborder%2Dleft%2Dcolor%3Avar%28%2D%2Dcolor%2Dattention%2Demphasis%29%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%2Emarkdown%2Dalert%2Dwarning%20%2Emarkdown%2Dalert%2Dtitle%7Bcolor%3Avar%28%2D%2Dcolor%2Dattention%2Dfg%29%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%2Emarkdown%2Dalert%2Dtip%7Bborder%2Dleft%2Dcolor%3Avar%28%2D%2Dcolor%2Dsuccess%2Demphasis%29%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%2Emarkdown%2Dalert%2Dtip%20%2Emarkdown%2Dalert%2Dtitle%7Bcolor%3Avar%28%2D%2Dcolor%2Dsuccess%2Dfg%29%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%2Emarkdown%2Dalert%2Dcaution%7Bborder%2Dleft%2Dcolor%3Avar%28%2D%2Dcolor%2Ddanger%2Demphasis%29%7D%2Emarkdown%2Dbody%20%2Emarkdown%2Dalert%2Emarkdown%2Dalert%2Dcaution%20%2Emarkdown%2Dalert%2Dtitle%7Bcolor%3Avar%28%2D%2Dcolor%2Ddanger%2Dfg%29%7D" rel="stylesheet" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Complete CI/CD Lifecycle</h1>
+</header>
+<h1 id="complete-cicd-lifecycle">Complete CI/CD Lifecycle</h1>
+<pre><code>Complete CI/CD Lifecycle
+├── Definitions
+│   ├── CI — Continuous Integration (merge early, validate fast)
+│   ├── CD (Delivery) — always releasable, human gate to production
+│   └── CD (Deployment) — automated promotion to production
+├── Lifecycle Phases (end-to-end)
+│   ├── 1. Source &amp; Trigger
+│   ├── 2. Build &amp; Compile
+│   ├── 3. Test (unit → integration → contract)
+│   ├── 4. Security &amp; Quality Gates
+│   ├── 5. Package &amp; Artifact
+│   ├── 6. Publish to Registry
+│   ├── 7. Pre-Deploy Validation
+│   ├── 8. Deploy to Target Environment
+│   ├── 9. Post-Deploy Verification
+│   ├── 10. Operate, Observe, and Learn
+│   └── 11. Rollback &amp; Recovery
+├── Cross-Cutting Concerns
+│   ├── Artifact immutability &amp; promotion (not rebuild per env)
+│   ├── Environment topology (dev → staging → prod)
+│   ├── Secrets, config, and feature flags
+│   ├── Approval gates &amp; change management
+│   ├── Deployment strategies (rolling, blue-green, canary)
+│   ├── GitOps vs push-based delivery
+│   └── Pipeline observability &amp; DORA metrics
+├── Branching &amp; Workflow Models
+│   ├── Trunk-based development
+│   ├── GitFlow / release branches
+│   └── Monorepo vs polyrepo pipeline design
+└── Tool Mapping (this repo)
+    ├── Jenkins — `06_Jenkins/`
+    ├── GitHub Actions — `07_GitHub_Actions/`
+    ├── GitLab CI — `08_GitLab_CI/`
+    ├── ArgoCD / GitOps — `09_ArgoCD_and_GitOps/`
+    ├── Terraform (infra pipeline) — `10_Terraform/`
+    └── DevSecOps gates — `14_DevSecOps/`</code></pre>
+<h2 id="first-principles">First Principles</h2>
+<ul>
+<li><strong>Why CI/CD exists:</strong> Manual releases are slow,
+error-prone, and non-repeatable. A pipeline encodes the release process
+as code so every change follows the same path — build, test, scan,
+package, deploy, verify — with an audit trail.</li>
+<li><strong>Why artifact immutability matters:</strong> If you rebuild
+the same commit for staging and production, you are not shipping what
+you tested. The artifact (container image, JAR, Helm chart) built once
+in CI must be promoted unchanged across environments.</li>
+<li><strong>Why fast feedback loops win:</strong> A 45-minute pipeline
+that catches a bug on every commit is cheaper than a 2-hour pipeline
+that developers learn to bypass. Fail fast at the cheapest stage (lint,
+unit test) before expensive integration or deploy steps.</li>
+<li><strong>Why deployment is separate from release:</strong> Deployment
+puts code in an environment; release exposes it to users. Canary and
+feature flags decouple “is it deployed?” from “are users seeing it?” —
+that separation is how you ship safely at high velocity.</li>
+<li><strong>Why GitOps for CD:</strong> Push-based deploys require CI to
+hold cluster credentials. Pull-based GitOps (ArgoCD, Flux) inverts
+trust: the cluster pulls desired state from Git. CI publishes artifacts;
+CD reconciles configuration — a cleaner security boundary.</li>
+</ul>
+<hr />
+<h2 id="ci-vs-cd-three-concepts-one-lifecycle">CI vs CD: Three Concepts,
+One Lifecycle</h2>
+<table>
+<colgroup>
+<col style="width: 13%" />
+<col style="width: 20%" />
+<col style="width: 28%" />
+<col style="width: 37%" />
+</colgroup>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+<th>Human gate?</th>
+<th>Typical outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Continuous Integration (CI)</strong></td>
+<td>Developers merge small changes frequently; each merge triggers
+automated build + test</td>
+<td>No (fully automated)</td>
+<td>Main branch always compiles and passes tests</td>
+</tr>
+<tr>
+<td><strong>Continuous Delivery</strong></td>
+<td>Every passing build is <em>releasable</em> to production</td>
+<td>Yes — manual or approval-gated promote</td>
+<td>One-click (or approved) deploy to prod</td>
+</tr>
+<tr>
+<td><strong>Continuous Deployment</strong></td>
+<td>Every passing build <em>automatically</em> deploys to
+production</td>
+<td>No</td>
+<td>Prod updates without human intervention</td>
+</tr>
+</tbody>
+</table>
+<p>Most enterprises land on <strong>Continuous Delivery</strong> for
+production and <strong>Continuous Deployment</strong> for lower
+environments (dev, QA). The lifecycle stages are identical; only the
+promotion policy differs.</p>
+<hr />
+<h2 id="end-to-end-lifecycle-diagram">End-to-End Lifecycle Diagram</h2>
+<pre class="mermaid"><code>flowchart LR
+    subgraph CI[&quot;Continuous Integration&quot;]
+        A[Commit / PR] --&gt; B[Trigger Pipeline]
+        B --&gt; C[Build]
+        C --&gt; D[Test]
+        D --&gt; E[Security Scan]
+        E --&gt; F[Package Artifact]
+        F --&gt; G[Publish to Registry]
+    end
+
+    subgraph CD[&quot;Continuous Delivery / Deployment&quot;]
+        G --&gt; H[Pre-Deploy Checks]
+        H --&gt; I{Approval Gate?}
+        I --&gt;|Yes| J[Manual Approve]
+        I --&gt;|No| K[Deploy]
+        J --&gt; K
+        K --&gt; L[Post-Deploy Verify]
+        L --&gt; M[Observe &amp; Monitor]
+        M --&gt;|Failure| N[Rollback]
+        M --&gt;|Success| O[Feedback Loop]
+        O --&gt; A
+    end</code></pre>
+<hr />
+<h2 id="phase-1-source-trigger">Phase 1: Source &amp; Trigger</h2>
+<p>Everything starts when code (or infrastructure config) changes.</p>
+<h3 id="what-happens">What happens</h3>
+<ol type="1">
+<li>Developer pushes a commit or opens a pull/merge request.</li>
+<li>The VCS fires a webhook to the CI platform (Jenkins, GitHub Actions,
+GitLab CI, Azure Pipelines).</li>
+<li>The pipeline runner clones the repo at the exact commit SHA.</li>
+<li>Metadata is captured: branch, author, PR number, commit message —
+used for traceability and notifications.</li>
+</ol>
+<h3 id="trigger-types">Trigger types</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 38%" />
+<col style="width: 36%" />
+</colgroup>
+<thead>
+<tr>
+<th>Trigger</th>
+<th>When it runs</th>
+<th>Typical use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Push to branch</strong></td>
+<td>Every commit to <code>main</code>, <code>develop</code>, feature
+branches</td>
+<td>CI validation on merge</td>
+</tr>
+<tr>
+<td><strong>Pull request</strong></td>
+<td>PR opened, updated, or synchronized</td>
+<td>Pre-merge quality gate</td>
+</tr>
+<tr>
+<td><strong>Tag / release</strong></td>
+<td><code>git tag v1.2.3</code> pushed</td>
+<td>Production release builds</td>
+</tr>
+<tr>
+<td><strong>Scheduled (cron)</strong></td>
+<td>Nightly, weekly</td>
+<td>Security scans, dependency updates, DR drills</td>
+</tr>
+<tr>
+<td><strong>Manual (<code>workflow_dispatch</code>)</strong></td>
+<td>Operator clicks “Run pipeline”</td>
+<td>Hotfix, re-deploy, infra changes</td>
+</tr>
+<tr>
+<td><strong>Upstream pipeline</strong></td>
+<td>Parent pipeline completes</td>
+<td>Monorepo orchestration, multi-service deploy</td>
+</tr>
+</tbody>
+</table>
+<h3 id="branch-protection-integration">Branch protection
+integration</h3>
+<p>Production-grade CI requires branch protection rules:</p>
+<ul>
+<li>Required status checks (pipeline must pass before merge).</li>
+<li>Required reviewers.</li>
+<li>Signed commits (optional but common in regulated environments).</li>
+<li>No direct pushes to <code>main</code>.</li>
+</ul>
+<p><strong>Repo reference:</strong>
+<code>03_Git_and_Version_Control/notes/advanced-git-workflows-and-monorepos.md</code></p>
+<hr />
+<h2 id="phase-2-build-compile">Phase 2: Build &amp; Compile</h2>
+<p>The pipeline transforms source code into a runnable or deployable
+form.</p>
+<h3 id="steps">Steps</h3>
+<ol type="1">
+<li><strong>Checkout</strong> — shallow clone
+(<code>fetch-depth: 1</code>) for speed; full history if versioning
+depends on tags.</li>
+<li><strong>Dependency resolution</strong> — <code>npm install</code>,
+<code>mvn dependency:resolve</code>, <code>go mod download</code>,
+<code>pip install -r requirements.txt</code>.</li>
+<li><strong>Compile / transpile</strong> — <code>mvn package</code>,
+<code>gradle build</code>, <code>tsc</code>,
+<code>cargo build</code>.</li>
+<li><strong>Cache layers</strong> — dependency caches (npm, Maven
+<code>.m2</code>, pip) cut build time dramatically.</li>
+</ol>
+<h3 id="build-environment">Build environment</h3>
+<ul>
+<li><strong>Ephemeral runners</strong> — fresh VM or container per job;
+no state leakage between builds.</li>
+<li><strong>Reproducible builds</strong> — pinned base images, locked
+dependency versions, deterministic compilers.</li>
+<li><strong>Build matrix</strong> — test across OS, language versions,
+or architectures in parallel.</li>
+</ul>
+<h3 id="container-image-builds">Container image builds</h3>
+<p>For containerized apps, this phase often produces a Docker/OCI
+image:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Multi-stage: compile in builder, copy artifact to minimal runtime</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> golang:1.22 <span class="kw">AS</span> builder</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">WORKDIR</span> /app</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">COPY</span> . .</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">RUN</span> <span class="va">CGO_ENABLED</span><span class="op">=</span>0 <span class="ex">go</span> build <span class="at">-o</span> /api .</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> gcr.io/distroless/static-debian12</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">COPY</span> <span class="op">--from=builder</span> /api /api</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="kw">ENTRYPOINT</span> [<span class="st">&quot;/api&quot;</span>]</span></code></pre></div>
+<p>Image tags should be <strong>immutable</strong> and traceable:</p>
+<ul>
+<li><code>myapp:sha-abc1234</code> (commit SHA — best for
+traceability)</li>
+<li><code>myapp:v1.4.2</code> (semver release tag)</li>
+<li>Avoid <code>myapp:latest</code> in production pipelines — it is
+mutable and breaks rollback.</li>
+</ul>
+<p><strong>Repo reference:</strong>
+<code>04_Docker/notes/dockerfile-best-practices.md</code></p>
+<hr />
+<h2 id="phase-3-test">Phase 3: Test</h2>
+<p>Testing is layered — cheapest tests run first; expensive tests run
+only if early gates pass.</p>
+<h3 id="test-pyramid-in-ci">Test pyramid in CI</h3>
+<pre><code>        ┌─────────┐
+        │  E2E    │  Few, slow, flaky-prone — run on main / pre-prod
+       ┌┴─────────┴┐
+       │ Integration│  Service + DB + message bus — run on PR or main
+      ┌┴────────────┴┐
+      │  Unit tests   │  Fast, isolated — run on every commit
+      └───────────────┘</code></pre>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Scope</th>
+<th>Speed</th>
+<th>CI placement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Unit</strong></td>
+<td>Single function/class, mocked deps</td>
+<td>Seconds</td>
+<td>Every PR commit</td>
+</tr>
+<tr>
+<td><strong>Integration</strong></td>
+<td>Real DB, API, queue (containerized)</td>
+<td>Minutes</td>
+<td>PR + main</td>
+</tr>
+<tr>
+<td><strong>Contract</strong></td>
+<td>Consumer/provider API contracts</td>
+<td>Minutes</td>
+<td>PR (consumer repos)</td>
+</tr>
+<tr>
+<td><strong>E2E / UI</strong></td>
+<td>Full user journey in browser</td>
+<td>10–60 min</td>
+<td>Nightly or pre-deploy</td>
+</tr>
+<tr>
+<td><strong>Smoke</strong></td>
+<td>Critical path after deploy</td>
+<td>Seconds</td>
+<td>Post-deploy stage</td>
+</tr>
+</tbody>
+</table>
+<h3 id="test-practices-that-matter">Test practices that matter</h3>
+<ul>
+<li><strong>Fail fast</strong> — run lint + unit tests in parallel
+before integration.</li>
+<li><strong>Test parallelism</strong> — split test suites across runners
+(<code>pytest -n auto</code>, JUnit shards).</li>
+<li><strong>Flaky test quarantine</strong> — retry with limit;
+quarantine and fix; never silently ignore.</li>
+<li><strong>Coverage gates</strong> — block merge if coverage drops
+below threshold (use wisely — coverage ≠ quality).</li>
+<li><strong>Test data</strong> — ephemeral databases (Testcontainers,
+Docker Compose in CI) over shared staging DBs.</li>
+</ul>
+<hr />
+<h2 id="phase-4-security-quality-gates">Phase 4: Security &amp; Quality
+Gates</h2>
+<p>Modern pipelines treat security as a gate, not an afterthought.</p>
+<h3 id="static-application-security-testing-sast">Static Application
+Security Testing (SAST)</h3>
+<p>Analyzes source code without running it. Finds SQL injection
+patterns, hardcoded secrets, insecure crypto.</p>
+<pre><code>Source code → Semgrep / SonarQube / CodeQL → findings → block or warn</code></pre>
+<h3 id="software-composition-analysis-sca">Software Composition Analysis
+(SCA)</h3>
+<p>Scans dependencies for known CVEs (npm audit, Snyk, Dependabot,
+Trivy).</p>
+<pre><code>lockfile → vulnerability DB lookup → CVE report → block critical/high</code></pre>
+<h3 id="container-image-scanning">Container image scanning</h3>
+<p>After image build, scan layers for OS and application
+vulnerabilities.</p>
+<pre><code>docker build → trivy image myapp:sha-abc → fail on CRITICAL unfixed</code></pre>
+<h3 id="secret-scanning">Secret scanning</h3>
+<p>Prevent credentials in Git history (GitGuardian, GitHub secret
+scanning, <code>gitleaks</code>).</p>
+<h3 id="sbom-generation">SBOM generation</h3>
+<p>Software Bill of Materials — inventory of all components. Required
+for supply chain compliance (SLSA, EO 14028).</p>
+<pre><code>syft myapp:sha-abc → SPDX or CycloneDX JSON → store alongside artifact</code></pre>
+<h3 id="policy-as-code">Policy-as-code</h3>
+<p>OPA, Conftest, or Sentinel enforce rules: “no <code>latest</code>
+tag,” “image must be signed,” “no privileged containers.”</p>
+<h3 id="quality-gates-summary">Quality gates summary</h3>
+<table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 38%" />
+<col style="width: 46%" />
+</colgroup>
+<thead>
+<tr>
+<th>Gate</th>
+<th>Tool examples</th>
+<th>Typical policy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lint / format</td>
+<td>ESLint, golangci-lint, <code>terraform fmt -check</code></td>
+<td>Block on error</td>
+</tr>
+<tr>
+<td>SAST</td>
+<td>SonarQube, Semgrep</td>
+<td>Block critical</td>
+</tr>
+<tr>
+<td>SCA</td>
+<td>Snyk, Dependabot</td>
+<td>Block critical CVEs</td>
+</tr>
+<tr>
+<td>Image scan</td>
+<td>Trivy, Grype</td>
+<td>Block CRITICAL</td>
+</tr>
+<tr>
+<td>IaC scan</td>
+<td>Checkov, tfsec</td>
+<td>Block high severity</td>
+</tr>
+<tr>
+<td>License compliance</td>
+<td>FOSSA</td>
+<td>Block copyleft in proprietary code</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Repo reference:</strong>
+<code>14_DevSecOps/interview.md</code>,
+<code>14_DevSecOps/notes/</code></p>
+<hr />
+<h2 id="phase-5-package-artifact">Phase 5: Package &amp; Artifact</h2>
+<p>The build output becomes a versioned, immutable artifact.</p>
+<h3 id="artifact-types">Artifact types</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Examples</th>
+<th>Storage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Container image</strong></td>
+<td><code>myapp:sha-abc1234</code></td>
+<td>ECR, ACR, GCR, Harbor</td>
+</tr>
+<tr>
+<td><strong>Binary / JAR</strong></td>
+<td><code>api-1.4.2.jar</code></td>
+<td>Nexus, Artifactory, S3</td>
+</tr>
+<tr>
+<td><strong>Helm chart</strong></td>
+<td><code>mychart-1.4.2.tgz</code></td>
+<td>ChartMuseum, OCI registry</td>
+</tr>
+<tr>
+<td><strong>Terraform module</strong></td>
+<td>versioned module tarball</td>
+<td>Private registry</td>
+</tr>
+<tr>
+<td><strong>Static site</strong></td>
+<td><code>dist/</code> folder</td>
+<td>S3 + CloudFront</td>
+</tr>
+</tbody>
+</table>
+<h3 id="immutability-rules">Immutability rules</h3>
+<ol type="1">
+<li><strong>Never overwrite</strong> an existing tag in production
+registries.</li>
+<li><strong>Sign artifacts</strong> — Sigstore/cosign for images;
+provenance attestation (SLSA Level 2+).</li>
+<li><strong>Attach metadata</strong> — commit SHA, build ID, pipeline
+URL, SBOM as OCI annotations.</li>
+<li><strong>Retention policy</strong> — keep N versions; garbage-collect
+untagged images.</li>
+</ol>
+<h3 id="monorepo-considerations">Monorepo considerations</h3>
+<ul>
+<li><strong>Path-based triggers</strong> — only build services whose
+paths changed.</li>
+<li><strong>Affected detection</strong> — Nx, Bazel, Turborepo determine
+build graph.</li>
+<li><strong>Independent versioning</strong> — each service gets its own
+semver or SHA tag.</li>
+</ul>
+<hr />
+<h2 id="phase-6-publish-to-registry">Phase 6: Publish to Registry</h2>
+<p>Artifacts leave the CI runner and land in durable storage.</p>
+<h3 id="container-publish-flow">Container publish flow</h3>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Authenticate (prefer OIDC over long-lived credentials)</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="ex">aws</span> ecr get-login-password <span class="kw">|</span> <span class="ex">docker</span> login <span class="at">--username</span> AWS <span class="at">--password-stdin</span> <span class="va">$ECR_URL</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Push immutable tag</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> tag myapp:sha-abc1234 <span class="va">$ECR_URL</span>/myapp:sha-abc1234</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> push <span class="va">$ECR_URL</span>/myapp:sha-abc1234</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Optional: sign</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="ex">cosign</span> sign <span class="at">--key</span> kms://<span class="va">$KMS_KEY</span> <span class="va">$ECR_URL</span>/myapp:sha-abc1234</span></code></pre></div>
+<h3 id="oidc-keyless-authentication">OIDC / keyless authentication</h3>
+<p>Modern CI uses OpenID Connect to assume cloud IAM roles without
+storing static credentials:</p>
+<ul>
+<li>GitHub Actions → <code>aws-actions/configure-aws-credentials</code>
+with <code>role-to-assume</code></li>
+<li>GitLab CI → <code>id_tokens</code> +
+<code>sts:AssumeRoleWithWebIdentity</code></li>
+<li>Jenkins → <code>WebIdentityTokenCredentialsBinding</code></li>
+</ul>
+<p><strong>Repo reference:</strong>
+<code>07_GitHub_Actions/README.md</code>, <code>13_AWS/</code> (IRSA
+patterns)</p>
+<hr />
+<h2 id="phase-7-pre-deploy-validation">Phase 7: Pre-Deploy
+Validation</h2>
+<p>Before touching any environment, validate that the artifact is
+deployable.</p>
+<h3 id="checks">Checks</h3>
+<table>
+<colgroup>
+<col style="width: 43%" />
+<col style="width: 56%" />
+</colgroup>
+<thead>
+<tr>
+<th>Check</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Config validation</strong></td>
+<td><code>kubectl apply --dry-run=server</code>,
+<code>helm template</code> + kubeconform</td>
+</tr>
+<tr>
+<td><strong>Policy check</strong></td>
+<td>OPA Gatekeeper, Kyverno dry-run</td>
+</tr>
+<tr>
+<td><strong>Diff review</strong></td>
+<td><code>terraform plan</code>, ArgoCD diff,
+<code>helm diff upgrade</code></td>
+</tr>
+<tr>
+<td><strong>Staging soak</strong></td>
+<td>Run full E2E suite against staging with the candidate artifact</td>
+</tr>
+<tr>
+<td><strong>Load test (optional)</strong></td>
+<td>k6, Locust against staging before prod canary</td>
+</tr>
+</tbody>
+</table>
+<h3 id="environment-specific-configuration">Environment-specific
+configuration</h3>
+<p><strong>Do not rebuild per environment.</strong> Inject config at
+deploy time:</p>
+<ul>
+<li>Kubernetes ConfigMaps / Secrets</li>
+<li>Helm values per environment (<code>values-staging.yaml</code>,
+<code>values-prod.yaml</code>)</li>
+<li>External Secrets Operator (Vault, AWS Secrets Manager)</li>
+<li>Feature flags (LaunchDarkly, Unleash)</li>
+</ul>
+<p>The artifact stays identical; only configuration changes.</p>
+<hr />
+<h2 id="phase-8-deploy-to-target-environment">Phase 8: Deploy to Target
+Environment</h2>
+<p>Deployment strategy depends on risk tolerance, traffic patterns, and
+infrastructure.</p>
+<h3 id="environment-progression">Environment progression</h3>
+<pre><code>dev → QA → staging → pre-prod → production
+         ↑                              ↑
+    auto on merge              approval gate / canary</code></pre>
+<table>
+<thead>
+<tr>
+<th>Environment</th>
+<th>Purpose</th>
+<th>Deploy trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Dev</strong></td>
+<td>Developer integration</td>
+<td>Auto on every main merge</td>
+</tr>
+<tr>
+<td><strong>QA</strong></td>
+<td>QA team validation</td>
+<td>Auto or scheduled</td>
+</tr>
+<tr>
+<td><strong>Staging</strong></td>
+<td>Production-like soak</td>
+<td>Auto after QA pass</td>
+</tr>
+<tr>
+<td><strong>Pre-prod</strong></td>
+<td>Final validation, perf tests</td>
+<td>Manual or auto</td>
+</tr>
+<tr>
+<td><strong>Production</strong></td>
+<td>Customer traffic</td>
+<td>Approval + canary/blue-green</td>
+</tr>
+</tbody>
+</table>
+<h3 id="push-based-deployment">Push-based deployment</h3>
+<p>CI/CD platform holds credentials and pushes changes:</p>
+<pre><code>CI pipeline → kubectl apply / helm upgrade / terraform apply → cluster</code></pre>
+<p><strong>Pros:</strong> Simple, familiar. <strong>Cons:</strong> CI
+needs powerful credentials; blast radius if CI is compromised.</p>
+<h3 id="pull-based-deployment-gitops">Pull-based deployment
+(GitOps)</h3>
+<p>CI updates a Git repo with the new image tag; a cluster operator
+reconciles:</p>
+<pre><code>CI pipeline → commit new image tag to Git → ArgoCD/Flux syncs → cluster</code></pre>
+<p><strong>Pros:</strong> Git is source of truth; no inbound cluster
+credentials; full audit trail. <strong>Cons:</strong> Two-step mental
+model (build pipeline + sync).</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># GitOps repo: apps/myapp/overlays/prod/kustomization.yaml</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">images</span><span class="kw">:</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> myapp</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">newTag</span><span class="kw">:</span><span class="at"> sha-abc1234</span><span class="co">   # CI bot commits this change</span></span></code></pre></div>
+<p><strong>Repo reference:</strong>
+<code>09_ArgoCD_and_GitOps/README.md</code>,
+<code>Learning_Path/phase-2.5-gitops-integration.md</code></p>
+<h3 id="deployment-strategies">Deployment strategies</h3>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 23%" />
+<col style="width: 16%" />
+<col style="width: 26%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>How it works</th>
+<th>Downtime</th>
+<th>Rollback speed</th>
+<th>Best for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Rolling update</strong></td>
+<td>Replace pods incrementally</td>
+<td>None (if probes correct)</td>
+<td>Slow (roll back revision)</td>
+<td>Stateless services, K8s default</td>
+</tr>
+<tr>
+<td><strong>Recreate</strong></td>
+<td>Kill all, start new</td>
+<td>Yes (brief)</td>
+<td>Medium</td>
+<td>Dev, batch jobs</td>
+</tr>
+<tr>
+<td><strong>Blue-green</strong></td>
+<td>Two full environments; switch traffic</td>
+<td>None</td>
+<td>Fast (flip traffic back)</td>
+<td>Stateful cutover, LB-level switch</td>
+</tr>
+<tr>
+<td><strong>Canary</strong></td>
+<td>Shift traffic 5% → 25% → 100%</td>
+<td>None</td>
+<td>Fast (route traffic away)</td>
+<td>High-risk changes, SLO-gated</td>
+</tr>
+<tr>
+<td><strong>Feature flags</strong></td>
+<td>Deploy code dark; enable per user</td>
+<td>None</td>
+<td>Instant (toggle flag)</td>
+<td>Product experiments, kill switch</td>
+</tr>
+</tbody>
+</table>
+<h3 id="kubernetes-rolling-update-mechanics">Kubernetes rolling update
+mechanics</h3>
+<div class="sourceCode" id="cb14"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">spec</span><span class="kw">:</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">strategy</span><span class="kw">:</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> RollingUpdate</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">rollingUpdate</span><span class="kw">:</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">maxSurge</span><span class="kw">:</span><span class="at"> 25%</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">maxUnavailable</span><span class="kw">:</span><span class="at"> </span><span class="dv">0</span><span class="co">    # zero-downtime: never kill old pod before new is ready</span></span></code></pre></div>
+<p>Readiness probes gate traffic — a pod is not “deployed” until it
+passes readiness.</p>
+<p><strong>Repo reference:</strong>
+<code>05_Kubernetes/notes/enterprise-kubernetes-architecture.md</code>,
+<code>18_Helm/</code></p>
+<h3 id="infrastructure-deployment-terraform">Infrastructure deployment
+(Terraform)</h3>
+<p>Application CD often pairs with infrastructure CD:</p>
+<pre><code>terraform plan → policy check (Sentinel/OPA) → manual approve → terraform apply</code></pre>
+<p>State locking prevents concurrent applies. Drift detection reconciles
+manual console changes.</p>
+<p><strong>Repo reference:</strong>
+<code>10_Terraform/interview.md</code></p>
+<hr />
+<h2 id="phase-9-post-deploy-verification">Phase 9: Post-Deploy
+Verification</h2>
+<p>Deployment succeeding ≠ release succeeding. Verify the running
+system.</p>
+<h3 id="verification-layers">Verification layers</h3>
+<ol type="1">
+<li><strong>Health checks</strong> — HTTP 200 on <code>/health</code>,
+gRPC health probe.</li>
+<li><strong>Smoke tests</strong> — login, create resource, critical API
+path (run from pipeline or in-cluster Job).</li>
+<li><strong>Synthetic monitoring</strong> — Datadog Synthetics, Pingdom
+— continuous probes from outside the cluster.</li>
+<li><strong>Canary analysis</strong> — compare error rate, latency P99
+between canary and baseline (Argo Rollouts AnalysisTemplate,
+Flagger).</li>
+<li><strong>Observability signals</strong> — no new alert firing, error
+budget not consumed.</li>
+</ol>
+<h3 id="automated-rollback-triggers">Automated rollback triggers</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Signal</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Smoke test failure</td>
+<td><code>helm rollback</code> or <code>kubectl rollout undo</code></td>
+</tr>
+<tr>
+<td>SLO burn rate spike</td>
+<td>Argo Rollouts abort + rollback</td>
+</tr>
+<tr>
+<td>Error rate &gt; threshold</td>
+<td>Flagger automatic rollback</td>
+</tr>
+<tr>
+<td>Failed sync (GitOps)</td>
+<td>ArgoCD sync wave failure → alert + manual intervention</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb16"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Immediate rollback to previous ReplicaSet revision</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> rollout undo deployment/myapp <span class="at">-n</span> production</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Helm rollback to revision N-1</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="ex">helm</span> rollback myapp 42 <span class="at">-n</span> production</span></code></pre></div>
+<p><strong>Repo reference:</strong>
+<code>15_Observability_and_SRE/notes/incident-management.md</code></p>
+<hr />
+<h2 id="phase-10-operate-observe-and-learn">Phase 10: Operate, Observe,
+and Learn</h2>
+<p>CI/CD does not end at deploy — it closes the loop with production
+feedback.</p>
+<h3 id="what-to-monitor">What to monitor</h3>
+<table>
+<colgroup>
+<col style="width: 19%" />
+<col style="width: 36%" />
+<col style="width: 43%" />
+</colgroup>
+<thead>
+<tr>
+<th>Signal</th>
+<th>Tool examples</th>
+<th>CI/CD connection</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Golden signals</strong></td>
+<td>Latency, traffic, errors, saturation</td>
+<td>Canary gates use these</td>
+</tr>
+<tr>
+<td><strong>Logs</strong></td>
+<td>Loki, ELK, CloudWatch</td>
+<td>Correlate deploy timestamp with error spikes</td>
+</tr>
+<tr>
+<td><strong>Traces</strong></td>
+<td>Tempo, Jaeger, X-Ray</td>
+<td>Pipeline OTel traces + app traces</td>
+</tr>
+<tr>
+<td><strong>Metrics</strong></td>
+<td>Prometheus, Datadog</td>
+<td>SLO dashboards, deploy annotations</td>
+</tr>
+<tr>
+<td><strong>Deploy markers</strong></td>
+<td>Grafana annotations, Datadog events</td>
+<td>“What changed at 14:32?”</td>
+</tr>
+</tbody>
+</table>
+<h3 id="dora-metrics-delivery-performance">DORA metrics (delivery
+performance)</h3>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 41%" />
+<col style="width: 39%" />
+</colgroup>
+<thead>
+<tr>
+<th>Metric</th>
+<th>What it measures</th>
+<th>Elite benchmark</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Deployment frequency</strong></td>
+<td>How often you deploy to prod</td>
+<td>On demand (multiple per day)</td>
+</tr>
+<tr>
+<td><strong>Lead time for changes</strong></td>
+<td>Commit → production</td>
+<td>Less than one hour</td>
+</tr>
+<tr>
+<td><strong>Change failure rate</strong></td>
+<td>Deploys causing incidents</td>
+<td>0–15%</td>
+</tr>
+<tr>
+<td><strong>Mean time to restore (MTTR)</strong></td>
+<td>Incident → service restored</td>
+<td>Less than one hour</td>
+</tr>
+</tbody>
+</table>
+<p>Improve the pipeline to improve DORA — faster builds, better tests,
+safer deploys, faster rollbacks.</p>
+<p><strong>Repo reference:</strong>
+<code>16_Platform_Engineering_and_FinOps/</code></p>
+<h3 id="feedback-into-the-pipeline">Feedback into the pipeline</h3>
+<ul>
+<li>Flaky test detected in prod-like staging → quarantine in CI.</li>
+<li>CVE found in running image → trigger rebuild pipeline + emergency
+promote.</li>
+<li>Incident RCA → add regression test + new smoke check in post-deploy
+stage.</li>
+</ul>
+<hr />
+<h2 id="phase-11-rollback-recovery">Phase 11: Rollback &amp;
+Recovery</h2>
+<p>Every pipeline needs a defined rollback path before you need it.</p>
+<h3 id="rollback-types">Rollback types</h3>
+<table>
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 29%" />
+<col style="width: 18%" />
+<col style="width: 35%" />
+</colgroup>
+<thead>
+<tr>
+<th>Type</th>
+<th>Mechanism</th>
+<th>Speed</th>
+<th>Data impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Application rollback</strong></td>
+<td>Previous image tag / Helm revision</td>
+<td>Minutes</td>
+<td>None if schema backward-compatible</td>
+</tr>
+<tr>
+<td><strong>Traffic rollback</strong></td>
+<td>Shift LB/mesh weight to old version</td>
+<td>Seconds</td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong>Database rollback</strong></td>
+<td>Forward-fix migration (preferred) or restore snapshot</td>
+<td>Hours</td>
+<td>High risk — avoid down migrations in prod</td>
+</tr>
+<tr>
+<td><strong>Infra rollback</strong></td>
+<td><code>terraform apply</code> previous state</td>
+<td>Minutes–hours</td>
+<td>Depends on resource</td>
+</tr>
+<tr>
+<td><strong>GitOps rollback</strong></td>
+<td><code>git revert</code> image tag commit → ArgoCD syncs</td>
+<td>Minutes</td>
+<td>Clean audit trail</td>
+</tr>
+</tbody>
+</table>
+<h3 id="rollback-decision-tree">Rollback decision tree</h3>
+<pre><code>Post-deploy alert?
+├── Smoke test failed → automatic rollback (pipeline)
+├── Error rate elevated → canary abort OR manual rollback
+├── Latency degraded → scale up first; rollback if not infra
+└── Data corruption → stop traffic, restore DB, deploy last known good</code></pre>
+<h3 id="hotfix-path">Hotfix path</h3>
+<ol type="1">
+<li>Branch from production tag (not from broken <code>main</code>).</li>
+<li>Fix → fast-track CI (skip non-critical stages with explicit
+approval).</li>
+<li>Deploy via emergency change process.</li>
+<li>Backport fix to <code>main</code>.</li>
+</ol>
+<hr />
+<h2 id="cross-cutting-pipeline-design-patterns">Cross-Cutting: Pipeline
+Design Patterns</h2>
+<h3 id="fan-in-fan-out-monorepo">Fan-in / fan-out (monorepo)</h3>
+<pre><code>         ┌─ build service-a ─ deploy-a ─┐
+trigger ─┼─ build service-b ─ deploy-b ─┼─ notify
+         └─ build service-c ─ deploy-c ─┘</code></pre>
+<h3 id="multi-environment-pipeline-gitlab-environment-github-environment">Multi-environment
+pipeline (GitLab <code>environment</code>, GitHub
+<code>environment</code>)</h3>
+<p>Same pipeline definition; <code>environment: production</code> adds
+protection rules and secrets scoped to that environment.</p>
+<h3 id="progressive-delivery-pipeline">Progressive delivery
+pipeline</h3>
+<pre><code>build → test → scan → push → deploy canary 5% → analysis (5 min) → 25% → 100% → done
+                                      ↓ fail
+                                  rollback</code></pre>
+<hr />
+<h2 id="approval-gates-change-management">Approval Gates &amp; Change
+Management</h2>
+<table>
+<colgroup>
+<col style="width: 35%" />
+<col style="width: 19%" />
+<col style="width: 45%" />
+</colgroup>
+<thead>
+<tr>
+<th>Gate type</th>
+<th>When</th>
+<th>Who approves</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PR review</strong></td>
+<td>Before merge to main</td>
+<td>Peer developers</td>
+</tr>
+<tr>
+<td><strong>Security review</strong></td>
+<td>High-risk changes (auth, crypto)</td>
+<td>Security team</td>
+</tr>
+<tr>
+<td><strong>Change advisory board (CAB)</strong></td>
+<td>Regulated industries, major releases</td>
+<td>Operations leadership</td>
+</tr>
+<tr>
+<td><strong>Pipeline environment protection</strong></td>
+<td>Before prod deploy</td>
+<td>On-call lead, release manager</td>
+</tr>
+<tr>
+<td><strong>Manual <code>terraform apply</code></strong></td>
+<td>Infra changes with blast radius</td>
+<td>Platform team</td>
+</tr>
+</tbody>
+</table>
+<p>GitHub Environments, GitLab protected environments, and Jenkins
+<code>input</code> steps implement these gates in code.</p>
+<hr />
+<h2 id="secrets-management-in-cicd">Secrets Management in CI/CD</h2>
+<p><strong>Never</strong> store production secrets in pipeline YAML or
+Git.</p>
+<table>
+<colgroup>
+<col style="width: 38%" />
+<col style="width: 19%" />
+<col style="width: 42%" />
+</colgroup>
+<thead>
+<tr>
+<th>Approach</th>
+<th>How</th>
+<th>Trade-off</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CI platform secrets</strong></td>
+<td>GitHub Secrets, GitLab CI variables (masked)</td>
+<td>Simple; scoped to repo/group</td>
+</tr>
+<tr>
+<td><strong>Cloud secret manager</strong></td>
+<td>Vault, AWS SM, Azure Key Vault — fetched at runtime</td>
+<td>Central rotation, audit</td>
+</tr>
+<tr>
+<td><strong>OIDC federation</strong></td>
+<td>No long-lived cloud keys in CI</td>
+<td>Best practice for cloud deploy</td>
+</tr>
+<tr>
+<td><strong>Sealed Secrets / ESO</strong></td>
+<td>Encrypted in Git; decrypted in cluster</td>
+<td>GitOps-friendly</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Repo reference:</strong>
+<code>14_DevSecOps/notes/secret-management-vault.md</code></p>
+<hr />
+<h2 id="complete-lifecycle-example-containerized-microservice">Complete
+Lifecycle Example (Containerized Microservice)</h2>
+<pre><code>1. Developer opens PR #482
+2. GitHub Actions triggers: lint → unit test → integration test (Testcontainers)
+3. PR merged to main → pipeline builds Docker image → tags sha-abc1234
+4. Trivy scan passes → push to ECR → cosign sign
+5. CI bot commits sha-abc1234 to GitOps repo (apps/payments/overlays/staging)
+6. ArgoCD syncs staging → smoke tests pass in pipeline
+7. Release manager approves production environment in GitHub
+8. CI bot commits same sha-abc1234 to prod overlay
+9. Argo Rollouts: canary 10% for 5 min → AnalysisTemplate checks error rate &lt; 0.1%
+10. Promote to 100% → Grafana deploy annotation → Slack notification
+11. On failure at step 9: automatic rollback to sha-def5678</code></pre>
+<p><strong>Key invariant:</strong> <code>sha-abc1234</code> is the
+identical image in staging and production. Only Git config and traffic
+routing changed.</p>
+<hr />
+<h2 id="anti-patterns-to-avoid">Anti-Patterns to Avoid</h2>
+<table>
+<colgroup>
+<col style="width: 42%" />
+<col style="width: 42%" />
+<col style="width: 15%" />
+</colgroup>
+<thead>
+<tr>
+<th>Anti-pattern</th>
+<th>Why it fails</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rebuild for each environment</td>
+<td>“Works in staging” bugs in prod</td>
+<td>Promote immutable artifact</td>
+</tr>
+<tr>
+<td><code>latest</code> tag in production</td>
+<td>Cannot rollback reliably</td>
+<td>SHA or semver tags</td>
+</tr>
+<tr>
+<td>Skipping tests on “hotfix”</td>
+<td>Hotfix becomes outage</td>
+<td>Fast-track, don’t skip</td>
+</tr>
+<tr>
+<td>CI holds prod kubeconfig</td>
+<td>CI compromise = cluster compromise</td>
+<td>GitOps pull model</td>
+</tr>
+<tr>
+<td>Manual deploy steps in runbook</td>
+<td>Drift from pipeline; not repeatable</td>
+<td>Encode in pipeline</td>
+</tr>
+<tr>
+<td>No post-deploy verification</td>
+<td>Silent broken deploys</td>
+<td>Smoke tests + SLO gates</td>
+</tr>
+<tr>
+<td>Shared staging environment</td>
+<td>Test pollution, flaky results</td>
+<td>Ephemeral preview environments per PR</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="tool-mapping-in-this-repository">Tool Mapping in This
+Repository</h2>
+<table>
+<colgroup>
+<col style="width: 38%" />
+<col style="width: 61%" />
+</colgroup>
+<thead>
+<tr>
+<th>Lifecycle phase</th>
+<th>Primary tools (this repo)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Source &amp; trigger</td>
+<td><code>03_Git_and_Version_Control/</code></td>
+</tr>
+<tr>
+<td>Build &amp; package</td>
+<td><code>04_Docker/</code>, <code>06_Jenkins/</code>,
+<code>07_GitHub_Actions/</code>, <code>08_GitLab_CI/</code></td>
+</tr>
+<tr>
+<td>Security gates</td>
+<td><code>14_DevSecOps/</code></td>
+</tr>
+<tr>
+<td>Publish</td>
+<td><code>04_Docker/</code> (registries), <code>13_AWS/</code> (ECR),
+<code>12_Azure/</code> (ACR)</td>
+</tr>
+<tr>
+<td>Deploy (K8s)</td>
+<td><code>05_Kubernetes/</code>, <code>18_Helm/</code>,
+<code>09_ArgoCD_and_GitOps/</code></td>
+</tr>
+<tr>
+<td>Deploy (infra)</td>
+<td><code>10_Terraform/</code>, <code>11_Ansible/</code></td>
+</tr>
+<tr>
+<td>Observe &amp; rollback</td>
+<td><code>15_Observability_and_SRE/</code></td>
+</tr>
+<tr>
+<td>Platform / DORA</td>
+<td><code>16_Platform_Engineering_and_FinOps/</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="study-order">Study Order</h2>
+<ol type="1">
+<li>This document — end-to-end mental model</li>
+<li><code>phase-2-platform-and-delivery.md</code> — hands-on platform
+context</li>
+<li><code>06_Jenkins/README.md</code> or
+<code>07_GitHub_Actions/README.md</code> — pick your CI tool</li>
+<li><code>09_ArgoCD_and_GitOps/README.md</code> — GitOps CD model</li>
+<li><code>14_DevSecOps/interview.md</code> — security gates</li>
+<li><code>15_Observability_and_SRE/</code> — post-deploy operations</li>
+<li><code>capstone-projects.md</code> — Capstone 1 (single-service
+delivery platform)</li>
+</ol>
+<hr />
+<h2 id="interview-talking-points">Interview Talking Points</h2>
+<p>When asked “Explain the CI/CD lifecycle,” structure your answer in
+three layers:</p>
+<ol type="1">
+<li><strong>What</strong> — Name the phases: trigger → build → test →
+scan → package → publish → deploy → verify → observe → rollback.</li>
+<li><strong>Why</strong> — Artifact immutability, fast feedback,
+separation of CI (build) and CD (release), blast-radius control.</li>
+<li><strong>How you’ve done it</strong> — One concrete example with your
+stack: “We used GitLab CI to build and push to ECR, ArgoCD synced from a
+GitOps repo, canary analysis gated on Prometheus error rate, rollback
+via <code>kubectl rollout undo</code>.”</li>
+</ol>
+<p>Depth beats tool name-dropping. Interviewers want to hear you reason
+about trade-offs — push vs pull deploy, canary vs blue-green, when to
+gate vs when to automate.</p>
+</body>
+</html>

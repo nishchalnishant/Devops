@@ -14,6 +14,7 @@ Senior DevOps Learning Path
 │   ├── Shell scripting (loops, conditions, exit codes, safety)
 │   └── Networking (CIDR, TCP, DNS, TLS, load balancing)
 ├── Phase 2 - Platform And Delivery Core (Weeks 4-6)
+│   ├── Complete CI/CD lifecycle — `ci-cd-lifecycle.md`
 │   ├── Cloud platform basics (compute, storage, networking, IAM)
 │   ├── CI/CD (build → test → scan → package → publish → deploy → verify)
 │   ├── Docker (images, layers, multi-stage builds, registries)
